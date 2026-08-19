@@ -17,10 +17,6 @@ function fmtCountdown(target) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
 async function loadStatus() {
   const res = await adminFetch("/admin/api/status");
   const data = await res.json();

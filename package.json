@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node server/index.js",
     "scrape:schedule": "node scrapers/run.js schedule",
-    "scrape:evaluations": "node scrapers/run.js evaluations"
+    "scrape:evaluations": "node scrapers/run.js evaluations",
+    "test": "node --test scrapers/__tests__/*.test.js"
   }
 }

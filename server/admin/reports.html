@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reviews | Prospector's Planner Admin</title>
+<title>Reports | Prospector's Planner Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
 <link rel="stylesheet" href="/css/styles.css">
 <link rel="stylesheet" href="/admin/css/admin.css">
 </head>
-<body data-admin-page="reviews">
+<body data-admin-page="reports">
 
 <div id="adminHeader"></div>
 
@@ -18,18 +18,16 @@
   <nav class="admin-nav" id="adminNav"></nav>
 
   <div class="statgrid">
-    <div><div class="lab">Total reviews</div><div class="val" id="statCount">&mdash;</div></div>
-    <div><div class="lab">Average rating</div><div class="val" id="statAvg">&mdash;</div></div>
-    <div><div class="lab">With written feedback</div><div class="val" id="statWithText">&mdash;</div></div>
+    <div><div class="lab">Total reports</div><div class="val" id="statCount">&mdash;</div></div>
   </div>
 
   <div class="panel">
-    <div class="phead">All feedback</div>
-    <div class="pad" id="reviewsList">Loading&hellip;</div>
+    <div class="phead">Problem reports</div>
+    <div class="pad" id="reportsList">Loading&hellip;</div>
   </div>
 </div>
 
 <script src="/admin/js/admin-common.js"></script>
-<script src="/admin/js/reviews.js"></script>
+<script src="/admin/js/reports.js"></script>
 </body>
 </html>

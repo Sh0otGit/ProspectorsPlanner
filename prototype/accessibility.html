@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Prospector's Planner's accessibility target, known gaps, and how to report a barrier.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Accessibility | Prospector's Planner">
+<meta property="og:description" content="Prospector's Planner's accessibility target, known gaps, and how to report a barrier.">
+<meta property="og:type" content="website">
+<title>Accessibility | Prospector's Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="siteHeader"></div>
+
+<div class="titleband">
+  <div class="wrap">
+    <div class="kicker">Legal</div>
+    <h1>Accessibility</h1>
+    <p>Prospector's Planner is not a UTEP service, so ADA Title II's rules for public entities don't directly bind it &mdash; but it's built for UTEP students, so accessibility is the bar regardless.</p>
+  </div>
+</div>
+
+<div class="body-area"><div class="wrap">
+  <div class="prose">
+    <div class="updated">Last updated August 18, 2026.</div>
+
+    <h2>Target</h2>
+    <p>This site targets <strong>WCAG 2.1 Level AA</strong>: content that's perceivable, operable by keyboard, understandable, and robust across browsers and assistive technology. That's a target being worked toward, not a claim of full conformance today.</p>
+
+    <h2>What's already in place</h2>
+    <ul>
+      <li>Colorblind-safe rating colors, checked for contrast separation rather than eyeballed &mdash; see the labeled legend under every rating bar, which exists specifically because color alone isn't a safe encoding.</li>
+      <li>Interface text kept to real, semantic HTML rather than images of text.</li>
+      <li>Layouts checked at narrow widths (430px) for horizontal overflow, which breaks keyboard and screen-magnifier navigation alike.</li>
+    </ul>
+
+    <h2>Known gaps</h2>
+    <p>This is a working prototype. Full keyboard-navigation and screen-reader passes on the availability grid and the schedule's overlap-highlighting interaction haven't been completed yet, and some interactive elements may not yet have complete ARIA labeling. These are being worked through, not ignored.</p>
+
+    <h2>Report a barrier</h2>
+    <p>If something on this site is difficult or impossible to use with a keyboard, screen reader, or other assistive technology, use <a href="report.html">Report a problem</a> and describe what happened. Accessibility reports are treated as bugs, not feature requests.</p>
+  </div>
+</div></div>
+
+<footer class="sitefoot" id="siteFooter"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

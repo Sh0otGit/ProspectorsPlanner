@@ -26,10 +26,9 @@ function parseTable(block) {
   };
 }
 
-export async function fetchEvaluation(username, courseId) {
-  const html = await politeFetch(
-    `${BASE}/Home/CourseEval?username=${encodeURIComponent(username)}&courseID=${courseId}`
-  );
+// Pure and exported so it's testable against saved markup without a live
+// fetch -- see scrapers/__tests__/evaluations.test.js.
+export function parseEvaluationPage(html) {
   const tables = [...html.matchAll(TABLE_RE)];
   const responseMatch = html.match(RESPONSE_COUNT_RE);
   return {
@@ -37,4 +36,11 @@ export async function fetchEvaluation(username, courseId) {
     instructor: tables[0] ? parseTable(tables[0][1]) : null,
     course: tables[1] ? parseTable(tables[1][1]) : null,
   };
+}
+
+export async function fetchEvaluation(username, courseId) {
+  const html = await politeFetch(
+    `${BASE}/Home/CourseEval?username=${encodeURIComponent(username)}&courseID=${courseId}`
+  );
+  return parseEvaluationPage(html);
 }

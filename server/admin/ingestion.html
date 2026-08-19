@@ -10,34 +10,12 @@
 <link rel="stylesheet" href="/css/styles.css">
 <link rel="stylesheet" href="/admin/css/admin.css">
 </head>
-<body>
+<body data-admin-page="ingestion">
 
-<div class="masthead">
-  <div class="wrap">
-    <a class="lockup" href="/admin/ingestion.html">
-      <span class="mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#ff8200" stroke-width="2.6" stroke-linecap="square">
-          <path d="M3 6h18"/><path d="M3 12h11"/><path d="M3 18h15"/>
-        </svg>
-      </span>
-      <span class="words">
-        <span class="n">Prospector's Planner</span>
-        <span class="u">Admin</span>
-      </span>
-    </a>
-    <span class="spacer"></span>
-    <span class="tag">Internal</span>
-  </div>
-</div>
+<div id="adminHeader"></div>
 
 <div class="admin-shell">
-  <nav class="admin-nav">
-    <a href="/admin/ingestion.html" class="on">Ingestion</a>
-    <a href="/admin/reviews.html">Reviews</a>
-    <a href="/admin/analytics.html">Analytics</a>
-    <span class="spacer"></span>
-    <button id="logoutBtn">Log out</button>
-  </nav>
+  <nav class="admin-nav" id="adminNav"></nav>
 
   <div class="panel" style="margin-bottom:20px">
     <div class="phead">Class schedule &mdash; daily</div>

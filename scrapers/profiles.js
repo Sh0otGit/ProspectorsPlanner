@@ -13,8 +13,9 @@ const BASE = "https://hb2504.utep.edu";
 const ROW_RE =
   /<tr>\s*<td>([^<]+)<\/td>\s*<td>([^<]+)<\/td>\s*<td>([^<]+)<\/td>\s*<td><a[^>]*href="CourseEval\?username=([^&"]+)&courseID=(\d+)"/g;
 
-export async function fetchProfileEvaluationLinks(username) {
-  const html = await politeFetch(`${BASE}/Home/Profile?username=${encodeURIComponent(username)}`);
+// Pure and exported so it's testable against saved markup without a live
+// fetch -- see scrapers/__tests__/profiles.test.js.
+export function parseProfileLinks(html) {
   const links = [];
   for (const m of html.matchAll(ROW_RE)) {
     const [, termLabel, courseCell, crn, linkUsername, courseId] = m;
@@ -31,4 +32,14 @@ export async function fetchProfileEvaluationLinks(username) {
     });
   }
   return links;
+}
+
+export async function fetchProfileEvaluationLinks(username) {
+  const html = await politeFetch(`${BASE}/Home/Profile?username=${encodeURIComponent(username)}`);
+  // Unlike the directory or subject list, an individual instructor
+  // legitimately having zero evaluations on file is a known, documented
+  // data gap (new hires, adjuncts, small suppressed sections -- see
+  // CLAUDE.md "Known data gaps"), not evidence the markup changed. So this
+  // one stays a plain empty-array return rather than throwing.
+  return parseProfileLinks(html);
 }

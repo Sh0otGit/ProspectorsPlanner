@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Report a bug, a wrong CRN, or an accessibility barrier on Prospector's Planner.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Report a problem | Prospector's Planner">
+<meta property="og:description" content="Report a bug, a wrong CRN, or an accessibility barrier on Prospector's Planner.">
+<meta property="og:type" content="website">
+<title>Report a problem | Prospector's Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="siteHeader"></div>
+
+<div class="titleband">
+  <div class="wrap">
+    <div class="kicker">Support</div>
+    <h1>Report a problem</h1>
+    <p>Wrong CRN, broken page, accessibility barrier &mdash; tell us what happened.</p>
+  </div>
+</div>
+
+<div class="body-area"><div class="wrap">
+  <div class="panel" style="max-width:560px">
+    <div class="phead">Describe the problem</div>
+    <div class="pad">
+      <label style="display:block;margin-bottom:12px">
+        <span style="display:block;font-size:12.5px;color:var(--ink-muted);margin-bottom:5px">Page or CRN it happened on (optional)</span>
+        <input id="reportPage" class="revinput" type="text" placeholder="e.g. schedule.html, or CRN 27499">
+      </label>
+      <label style="display:block;margin-bottom:12px">
+        <span style="display:block;font-size:12.5px;color:var(--ink-muted);margin-bottom:5px">Your email, if you want a reply (optional)</span>
+        <input id="reportEmail" class="revinput" type="email" placeholder="you@example.com">
+      </label>
+      <label style="display:block;margin-bottom:4px">
+        <span style="display:block;font-size:12.5px;color:var(--ink-muted);margin-bottom:5px">What happened</span>
+        <textarea id="reportText" class="revinput" rows="5" placeholder="Be as specific as you can."></textarea>
+      </label>
+      <!-- Honeypot: hidden from real visitors via CSS, invisible to screen
+           readers via aria-hidden. A bot filling every field in a scraped
+           form will fill this one too; a human never sees it to fill. -->
+      <div style="position:absolute;left:-9999px" aria-hidden="true">
+        <label>Leave this field blank<input id="reportHoneypot" type="text" name="website" tabindex="-1" autocomplete="off"></label>
+      </div>
+      <div class="resultfoot" style="margin-top:14px;border-top:0;padding-top:0">
+        <button class="btn primary" id="submitReport">Send report</button>
+        <span class="hint" id="reportMsg" style="font-size:13px"></span>
+      </div>
+    </div>
+  </div>
+  <div class="notice" style="max-width:560px">
+    Reports go to the site operator only, the same way "Rate this tool" feedback does &mdash; see <a href="privacy.html">Privacy</a>. This isn't a support inbox with guaranteed response times; it's the fastest way to get a real bug in front of someone who can fix it.
+  </div>
+</div></div>
+
+<footer class="sitefoot" id="siteFooter"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+$("#submitReport").onclick = async () => {
+  const msg = $("#reportMsg");
+  const text = $("#reportText").value.trim();
+  if(!text){
+    msg.style.color = "var(--critical)";
+    msg.textContent = "Describe what happened first.";
+    return;
+  }
+  try {
+    const res = await fetch("/api/reports", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        page: $("#reportPage").value.trim(),
+        email: $("#reportEmail").value.trim(),
+        text,
+        website: $("#reportHoneypot").value
+      })
+    });
+    if(!res.ok) throw new Error("request failed");
+  } catch(e){
+    msg.style.color = "var(--critical)";
+    msg.textContent = "Couldn't send that, try again in a moment.";
+    return;
+  }
+  $("#reportPage").value = "";
+  $("#reportEmail").value = "";
+  $("#reportText").value = "";
+  msg.style.color = "var(--good)";
+  msg.textContent = "Thanks, that's been reported.";
+  setTimeout(()=>{ msg.textContent=""; }, 3200);
+};
+</script>
+</body>
+</html>

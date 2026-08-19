@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="What Prospector's Planner does and does not do with your degree evaluation, session data, and browsing.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Privacy | Prospector's Planner">
+<meta property="og:description" content="What Prospector's Planner does and does not do with your degree evaluation, session data, and browsing.">
+<meta property="og:type" content="website">
+<title>Privacy | Prospector's Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="siteHeader"></div>
+
+<div class="titleband">
+  <div class="wrap">
+    <div class="kicker">Legal</div>
+    <h1>Privacy</h1>
+    <p>Short version: your degree evaluation never leaves your browser. Long version below.</p>
+  </div>
+</div>
+
+<div class="body-area"><div class="wrap">
+  <div class="prose">
+    <div class="updated">Last updated August 18, 2026.</div>
+
+    <h2>Your degree evaluation</h2>
+    <p>Prospector's Planner reads your uploaded Goldmine degree evaluation entirely in your browser. It is never uploaded to a server, never logged, and never written anywhere durable. Only the course codes you choose to look up &mdash; things like "CS 3350" &mdash; ever reach the server, the same way typing a course name into any search box would.</p>
+
+    <h2>What is stored, and where</h2>
+    <p>Your in-progress picks (which courses you selected, which hours you blocked, which sections you added) are kept in your browser's <code>sessionStorage</code> so you can move between pages without losing your place. This clears automatically when you close the tab. It never includes the evaluation file or its parsed text, and it never leaves your device &mdash; it isn't sent to any server at all.</p>
+    <p>The admin panel's login session is a single <code>HttpOnly</code> cookie that only exists for the site operator, not for students using the planner. It carries no personal data, just a random session token.</p>
+
+    <h2>What we collect</h2>
+    <p>Course, section, and instructor data comes from two public sources: UTEP's Banner class schedule and the HB 2504 instructor evaluation site, both scraped and cached on our own server so the site doesn't have to hit UTEP's systems on every visit. Neither source involves your personal data &mdash; they're public listings, not tied to you.</p>
+    <p>If you submit the anonymous "Rate this tool" feedback or use "Report a problem," we store the rating, the text you write, and (only if you choose to include one) a name or contact email. Nothing else about you is collected alongside it &mdash; no IP address logging tied to your submission, no account, no analytics tracking your visit.</p>
+
+    <h2>FERPA, in plain terms</h2>
+    <p>FERPA governs how a school discloses your education records, and how its own vendors and contractors handle them. Prospector's Planner is not a UTEP vendor, not a UTEP service, and never receives your degree evaluation from UTEP at all &mdash; you choose to bring your own copy of your own record, and it's processed on your own device. That's a meaningfully different relationship than a school-contracted tool, which is exactly why the client-side-only design above is treated as a hard rule in how this site is built, not just a policy statement.</p>
+
+    <h2>Who this data is shared with</h2>
+    <p>Nobody. Course lookups aren't sold, shared, or used for advertising. There is no ad network and no third-party tracking script on this site.</p>
+
+    <h2>Questions</h2>
+    <p>Reach the operator through <a href="report.html">Report a problem</a>. <em>[Placeholder &mdash; a dedicated contact email will replace this line before public launch.]</em></p>
+  </div>
+</div></div>
+
+<footer class="sitefoot" id="siteFooter"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

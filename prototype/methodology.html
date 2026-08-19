@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="How Prospector's Planner scores instructors, where its data comes from, and how often it's refreshed.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Methodology | Prospector's Planner">
+<meta property="og:description" content="How Prospector's Planner scores instructors, where its data comes from, and how often it's refreshed.">
+<meta property="og:type" content="website">
+<title>Methodology | Prospector's Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="siteHeader"></div>
+
+<div class="titleband">
+  <div class="wrap">
+    <div class="kicker">About</div>
+    <h1>Methodology</h1>
+    <p>How instructor scores are calculated, where the underlying data comes from, and how fresh it is.</p>
+  </div>
+</div>
+
+<div class="body-area"><div class="wrap">
+  <div class="prose">
+    <h2>Instructor score</h2>
+    <p>Each instructor's score is a 50/50 blend of their UTEP course evaluation average and their Rate My Professors score, both on a 5-point scale.</p>
+
+    <h3>Why the evaluation average is adjusted first</h3>
+    <p>A raw average puts statistical noise at the top of the list &mdash; a 5.00 from four responses and a 4.80 from sixty responses aren't equally trustworthy, even though the raw number says otherwise. Before blending, the evaluation average is shrunk toward the university-wide mean:</p>
+    <ul>
+      <li><strong>adjusted = (C &times; m + n &times; raw) / (C + n)</strong></li>
+      <li><strong>m = 4.20</strong> &mdash; the university-wide mean evaluation score</li>
+      <li><strong>C = 12</strong> &mdash; how much weight the university mean gets, in equivalent responses</li>
+      <li><strong>n</strong> &mdash; how many responses that specific instructor actually has</li>
+      <li><strong>raw</strong> &mdash; that instructor's own published evaluation average</li>
+    </ul>
+    <p>A 5.00 from four students lands close to the 4.20 mean. A 4.80 from sixty students stays close to 4.80. Both constants above are estimates pending a real look at UTEP's actual score distribution, and may change.</p>
+
+    <h3>What score you don't see</h3>
+    <p>Instructors are ranked on their own instructor rating, never the course's rating &mdash; a required weeder course shouldn't tank the score of a professor teaching it well. Recent terms are weighted more heavily than old ones. Instructors with no data get their own "no data" bucket, sorted last but never hidden, and never rendered as a low score &mdash; no data isn't the same thing as a bad rating.</p>
+    <p>Any instructor with fewer than about 10 responses is flagged directly in the interface rather than presented with the same confidence as a well-established average.</p>
+
+    <h2>Where the data comes from</h2>
+    <ul>
+      <li><strong>Course evaluations</strong> &mdash; UTEP's HB 2504 instructor evaluation site, a public posting mandated by Texas statute.</li>
+      <li><strong>Class schedule</strong> &mdash; UTEP's public Banner class schedule listing: CRNs, meeting times, rooms, and instructors of record. Seat counts and enrollment are not available from any public UTEP source and are not shown here.</li>
+      <li><strong>Rate My Professors</strong> &mdash; used as a secondary signal only. It's weighted equally in the blend above, but treated as more disposable than the HB 2504 data if it ever becomes unavailable.</li>
+    </ul>
+
+    <h2>How fresh the data is</h2>
+    <p>The class schedule is rescraped roughly daily &mdash; rooms, times, and instructors of record can change during add/drop. Evaluation data is rescraped roughly once a semester, since HB 2504 scores only change when a new term's ratings are published. Neither runs on a fixed clock independent of the server actually being up; see the site's own admin panel for exactly when each last ran.</p>
+  </div>
+</div></div>
+
+<footer class="sitefoot" id="siteFooter"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

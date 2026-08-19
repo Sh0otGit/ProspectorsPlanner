@@ -34,7 +34,9 @@ const CREDITS_RE = /([\d.]+)\s*Credits/;
 const MEETING_ROW_RE =
   /<tr>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<\/tr>/g;
 
-function parseSectionChunk(chunk) {
+// Exported so it's testable directly against a saved chunk -- see
+// scrapers/__tests__/schedule.test.js.
+export function parseSectionChunk(chunk) {
   const header = chunk.match(HEADER_LINK_RE);
   if (!header) return null;
   const [, termCode, crn, title, , subject, courseNumber, section] = header;
@@ -95,15 +97,47 @@ const OPTION_VALUE_RE = /<option value="([^"]*)"/gi;
    fully stateless and term_in in the search POST is all that matters. It's
    only used here to read back the live subject list for that term, once
    per scrape run rather than once per subject. */
+// Pure and exported so it's testable against saved markup without a live
+// fetch -- see scrapers/__tests__/schedule.test.js.
+export function parseSubjects(html) {
+  const block = html.match(SUBJECT_SELECT_RE);
+  return block ? [...block[1].matchAll(OPTION_VALUE_RE)].map((m) => m[1]).filter((v) => v && v !== "%") : [];
+}
+
 export async function fetchSubjects(term) {
   const html = await politeFetch(`${BASE}/bwckgens.p_proc_term_date`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ p_calling_proc: "bwckschd.p_disp_dyn_sched", p_term: term }),
   });
-  const block = html.match(SUBJECT_SELECT_RE);
-  if (!block) return [];
-  return [...block[1].matchAll(OPTION_VALUE_RE)].map((m) => m[1]).filter((v) => v && v !== "%");
+  const subjects = parseSubjects(html);
+  // A real term always has ~150 subjects. Zero here means the select box's
+  // markup changed, not that UTEP is offering zero subjects -- surface it
+  // instead of letting scrapeAllSections report a silently empty "success".
+  if (subjects.length === 0) {
+    throw new Error(`fetchSubjects(${term}): found no subjects -- term page markup may have changed`);
+  }
+  return subjects;
+}
+
+// Pure and exported so it's testable against saved markup without a live
+// fetch -- see scrapers/__tests__/schedule.test.js. Throws (rather than
+// silently returning fewer/zero sections) when chunks existed but none of
+// them parsed, since that means the markup changed, not that the subject
+// legitimately offers nothing this term -- see fetchSchedule below.
+export function parseScheduleHtml(html, term, subject) {
+  const chunks = html.split(SECTION_SPLIT_RE).slice(1);
+  const parsed = chunks.map(parseSectionChunk);
+  const failed = parsed.filter((p) => p === null).length;
+  if (chunks.length > 0 && failed === chunks.length) {
+    throw new Error(
+      `fetchSchedule(${term}, ${subject}): all ${chunks.length} section chunks failed to parse -- schedule markup may have changed`
+    );
+  }
+  if (failed > 0) {
+    console.error(`fetchSchedule(${term}, ${subject}): ${failed} of ${chunks.length} section chunks failed to parse, dropped`);
+  }
+  return parsed.filter(Boolean);
 }
 
 /* term e.g. "202710" for Fall 2026. subject e.g. "CS" -- "%" (every subject)
@@ -135,6 +169,5 @@ export async function fetchSchedule(term, subject = "%", courseNumber = "") {
     body,
   });
 
-  const chunks = html.split(SECTION_SPLIT_RE).slice(1);
-  return chunks.map(parseSectionChunk).filter(Boolean);
+  return parseScheduleHtml(html, term, subject);
 }

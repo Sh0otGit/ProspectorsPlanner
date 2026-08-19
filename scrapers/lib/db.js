@@ -114,6 +114,17 @@ CREATE TABLE IF NOT EXISTS admin_sessions (
   created_at  TEXT NOT NULL,
   expires_at  TEXT NOT NULL
 );
+
+/* "Report a problem" submissions from the footer link -- same idea as
+   reviews (public POST, admin-only read), kept in its own table since a
+   bug report and a star rating aren't the same shape of data. */
+CREATE TABLE IF NOT EXISTS problem_reports (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  page          TEXT,
+  email         TEXT,
+  text          TEXT NOT NULL,
+  submitted_at  TEXT NOT NULL
+);
 `);
 
 /* Migrations for scrape_runs columns added after the table already existed

@@ -11,6 +11,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { db } from "../scrapers/lib/db.js";
 import { checkPassword, createSession, verifySession, destroySession, parseCookies } from "./lib/auth.js";
+import { isRateLimited, clientIp } from "./lib/rate-limit.js";
 import {
   triggerScheduleRun,
   triggerEvaluationsRun,
@@ -26,6 +27,9 @@ const PORT = process.env.PORT || 8420;
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const PROTOTYPE_DIR = join(ROOT, "prototype");
 const ADMIN_DIR = join(ROOT, "server", "admin");
+const NOT_FOUND_PAGE = join(PROTOTYPE_DIR, "404.html");
+const ERROR_PAGE = join(PROTOTYPE_DIR, "500.html");
+const MAINTENANCE_PAGE = join(PROTOTYPE_DIR, "maintenance.html");
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -35,9 +39,37 @@ const MIME = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".ico": "image/x-icon",
+  ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
 };
 
-async function serveStatic(res, rootDir, urlPath) {
+// A same-origin CSP that still allows what this site actually uses: Google
+// Fonts (the only external host anything loads from) and the small inline
+// <script> blocks a few pages carry (index.html's sample-data button,
+// report.html's submit handler) -- a nonce-based CSP would be tighter but
+// isn't worth the added complexity for a single-operator prototype.
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src https://fonts.gstatic.com",
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'",
+  ].join("; "),
+};
+
+// notFoundPage/errorPage: when set, a missing file or thrown error for an
+// HTML-navigation request (empty or .html extension -- not a missing CSS/
+// JS/image asset, which should stay a plain 404) serves that styled page
+// instead of bare text, without changing the status code a caller sees.
+async function serveStatic(res, rootDir, urlPath, { notFoundPage } = {}) {
   const safePath = normalize(urlPath).replace(/^(\.\.[/\\])+/, "");
   const filePath = join(rootDir, safePath === "/" ? "index.html" : safePath);
   if (!filePath.startsWith(rootDir)) {
@@ -51,6 +83,16 @@ async function serveStatic(res, rootDir, urlPath) {
     res.writeHead(200, { "Content-Type": MIME[extname(finalPath)] || "application/octet-stream" });
     res.end(body);
   } catch {
+    const ext = extname(urlPath);
+    if (notFoundPage && (ext === "" || ext === ".html")) {
+      try {
+        const body = await readFile(notFoundPage);
+        res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+        return res.end(body);
+      } catch {
+        /* fall through to the plain-text 404 below if the page itself is missing */
+      }
+    }
     res.writeHead(404).end("Not found");
   }
 }
@@ -93,9 +135,30 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const { pathname } = url;
 
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(name, value);
+
+  // Cheap, DB-free liveness check for a host's uptime monitor -- answers
+  // even while MAINTENANCE_MODE is on, since that's about the app, not
+  // whether the process itself is alive.
+  if (pathname === "/healthz") {
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (process.env.MAINTENANCE_MODE === "1" && !pathname.startsWith("/admin")) {
+    try {
+      const body = await readFile(MAINTENANCE_PAGE);
+      res.writeHead(503, { "Content-Type": "text/html; charset=utf-8", "Retry-After": "120" });
+      return res.end(body);
+    } catch {
+      res.writeHead(503).end("Down for maintenance.");
+      return;
+    }
+  }
+
   try {
     // ---- public API: reviews submission (the "Rate this tool" card) ----
     if (pathname === "/api/reviews" && req.method === "POST") {
+      if (isRateLimited(clientIp(req))) return sendJson(res, 429, { error: "Too many requests, try again shortly." });
       const body = await readJsonBody(req);
       const rating = parseInt(body.rating, 10);
       if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -105,6 +168,26 @@ const server = createServer(async (req, res) => {
         rating,
         String(body.name || "").slice(0, 200),
         String(body.text || "").slice(0, 4000),
+        new Date().toISOString()
+      );
+      return sendJson(res, 201, { ok: true });
+    }
+
+    // ---- public API: "report a problem" submission ----
+    if (pathname === "/api/reports" && req.method === "POST") {
+      if (isRateLimited(clientIp(req))) return sendJson(res, 429, { error: "Too many requests, try again shortly." });
+      const body = await readJsonBody(req);
+      // Honeypot: a hidden field real visitors never see or fill. A bot
+      // filling every field in a scraped form fills this too -- respond
+      // as if it worked so it doesn't learn to skip the field next time,
+      // just don't actually store anything.
+      if (String(body.website || "").trim()) return sendJson(res, 201, { ok: true });
+      const text = String(body.text || "").trim();
+      if (!text) return sendJson(res, 400, { error: "text is required" });
+      db.prepare(`INSERT INTO problem_reports (page, email, text, submitted_at) VALUES (?, ?, ?, ?)`).run(
+        String(body.page || "").slice(0, 200),
+        String(body.email || "").slice(0, 200),
+        text.slice(0, 4000),
         new Date().toISOString()
       );
       return sendJson(res, 201, { ok: true });
@@ -173,6 +256,11 @@ const server = createServer(async (req, res) => {
       const reviews = db.prepare(`SELECT * FROM reviews ORDER BY id DESC LIMIT 500`).all();
       return sendJson(res, 200, { reviews });
     }
+    if (pathname === "/admin/api/reports" && req.method === "GET") {
+      if (!requireAuth(req, res)) return;
+      const reports = db.prepare(`SELECT * FROM problem_reports ORDER BY id DESC LIMIT 500`).all();
+      return sendJson(res, 200, { reports });
+    }
 
     // ---- admin static pages (session-protected, except the login page itself) ----
     if (pathname.startsWith("/admin")) {
@@ -187,10 +275,21 @@ const server = createServer(async (req, res) => {
     }
 
     // ---- everything else: the public prototype site ----
-    return serveStatic(res, PROTOTYPE_DIR, pathname);
+    return serveStatic(res, PROTOTYPE_DIR, pathname, { notFoundPage: NOT_FOUND_PAGE });
   } catch (err) {
     console.error(err);
-    sendJson(res, 500, { error: "Internal error" });
+    // API callers need a real error status to react to; a page navigation
+    // that throws gets the styled error page instead of raw JSON.
+    if (pathname.startsWith("/api/") || pathname.startsWith("/admin/api/")) {
+      return sendJson(res, 500, { error: "Internal error" });
+    }
+    try {
+      const body = await readFile(ERROR_PAGE);
+      res.writeHead(500, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(body);
+    } catch {
+      res.writeHead(500).end("Internal error");
+    }
   }
 });
 

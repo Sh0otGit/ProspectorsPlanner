@@ -40,7 +40,15 @@ export function createSession() {
   return { token, expiresAt: expires };
 }
 
+/* Expired sessions are otherwise never deleted -- only destroySession() (on
+   explicit logout) removes a row, so a session nobody logs out of sits
+   forever even though it can no longer authenticate anything. Sweeping here
+   piggybacks on the one code path every authenticated admin request already
+   goes through, so the table self-cleans without a separate timer. Single-
+   operator tool with a handful of sessions ever, so a DELETE on every check
+   is not worth guarding against. */
 export function verifySession(token) {
+  db.prepare(`DELETE FROM admin_sessions WHERE expires_at <= ?`).run(new Date().toISOString());
   if (!token) return false;
   const row = db.prepare(`SELECT expires_at FROM admin_sessions WHERE token = ?`).get(token);
   if (!row) return false;

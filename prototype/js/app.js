@@ -229,6 +229,96 @@ function renderChrome(){
   }
 }
 
+/* ---------- shared chrome: utility bar, masthead, footer ----------
+   Byte-identical across all six pages (verified via hash before this
+   change existed) but was pasted into every file separately, so any
+   nav/footer edit meant six manual edits. Injected here instead, the
+   same way the section-nav's *contents* already were -- only the
+   outer <nav> shell stayed static markup because it's the same
+   zero-flash pattern already proven out in this codebase. */
+const SITE_HEADER_HTML = `
+<div class="utility">
+  <div class="wrap">
+    <span class="unaff">Not affiliated with or endorsed by The University of Texas at El Paso</span>
+    <span class="spacer"></span>
+    <a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a>
+    <a href="#" onclick="return false">my.UTEP</a>
+    <button id="restartBtn">Start over</button>
+  </div>
+</div>
+
+<div class="masthead">
+  <div class="wrap">
+    <a class="lockup" href="index.html">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff8200" stroke-width="2.6" stroke-linecap="square">
+          <path d="M3 6h18"/><path d="M3 12h11"/><path d="M3 18h15"/>
+        </svg>
+      </span>
+      <span class="words">
+        <span class="n">Prospector's Planner</span>
+        <span class="u">Course planning for UTEP students</span>
+      </span>
+    </a>
+    <span class="spacer"></span>
+    <span class="tag">Prototype / sample data</span>
+  </div>
+</div>`;
+
+const SITE_FOOTER_HTML = `
+  <div class="wrap">
+    <div class="footcols">
+      <div>
+        <h4>Prospector's Planner</h4>
+        <ul>
+          <li>An independent student project</li>
+          <li>El Paso, Texas</li>
+          <li><a href="https://github.com/Sh0otGit/ProspectorsPlanner" target="_blank" rel="noopener">Source code</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>UTEP links</h4>
+        <ul>
+          <li><a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a></li>
+          <li><a href="#" onclick="return false">Registration dates</a></li>
+          <li><a href="#" onclick="return false">Add and drop</a></li>
+          <li><a href="#" onclick="return false">Academic calendar</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Data sources</h4>
+        <ul>
+          <li><a href="#" onclick="return false">HB 2504 faculty profiles</a></li>
+          <li><a href="#" onclick="return false">Class schedule search</a></li>
+          <li><a href="#" onclick="return false">Course catalog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>About Prospector's Planner</h4>
+        <ul>
+          <li><a href="methodology.html">Methodology</a></li>
+          <li><a href="privacy.html">Privacy</a></li>
+          <li><a href="terms.html">Terms of use</a></li>
+          <li><a href="accessibility.html">Accessibility</a></li>
+          <li><a href="report.html">Report a problem</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footrule">
+      <b style="color:#fff">Prospector's Planner is an independent student project.</b> It is not affiliated with,
+      sponsored by or endorsed by The University of Texas at El Paso. No UTEP logo, wordmark, pick,
+      boxmark, seal or mascot is used. UTEP is referenced only to describe which students the tool
+      serves. Prototype build; all data shown is fabricated for design review.
+    </div>
+  </div>`;
+
+function renderSiteChrome(){
+  const h = $("#siteHeader"), f = $("#siteFooter");
+  if(h) h.innerHTML = SITE_HEADER_HTML;
+  if(f) f.innerHTML = SITE_FOOTER_HTML;
+}
+renderSiteChrome();
+
 $("#restartBtn").onclick = ()=>{
   resetState();
   location.href = "index.html";
