@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin login | Prospector's Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
+<link rel="stylesheet" href="/css/styles.css">
+<link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+
+<div class="login-wrap"><div class="login-card">
+  <div class="panel">
+    <div class="phead">Admin login</div>
+    <div class="pad">
+      <div style="font-size:13px;color:var(--ink-muted)">Prospector's Planner internal tools. Not for students.</div>
+      <form id="loginForm">
+        <input type="password" id="password" placeholder="Password" autofocus required>
+        <button class="btn primary" type="submit" style="width:100%;margin-top:12px">Log in</button>
+      </form>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+document.getElementById("loginForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const err = document.getElementById("loginError");
+  err.textContent = "";
+  const password = document.getElementById("password").value;
+  try {
+    const res = await fetch("/admin/api/login", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({password})
+    });
+    if (res.ok) {
+      location.href = "/admin/ingestion.html";
+    } else {
+      const body = await res.json().catch(() => ({}));
+      err.textContent = body.error || "Login failed.";
+    }
+  } catch {
+    err.textContent = "Could not reach the server.";
+  }
+};
+</script>
+</body>
+</html>

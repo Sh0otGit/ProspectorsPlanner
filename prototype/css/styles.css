@@ -1,0 +1,398 @@
+/* ============================================================
+   Palette drawn from the UTEP Visual Brand and Editorial Style
+   Guide (v1.1, Jan 2024). Values are the published brand colors:
+
+     UTEP Orange  PMS 151 C        CMYK 0-54-100-0   #FF8200
+     UTEP Blue    PMS 282 C        CMYK 100-72-0-73  #041E42
+     UTEP Silver  PMS Cool Gray 5  CMYK 28-21-18-1   #B1B3B3
+
+   The guide states the main colors should be "some combination of
+   UTEP Orange, UTEP Blue, UTEP Silver and white." Neutrals below
+   are stepped from Silver so the greys stay on-palette.
+
+   No UTEP logo, wordmark, pick, boxmark, seal or Paydirt Pete
+   appears anywhere in this file. See the disclaimer in the footer.
+
+   Type: the guide specifies Tungsten for wordmarks and headlines.
+   Tungsten is a paid license restricted to UTEP staff producing
+   official marketing material, so it is not used here. The guide's
+   own stated fallback pairing is Roboto Condensed for titles and
+   headings, Open Sans for body and UI text, both open licensed and
+   loaded from Google Fonts. System sans-serifs are the last-resort
+   fallback if the web fonts fail to load.
+   ============================================================ */
+:root{
+  --utep-orange:#ff8200;
+  --utep-orange-dk:#cc6800;
+  --utep-blue:#041e42;
+  --utep-blue-lt:#0a3266;
+  --silver:#b1b3b3;
+  --silver-40:#dcdedf;
+  --silver-15:#f1f2f3;
+
+  --font-ui:"Open Sans",Arial,Helvetica,"Helvetica Neue",sans-serif;
+  --font-display:"Roboto Condensed","Arial Narrow","Helvetica Neue Condensed",
+                 "Liberation Sans Narrow",Arial,Helvetica,sans-serif;
+
+  --page:#ffffff;
+  --surface:#ffffff;
+  --surface-2:#f1f2f3;
+  --surface-3:#e3e5e6;
+  --ink:#16181c;
+  --ink-2:#474b52;
+  --ink-muted:#6b7075;
+  --rule:#d4d7d8;
+  --rule-strong:#b1b3b3;
+
+  /* rating scale, best to worst */
+  --r5:#14532d;  /* Excellent    dark green */
+  --r4:#65a30d;  /* Good         lime green */
+  --r3:#eab308;  /* Satisfactory yellow     */
+  --r2:#dc2626;  /* Poor         red        */
+  --r1:#7f1d1d;  /* Very Poor    dark red   */
+
+  --series-1:#2a78d6;
+  --series-2:#eb6834;
+  --star:#c8860d;
+  --good:#0f7a24;
+  --critical:#b3261e;
+  --link:#1a5fa8;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page); color:var(--ink);
+  font-family:var(--font-ui);
+  font-size:15px; line-height:1.55;
+  overflow-x:hidden;
+}
+h1,h2,h3,h4,h5{margin:0;line-height:1.25;font-weight:700}
+/* condensed display treatment, standing in for Tungsten */
+.disp{font-family:var(--font-display);letter-spacing:.02em}
+button{font-family:inherit;color:inherit}
+a{color:var(--link)}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px;min-width:0}
+
+/* ---------- utility strip ---------- */
+.utility{background:var(--utep-blue);color:#fff;font-size:12px}
+.utility .wrap{display:flex;align-items:center;gap:18px;min-height:32px;flex-wrap:wrap}
+.utility .unaff{color:#cfd6e0}
+.utility .spacer{flex:1}
+.utility a,.utility button{color:#fff;text-decoration:none;background:none;border:0;font-size:12px;cursor:pointer;padding:0}
+.utility a:hover,.utility button:hover{text-decoration:underline}
+
+/* ---------- masthead ---------- */
+.masthead{background:var(--surface);border-bottom:4px solid var(--utep-orange)}
+.masthead .wrap{display:flex;align-items:center;gap:14px;min-height:78px;flex-wrap:wrap}
+/* clear space equal to one third of the mark width, per the guide's
+   lockup rule, applied to this project's own mark. */
+.lockup{display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;padding:13px 0}
+.lockup .mark{width:40px;height:40px;background:var(--utep-blue);flex:none;display:grid;place-items:center}
+.lockup .mark svg{width:22px;height:22px;display:block}
+.lockup .words{display:block}
+.lockup .words .n{
+  display:block;font-family:var(--font-display);font-size:27px;font-weight:700;
+  letter-spacing:.01em;line-height:1;text-transform:uppercase;
+}
+.lockup .words .u{display:block;font-size:11px;color:var(--ink-2);line-height:1.3;margin-top:3px}
+.masthead .spacer{flex:1}
+.masthead .tag{
+  font-family:var(--font-display);font-size:12px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;border:1px solid var(--rule-strong);color:var(--ink-2);padding:5px 10px;
+}
+/* Flex/grid children default to a min-width equal to their own min-content
+   size, which for a long unbroken run of tokens can force the row wider
+   than the viewport instead of wrapping. min-width:0 lets them shrink.
+   Bitten by the grid version of this twice already; same rule for flex. */
+.utility .wrap > *, .masthead .wrap > *, .actionbar .wrap > *{min-width:0}
+
+/* ---------- section nav ---------- */
+.sectionnav{background:var(--surface-2);border-bottom:1px solid var(--rule)}
+.sectionnav .wrap{display:flex;gap:0;overflow-x:auto}
+.sectionnav .item{
+  font-family:var(--font-display);letter-spacing:.04em;text-transform:uppercase;
+  padding:12px 16px;font-size:14px;color:var(--ink-2);white-space:nowrap;
+  border-right:1px solid var(--rule);background:none;border-top:0;border-bottom:0;border-left:0;
+  cursor:default;display:flex;align-items:center;gap:8px;
+}
+.sectionnav .item:first-child{border-left:1px solid var(--rule)}
+.sectionnav .item .n{width:19px;height:19px;background:var(--surface-3);color:var(--ink-muted);display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.sectionnav .item.done,.sectionnav .item.avail{color:var(--ink-2);cursor:pointer}
+.sectionnav .item.done:hover,.sectionnav .item.avail:hover{background:var(--surface-3)}
+.sectionnav .item.done .n{background:var(--utep-blue);color:#fff}
+.sectionnav .item.avail .n{background:var(--utep-blue);color:#fff}
+.sectionnav .item.locked{opacity:.45}
+.sectionnav .item.active{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:inset 0 -3px 0 var(--utep-orange)}
+.sectionnav .item.active .n{background:var(--utep-orange);color:var(--utep-blue)}
+
+/* ---------- title band + breadcrumb ---------- */
+.titleband{background:var(--utep-blue);color:#fff;padding:26px 0 24px}
+.titleband .kicker{font-family:var(--font-display);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--utep-orange);font-weight:700;margin-bottom:7px}
+.titleband h1{font-family:var(--font-display);font-size:40px;letter-spacing:.005em;text-transform:uppercase}
+.titleband p{margin:12px 0 0;color:#d3d8e0;font-size:15px;max-width:76ch}
+.titleband a{color:#ffb257;font-weight:700}
+
+.body-area{padding:30px 0 96px}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:10px 18px;border:1px solid var(--rule-strong);background:var(--surface-2);
+  color:var(--ink);font-weight:700;font-size:14px;cursor:pointer;border-radius:2px;
+}
+.btn:hover{background:var(--surface-3)}
+.btn.primary{background:var(--utep-orange);border-color:var(--utep-orange);color:#2b1500}
+.btn.primary:hover{background:var(--utep-orange-dk);border-color:var(--utep-orange-dk)}
+.btn.blue{background:var(--utep-blue);border-color:var(--utep-blue);color:#fff}
+.btn.blue:hover{background:var(--utep-blue-lt);border-color:var(--utep-blue-lt)}
+.btn.lg{padding:13px 24px;font-size:15px}
+.btn.sm{padding:7px 12px;font-size:13px}
+.btn.xs{padding:4px 10px;font-size:12px;font-weight:700}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---------- panels ---------- */
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:2px}
+.panel > .phead{background:var(--surface-2);border-bottom:1px solid var(--rule);padding:11px 16px;font-family:var(--font-display);font-weight:700;font-size:14px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2)}
+.pad{padding:18px}
+
+/* ============ LANDING ============ */
+.landing-grid{display:grid;grid-template-columns:1fr 340px;gap:28px;align-items:start}
+.landing-grid > *{min-width:0}
+.intro h2{font-family:var(--font-display);font-size:24px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px}
+.steps-ol{margin:0;padding-left:20px;color:var(--ink-2)}
+.steps-ol li{margin-bottom:7px}
+.factbox{border-left:4px solid var(--utep-orange);background:var(--surface-2);padding:14px 16px;font-size:13.5px;color:var(--ink-2);margin-top:18px}
+.notice{border:1px solid var(--rule);border-left:4px solid var(--utep-blue);background:var(--surface-2);padding:14px 16px;font-size:13.5px;color:var(--ink-2);margin-top:24px}
+.notice b{color:var(--ink)}
+.notice.danger{border-left-color:var(--critical)}
+
+/* ============ UPLOAD ============ */
+.drop{border:2px dashed var(--rule-strong);padding:40px 24px;text-align:center;background:var(--surface-2);cursor:pointer}
+.drop:hover,.drop.hot{border-color:var(--utep-orange);background:var(--surface-3)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;font-size:14px}
+.kv .k{color:var(--ink-muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.progress{height:16px;background:var(--surface-3);border:1px solid var(--rule);margin-top:14px}
+.progress i{display:block;height:100%;background:var(--utep-orange)}
+.resultfoot{margin-top:18px;border-top:1px solid var(--rule);padding-top:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+
+/* ============ COURSE PICKER ============ */
+.statbar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);margin-bottom:24px}
+.statbar > div{background:var(--surface);padding:13px 15px}
+.statbar .lab{font-family:var(--font-display);font-size:12.5px;color:var(--ink-muted);font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.statbar .val{font-size:25px;font-weight:700;margin-top:2px}
+.statbar .sub{font-size:12.5px;color:var(--ink-2)}
+
+table.req{width:100%;border-collapse:collapse;margin-bottom:22px;border:1px solid var(--rule)}
+table.req caption{text-align:left;background:var(--utep-blue);color:#fff;padding:9px 14px;font-family:var(--font-display);font-size:14px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+table.req th{text-align:left;background:var(--surface-2);border-bottom:1px solid var(--rule);padding:8px 14px;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-muted)}
+table.req td{border-bottom:1px solid var(--rule);padding:10px 14px;vertical-align:middle}
+table.req tr:last-child td{border-bottom:0}
+table.req tr.pick{cursor:pointer}
+table.req tr.pick:hover td{background:var(--surface-2)}
+table.req tr.sel td{background:#fff6e8}
+table.req tr.off td{color:var(--ink-muted)}
+td.chk{width:40px}
+td.chk input{width:17px;height:17px;accent-color:var(--utep-orange);cursor:pointer}
+td.code{width:104px;font-weight:700;white-space:nowrap}
+td.cr{width:70px;text-align:right;color:var(--ink-2);white-space:nowrap}
+.subnote{display:block;font-size:12.5px;color:var(--ink-muted);margin-top:2px}
+.tagflag{display:inline-block;font-family:var(--font-display);font-size:12px;font-weight:700;padding:2px 8px;background:var(--utep-orange);color:#2b1500;margin-left:8px;text-transform:uppercase;letter-spacing:.05em}
+
+/* ============ CALENDAR ============ */
+.calwrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface)}
+table.cal{border-collapse:collapse;width:100%;min-width:640px;font-size:12.5px}
+table.cal th{padding:8px 4px;font-weight:700;color:var(--ink-2);font-family:var(--font-display);font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--rule-strong);background:var(--surface-2)}
+table.cal th.clickable-day{cursor:pointer}
+table.cal th.clickable-day:hover{background:var(--surface-3);color:var(--ink)}
+table.cal td{border-bottom:1px solid var(--rule);border-left:1px solid var(--rule);height:26px;padding:0}
+table.cal td.t{border-left:none;color:var(--ink-muted);font-size:11px;text-align:right;padding-right:9px;width:78px;vertical-align:top;transform:translateY(-7px);border-bottom-color:transparent}
+td.blocked{background:repeating-linear-gradient(45deg,#f2d7d5,#f2d7d5 4px,#e8c4c1 4px,#e8c4c1 8px)}
+.legend{display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin-top:12px;align-items:center}
+.swatch{width:13px;height:13px;display:inline-block;vertical-align:-2px;margin-right:6px;border:1px solid var(--rule-strong)}
+
+/* class blocks on the schedule grid */
+td.hasclass{position:relative;padding:0}
+.blkrow{position:absolute;inset:0;display:flex;gap:2px;padding:0 1px}
+.blk{flex:1;min-width:0;border-left:2px solid;border-right:2px solid;overflow:hidden}
+.blk.first{border-top:2px solid}
+.blk.last{border-bottom:2px solid}
+.blk .lbl{font-size:9.5px;font-weight:700;padding:0 3px;line-height:13px;white-space:nowrap;color:var(--ink);display:block}
+
+/* A run of overlapping half-hour slots renders as one clean red box, not
+   a stack of individually outlined cells. Plain `border` collapses with a
+   neighboring cell's own border and the winner isn't reliable once the
+   cell also has position:relative/z-index, which was showing up as a red
+   line on only one side. inset box-shadow paints entirely inside this
+   cell's own box, independent of any neighbor, so each side is drawn (or
+   not) exactly as declared here: .contTop / .contBottom drop the side
+   that's an internal seam because the adjacent slot continues the run. */
+td.overlap{
+  background:#fbe2e0; z-index:2; position:relative;
+  box-shadow: inset 2px 0 0 0 var(--critical), inset -2px 0 0 0 var(--critical),
+              inset 0 2px 0 0 var(--critical), inset 0 -2px 0 0 var(--critical);
+}
+td.overlap.contTop{
+  box-shadow: inset 2px 0 0 0 var(--critical), inset -2px 0 0 0 var(--critical),
+              inset 0 -2px 0 0 var(--critical);
+}
+td.overlap.contBottom{
+  box-shadow: inset 2px 0 0 0 var(--critical), inset -2px 0 0 0 var(--critical),
+              inset 0 2px 0 0 var(--critical);
+}
+td.overlap.contTop.contBottom{
+  box-shadow: inset 2px 0 0 0 var(--critical), inset -2px 0 0 0 var(--critical);
+}
+.ovblock{display:block;width:100%;height:100%;cursor:pointer}
+.ovblock:hover{background:#f6c6c2}
+.ovblock .lbl{font-size:9.5px;font-weight:700;padding:0 3px;line-height:13px;white-space:nowrap;overflow:hidden;color:var(--ink);display:block}
+.conflictnote{border-left:4px solid var(--critical);background:#fdf1f0;padding:11px 14px;font-size:13px;margin-top:14px}
+.conflictnote b{color:var(--critical)}
+
+/* ============ RESULTS ============ */
+.res-layout{display:grid;grid-template-columns:250px 1fr;gap:22px;align-items:start}
+.res-side{position:sticky;top:14px;min-width:0}
+.ctab{display:block;width:100%;text-align:left;padding:11px 13px;cursor:pointer;background:var(--surface);border:0;border-bottom:1px solid var(--rule);border-left:3px solid transparent}
+.ctab:last-child{border-bottom:0}
+.ctab:hover{background:var(--surface-2)}
+/* .added: a section has been added for this course, whole tab goes green.
+   .on: this is the course currently being viewed, shown with an inset
+   border rather than a shadow (no shadows anywhere, see CLAUDE.md). The
+   two are independent and can combine. */
+.ctab.added{background:#e6f4e9;border-left-color:var(--good)}
+.ctab.added:hover{background:#daeedf}
+.ctab.on{outline:2px solid var(--utep-blue);outline-offset:-2px;position:relative;z-index:1}
+.ctab .c{font-weight:700;font-size:14px;display:block}
+.ctab .t{display:block;font-size:12px;color:var(--ink-muted);line-height:1.3;margin-top:1px}
+.ctab .s{display:block;font-size:11.5px;margin-top:5px;color:var(--ink-muted)}
+.ctab .tabconflict{display:block;font-size:11.5px;margin-top:3px;color:var(--critical);font-weight:700}
+.fchk{display:flex;gap:9px;align-items:flex-start;font-size:13px;margin-bottom:10px;cursor:pointer;color:var(--ink-2);line-height:1.35}
+.fchk:last-child{margin-bottom:0}
+.fchk input{accent-color:var(--utep-orange);width:16px;height:16px;flex:none;margin-top:1px}
+.note{font-size:12.5px;color:var(--ink-muted);line-height:1.5}
+
+.coursepanel{border:1px solid var(--rule);background:var(--surface)}
+.coursepanel > header{background:var(--utep-blue);color:#fff;padding:11px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.coursepanel header .code{font-weight:700;font-size:16px}
+.coursepanel header .ttl{flex:1;min-width:140px;color:#d3d8e0;font-size:14px}
+.badge{font-size:11.5px;font-weight:700;padding:3px 9px;background:rgba(255,255,255,.16);color:#fff}
+.badge.on{background:var(--utep-orange);color:#2b1500}
+
+.prof{display:grid;grid-template-columns:1fr 296px;border-top:2px solid var(--rule-strong)}
+.prof:first-of-type{border-top:0}
+.prof.dim .prof-main{opacity:.62}
+.prof-main{padding:16px 18px;min-width:0}
+.prof-side{padding:16px 18px;border-left:2px solid var(--rule-strong);background:var(--surface-2);min-width:0}
+.prof-side h5{font-family:var(--font-display);font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-muted);margin:0 0 10px}
+
+.prof-id{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.prof-id .nm{font-weight:700;font-size:16px}
+.prof-id .dept{font-size:12.5px;color:var(--ink-muted)}
+.scoreline{display:flex;align-items:center;gap:11px;margin:9px 0 12px;flex-wrap:wrap}
+.starwrap{position:relative;display:inline-block;font-size:22px;line-height:1;letter-spacing:2px;white-space:nowrap}
+.starbase{color:var(--rule-strong)}
+.starfill{position:absolute;left:0;top:0;overflow:hidden;color:var(--star);white-space:nowrap}
+.bignum{font-size:23px;font-weight:700}
+.scoreline .of{color:var(--ink-muted);font-size:13px}
+
+.distrib{margin:12px 0 4px}
+.distrib .hdr{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-muted);margin-bottom:6px;gap:12px}
+.stack{display:flex;height:20px;background:var(--surface-3);gap:2px;border:1px solid var(--rule)}
+.stack span{display:block;height:100%;font-size:10px;font-weight:700;color:#fff;text-align:center;line-height:18px;overflow:hidden}
+.stack span.darktext{color:#2b2000}
+.distlegend{display:flex;flex-wrap:wrap;gap:11px;margin-top:7px;font-size:11.5px;color:var(--ink-2)}
+.distlegend i{width:10px;height:10px;display:inline-block;margin-right:5px;vertical-align:-1px}
+
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:13px;max-width:420px}
+.metrics div{background:var(--surface);padding:6px 10px}
+.metrics .k{font-family:var(--font-display);font-size:10.5px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.metrics .v{font-size:13px;font-weight:700;margin-top:1px}
+.metrics .unit{font-size:11px;font-weight:400;color:var(--ink-muted)}
+.provisional{font-size:12.5px;color:var(--critical);font-weight:700;margin-bottom:4px}
+
+/* reviews */
+.reviews{margin-top:12px}
+.reviews summary{cursor:pointer;color:var(--link);font-weight:700;font-size:13px}
+.reviews summary:hover{text-decoration:underline}
+.revlist{margin-top:10px}
+/* tooltip on metric labels, e.g. "UTEP evaluation (?)" */
+.tip{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--rule-strong);color:var(--ink-muted);font-size:9px;font-weight:700;margin-left:3px;cursor:help;position:relative;vertical-align:middle}
+.tip .tiptext{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);width:190px;background:var(--utep-blue);color:#fff;font-size:11px;font-weight:400;text-transform:none;letter-spacing:normal;padding:8px 10px;border-radius:2px;z-index:10;line-height:1.4;text-align:left}
+/* The visible (?) circle is only 13px, too small to land on quickly. The
+   whole label it sits in is the real hover target so the tooltip shows as
+   soon as the cursor reaches the text, not just the dot. */
+.metrics .k{cursor:help}
+.metrics .k:hover .tiptext,.tip:focus .tiptext{display:block}
+.rev{border:1px solid var(--rule);border-left:3px solid var(--rule-strong);padding:9px 12px;margin-bottom:8px;background:var(--surface)}
+.rev-top{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--ink-muted)}
+.rev-q{display:inline-block;min-width:30px;text-align:center;font-weight:700;font-size:12.5px;padding:2px 5px;color:#fff}
+.rev-course{font-weight:700;color:var(--ink);font-size:12.5px}
+.rev-text{font-size:13px;margin-top:7px;color:var(--ink-2);line-height:1.5}
+.rev-tags{margin-top:8px;display:flex;gap:5px;flex-wrap:wrap}
+.rev-tag{font-family:var(--font-display);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;background:var(--surface-3);border:1px solid var(--rule);padding:2px 6px;color:var(--ink-2)}
+.revnav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--rule);padding-top:11px;margin-top:4px}
+.revnav .pg{font-size:12.5px;color:var(--ink-muted);font-weight:700}
+.revnav .spacer{flex:1}
+.revpages{display:flex;gap:4px;flex-wrap:wrap}
+.revpages button{min-width:26px;padding:3px 6px;font-size:12px;font-weight:700;border:1px solid var(--rule-strong);background:var(--surface);cursor:pointer;border-radius:2px}
+.revpages button:hover{background:var(--surface-3)}
+.revpages button.on{background:var(--utep-blue);border-color:var(--utep-blue);color:#fff}
+
+.sect{border:1px solid var(--rule);padding:10px 11px;margin-bottom:8px;background:var(--surface)}
+.sect.conflict{border-left:4px solid var(--critical)}
+.sect.added{border-left:4px solid var(--good)}
+.sect .crn{font-family:"Courier New",Courier,monospace;font-size:13px;font-weight:700}
+.sect .when{font-size:13px;margin-top:2px}
+.sect .where{font-size:12px;color:var(--ink-muted)}
+.sect .seats{font-size:12px;margin-top:4px}
+.seats.low{color:var(--critical);font-weight:700}
+.warnline{font-size:12px;color:var(--critical);margin-top:5px;font-weight:700}
+.empty{padding:28px 18px;text-align:center;color:var(--ink-muted);font-size:14px}
+
+/* ============ SCHEDULE ============ */
+.sched-grid{display:grid;grid-template-columns:1fr 320px;gap:22px;align-items:start}
+.sched-grid > *,.res-layout > *{min-width:0}
+.crnrow{padding:9px 0;border-bottom:1px solid var(--rule)}
+.crnrow:last-child{border-bottom:0}
+.crnrow .crntop{display:flex;justify-content:space-between;gap:10px}
+.crnrow b{font-family:"Courier New",Courier,monospace;font-size:15px}
+.crnrow [data-copy-crn]{margin-top:7px}
+
+/* ---------- feedback card ---------- */
+.starinput{display:flex;gap:4px}
+.starinput .star{background:none;border:0;padding:2px;font-size:28px;line-height:1;color:var(--rule-strong);cursor:pointer}
+.starinput .star.sel{color:var(--star)}
+.revinput{display:block;width:100%;border:1px solid var(--rule-strong);border-radius:2px;padding:8px 10px;font-family:var(--font-ui);font-size:14px;color:var(--ink);background:var(--surface)}
+.revinput:focus{outline:2px solid var(--utep-blue);outline-offset:1px}
+textarea.revinput{resize:vertical}
+
+/* ---------- action bar ---------- */
+.actionbar{position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--surface);border-top:2px solid var(--utep-blue)}
+.actionbar .wrap{display:flex;align-items:center;gap:12px;height:62px}
+.actionbar .spacer{flex:1}
+.actionbar .hint{font-size:13px;color:var(--ink-muted)}
+
+/* ---------- footer ---------- */
+.sitefoot{background:var(--utep-blue);color:#c9d0da;font-size:13px}
+.sitefoot .wrap{padding-top:30px;padding-bottom:30px}
+.footcols{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+.footcols h4{color:#fff;font-family:var(--font-display);font-size:13.5px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
+.footcols ul{list-style:none;margin:0;padding:0}
+.footcols li{margin-bottom:6px}
+.footcols a{color:#c9d0da;text-decoration:none}
+.footcols a:hover{color:#fff;text-decoration:underline}
+.footrule{border-top:1px solid rgba(255,255,255,.18);margin-top:24px;padding-top:16px;font-size:12px;color:#9aa5b4}
+
+@media (max-width:900px){
+  .landing-grid,.sched-grid,.res-layout{grid-template-columns:1fr}
+  .res-side{position:static}
+  .statbar,.footcols{grid-template-columns:1fr 1fr}
+  .prof{grid-template-columns:1fr}
+  .prof-side{border-left:0;border-top:2px solid var(--rule-strong)}
+  .titleband h1{font-size:24px}
+}
+
+@media (max-width:480px){
+  .statbar,.footcols{grid-template-columns:1fr}
+  .wrap{padding:0 16px}
+}

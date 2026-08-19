@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring 2027 schedule | Prospector's Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="utility">
+  <div class="wrap">
+    <span class="unaff">Not affiliated with or endorsed by The University of Texas at El Paso</span>
+    <span class="spacer"></span>
+    <a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a>
+    <a href="#" onclick="return false">my.UTEP</a>
+    <button id="restartBtn">Start over</button>
+  </div>
+</div>
+
+<div class="masthead">
+  <div class="wrap">
+    <a class="lockup" href="index.html">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff8200" stroke-width="2.6" stroke-linecap="square">
+          <path d="M3 6h18"/><path d="M3 12h11"/><path d="M3 18h15"/>
+        </svg>
+      </span>
+      <span class="words">
+        <span class="n">Prospector's Planner</span>
+        <span class="u">Course planning for UTEP students</span>
+      </span>
+    </a>
+    <span class="spacer"></span>
+    <span class="tag">Prototype / sample data</span>
+  </div>
+</div>
+
+<nav class="sectionnav" id="sectionnav" aria-label="Progress"><div class="wrap" id="sectionnavInner"></div></nav>
+
+<div class="titleband">
+  <div class="wrap">
+    <div class="kicker">Step 5 of 5</div>
+    <h1>Spring 2027 schedule</h1>
+    <p>Copy the CRN list into the Goldmine add or drop worksheet when your registration window
+       opens.</p>
+  </div>
+</div>
+
+<div class="body-area"><div class="wrap">
+  <div class="sched-grid">
+    <div>
+      <div class="calwrap"><table class="cal" id="schedCal"></table></div>
+      <div class="legend" id="schedLegend"></div>
+      <div id="conflictNote"></div>
+    </div>
+    <div>
+      <div class="panel">
+        <div class="phead">Registration worksheet</div>
+        <div class="pad">
+          <div id="crnList"></div>
+          <div id="copyMsg" style="font-size:12.5px;color:var(--good);margin-top:9px;min-height:16px"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <div class="phead">Rate this tool</div>
+        <div class="pad">
+          <div class="note" style="margin-bottom:12px">Anonymous. Helps us learn what's working before this goes further.</div>
+          <div class="starinput" id="reviewStars" role="radiogroup" aria-label="Star rating">
+            <button type="button" class="star" data-star="1" aria-label="1 star">&#9733;</button>
+            <button type="button" class="star" data-star="2" aria-label="2 stars">&#9733;</button>
+            <button type="button" class="star" data-star="3" aria-label="3 stars">&#9733;</button>
+            <button type="button" class="star" data-star="4" aria-label="4 stars">&#9733;</button>
+            <button type="button" class="star" data-star="5" aria-label="5 stars">&#9733;</button>
+          </div>
+          <input type="text" class="revinput" id="reviewName" placeholder="Name (optional)" style="margin-top:12px">
+          <textarea class="revinput" id="reviewText" placeholder="What worked, what didn't (optional)" rows="3" style="margin-top:8px"></textarea>
+          <button class="btn sm primary" id="submitReview" style="margin-top:10px">Submit feedback</button>
+          <div id="reviewMsg" style="font-size:12.5px;margin-top:9px;min-height:16px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="actionbar" id="actionbar">
+  <div class="wrap">
+    <button class="btn" id="backBtn">Back</button>
+    <div class="spacer"></div>
+    <span class="hint" id="navHint"></span>
+    <button class="btn" id="skipBtn">Skip this step</button>
+    <button class="btn primary" id="nextBtn">Continue</button>
+  </div>
+</div>
+
+<footer class="sitefoot">
+  <div class="wrap">
+    <div class="footcols">
+      <div>
+        <h4>Prospector's Planner</h4>
+        <ul>
+          <li>An independent student project</li>
+          <li>El Paso, Texas</li>
+          <li><a href="#" onclick="return false">Source code</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>UTEP links</h4>
+        <ul>
+          <li><a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a></li>
+          <li><a href="#" onclick="return false">Registration dates</a></li>
+          <li><a href="#" onclick="return false">Add and drop</a></li>
+          <li><a href="#" onclick="return false">Academic calendar</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Data sources</h4>
+        <ul>
+          <li><a href="#" onclick="return false">HB 2504 faculty profiles</a></li>
+          <li><a href="#" onclick="return false">Class schedule search</a></li>
+          <li><a href="#" onclick="return false">Course catalog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>About Prospector's Planner</h4>
+        <ul>
+          <li><a href="#" onclick="return false">Methodology</a></li>
+          <li><a href="#" onclick="return false">Privacy</a></li>
+          <li><a href="#" onclick="return false">Report a problem</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footrule">
+      <b style="color:#fff">Prospector's Planner is an independent student project.</b> It is not affiliated with,
+      sponsored by or endorsed by The University of Texas at El Paso. No UTEP logo, wordmark, pick,
+      boxmark, seal or mascot is used. UTEP is referenced only to describe which students the tool
+      serves. Prototype build; all data shown is fabricated for design review.
+    </div>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script>window.CURRENT_STEP = 5;</script>
+<script src="js/app.js"></script>
+<script src="js/page-schedule.js"></script>
+</body>
+</html>

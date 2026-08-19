@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prospector's Planner | Course planning for UTEP students</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="utility">
+  <div class="wrap">
+    <span class="unaff">Not affiliated with or endorsed by The University of Texas at El Paso</span>
+    <span class="spacer"></span>
+    <a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a>
+    <a href="#" onclick="return false">my.UTEP</a>
+    <button id="restartBtn">Start over</button>
+  </div>
+</div>
+
+<div class="masthead">
+  <div class="wrap">
+    <a class="lockup" href="index.html">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff8200" stroke-width="2.6" stroke-linecap="square">
+          <path d="M3 6h18"/><path d="M3 12h11"/><path d="M3 18h15"/>
+        </svg>
+      </span>
+      <span class="words">
+        <span class="n">Prospector's Planner</span>
+        <span class="u">Course planning for UTEP students</span>
+      </span>
+    </a>
+    <span class="spacer"></span>
+    <span class="tag">Prototype / sample data</span>
+  </div>
+</div>
+
+<div class="titleband">
+  <div class="wrap">
+    <div class="kicker">Registration Support</div>
+    <h1>Course Planner</h1>
+    <p>Turn your degree evaluation into a Spring 2027 schedule and a ready CRN list.</p>
+  </div>
+</div>
+
+<div class="body-area"><div class="wrap">
+  <div class="landing-grid">
+    <div class="intro">
+      <h2>How it works</h2>
+      <ol class="steps-ol">
+        <li>Upload your degree evaluation.</li>
+        <li>Pick the courses you still need.</li>
+        <li>Mark hours you cannot attend. Optional.</li>
+        <li>Compare instructors and add sections.</li>
+        <li>Copy your CRNs into Goldmine.</li>
+      </ol>
+      <div class="factbox">
+        Ratings weight UTEP course evaluations published under Texas HB 2504 and Rate My
+        Professors equally. Sections come from the public Goldmine schedule.
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <div class="phead">Start</div>
+        <div class="pad">
+          <a class="btn primary lg" href="upload.html" style="width:100%">Begin</a>
+          <button class="btn lg" id="viewSampleBtn" style="width:100%;margin-top:9px">View sample results</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="notice">
+    <b>Prototype.</b> All instructors, ratings, reviews and CRNs are fabricated. No live data
+    source is connected.
+  </div>
+</div></div>
+
+<footer class="sitefoot">
+  <div class="wrap">
+    <div class="footcols">
+      <div>
+        <h4>Prospector's Planner</h4>
+        <ul>
+          <li>An independent student project</li>
+          <li>El Paso, Texas</li>
+          <li><a href="#" onclick="return false">Source code</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>UTEP links</h4>
+        <ul>
+          <li><a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a></li>
+          <li><a href="#" onclick="return false">Registration dates</a></li>
+          <li><a href="#" onclick="return false">Add and drop</a></li>
+          <li><a href="#" onclick="return false">Academic calendar</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Data sources</h4>
+        <ul>
+          <li><a href="#" onclick="return false">HB 2504 faculty profiles</a></li>
+          <li><a href="#" onclick="return false">Class schedule search</a></li>
+          <li><a href="#" onclick="return false">Course catalog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>About Prospector's Planner</h4>
+        <ul>
+          <li><a href="#" onclick="return false">Methodology</a></li>
+          <li><a href="#" onclick="return false">Privacy</a></li>
+          <li><a href="#" onclick="return false">Report a problem</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footrule">
+      <b style="color:#fff">Prospector's Planner is an independent student project.</b> It is not affiliated with,
+      sponsored by or endorsed by The University of Texas at El Paso. No UTEP logo, wordmark, pick,
+      boxmark, seal or mascot is used. UTEP is referenced only to describe which students the tool
+      serves. Prototype build; all data shown is fabricated for design review.
+    </div>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+$("#viewSampleBtn").onclick = () => {
+  if(!state.parsed) seedDemo();
+  location.href = "instructors.html";
+};
+</script>
+</body>
+</html>

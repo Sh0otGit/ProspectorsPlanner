@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upload evaluation | Prospector's Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="utility">
+  <div class="wrap">
+    <span class="unaff">Not affiliated with or endorsed by The University of Texas at El Paso</span>
+    <span class="spacer"></span>
+    <a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a>
+    <a href="#" onclick="return false">my.UTEP</a>
+    <button id="restartBtn">Start over</button>
+  </div>
+</div>
+
+<div class="masthead">
+  <div class="wrap">
+    <a class="lockup" href="index.html">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff8200" stroke-width="2.6" stroke-linecap="square">
+          <path d="M3 6h18"/><path d="M3 12h11"/><path d="M3 18h15"/>
+        </svg>
+      </span>
+      <span class="words">
+        <span class="n">Prospector's Planner</span>
+        <span class="u">Course planning for UTEP students</span>
+      </span>
+    </a>
+    <span class="spacer"></span>
+    <span class="tag">Prototype / sample data</span>
+  </div>
+</div>
+
+<nav class="sectionnav" id="sectionnav" aria-label="Progress"><div class="wrap" id="sectionnavInner"></div></nav>
+
+<div class="titleband">
+  <div class="wrap">
+    <div class="kicker">Step 1 of 5</div>
+    <h1>Upload degree evaluation</h1>
+    <p>In <a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a>
+       click Degree Evaluation &rarr; Select a Term &rarr; Generate New Evaluation &rarr;
+       Generate Request, press CTRL + S, then save and upload here.</p>
+  </div>
+</div>
+
+<div class="body-area"><div class="wrap" style="max-width:800px">
+  <div class="drop" id="drop">
+    <div style="font-weight:700;font-size:16px">Drop the degree evaluation file here</div>
+    <div style="color:var(--ink-muted);font-size:13.5px;margin-top:5px">HTML or PDF. Click to browse.</div>
+    <div style="margin-top:18px"><button class="btn primary" id="demoBtn">Use sample evaluation</button></div>
+  </div>
+  <div class="notice danger">
+    <b>Your evaluation is not transmitted, stored or logged anywhere.</b>
+  </div>
+  <div id="parseOut" style="margin-top:22px"></div>
+</div></div>
+
+<div class="actionbar" id="actionbar">
+  <div class="wrap">
+    <button class="btn" id="backBtn">Back</button>
+    <div class="spacer"></div>
+    <span class="hint" id="navHint"></span>
+    <button class="btn" id="skipBtn">Skip this step</button>
+    <button class="btn primary" id="nextBtn">Continue</button>
+  </div>
+</div>
+
+<footer class="sitefoot">
+  <div class="wrap">
+    <div class="footcols">
+      <div>
+        <h4>Prospector's Planner</h4>
+        <ul>
+          <li>An independent student project</li>
+          <li>El Paso, Texas</li>
+          <li><a href="#" onclick="return false">Source code</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>UTEP links</h4>
+        <ul>
+          <li><a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a></li>
+          <li><a href="#" onclick="return false">Registration dates</a></li>
+          <li><a href="#" onclick="return false">Add and drop</a></li>
+          <li><a href="#" onclick="return false">Academic calendar</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Data sources</h4>
+        <ul>
+          <li><a href="#" onclick="return false">HB 2504 faculty profiles</a></li>
+          <li><a href="#" onclick="return false">Class schedule search</a></li>
+          <li><a href="#" onclick="return false">Course catalog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>About Prospector's Planner</h4>
+        <ul>
+          <li><a href="#" onclick="return false">Methodology</a></li>
+          <li><a href="#" onclick="return false">Privacy</a></li>
+          <li><a href="#" onclick="return false">Report a problem</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footrule">
+      <b style="color:#fff">Prospector's Planner is an independent student project.</b> It is not affiliated with,
+      sponsored by or endorsed by The University of Texas at El Paso. No UTEP logo, wordmark, pick,
+      boxmark, seal or mascot is used. UTEP is referenced only to describe which students the tool
+      serves. Prototype build; all data shown is fabricated for design review.
+    </div>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script>window.CURRENT_STEP = 1;</script>
+<script src="js/app.js"></script>
+<script src="js/page-upload.js"></script>
+</body>
+</html>

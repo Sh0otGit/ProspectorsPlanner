@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ingestion | Prospector's Planner Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
+<link rel="stylesheet" href="/css/styles.css">
+<link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+
+<div class="masthead">
+  <div class="wrap">
+    <a class="lockup" href="/admin/ingestion.html">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff8200" stroke-width="2.6" stroke-linecap="square">
+          <path d="M3 6h18"/><path d="M3 12h11"/><path d="M3 18h15"/>
+        </svg>
+      </span>
+      <span class="words">
+        <span class="n">Prospector's Planner</span>
+        <span class="u">Admin</span>
+      </span>
+    </a>
+    <span class="spacer"></span>
+    <span class="tag">Internal</span>
+  </div>
+</div>
+
+<div class="admin-shell">
+  <nav class="admin-nav">
+    <a href="/admin/ingestion.html" class="on">Ingestion</a>
+    <a href="/admin/reviews.html">Reviews</a>
+    <a href="/admin/analytics.html">Analytics</a>
+    <span class="spacer"></span>
+    <button id="logoutBtn">Log out</button>
+  </nav>
+
+  <div class="panel" style="margin-bottom:20px">
+    <div class="phead">Class schedule &mdash; daily</div>
+    <div class="pad">
+      <div class="note" style="margin-bottom:14px">
+        Every subject, every section, for Fall 2026 (public, no login;
+        ~150 requests, a few minutes). Rooms/times/instructors can change
+        during add/drop, so this is meant to run once every 24 hours
+        automatically. This button runs it immediately instead of waiting.
+      </div>
+      <div class="statgrid">
+        <div><div class="lab">Status</div><div class="val" id="schedStatus">&mdash;</div></div>
+        <div><div class="lab">Last run</div><div class="val" id="schedLast">&mdash;</div><div class="sub" id="schedLastSub"></div></div>
+        <div><div class="lab">Next automatic run</div><div class="val" id="schedNext">&mdash;</div><div class="sub">Only while the server process stays running</div></div>
+      </div>
+      <div class="progress-live" id="schedProgress" hidden>
+        <div class="progress"><i id="schedProgressBar" style="width:0%"></i></div>
+        <div class="progress-label" id="schedProgressLabel"></div>
+      </div>
+      <button class="btn primary" id="rescrapeSchedBtn">Rescrape schedule now</button>
+      <span id="rescrapeSchedMsg" style="margin-left:12px;font-size:13px;color:var(--ink-muted)"></span>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:20px">
+    <div class="phead">HB 2504 evaluations &mdash; once a semester</div>
+    <div class="pad">
+      <div class="note" style="margin-bottom:14px">
+        Every instructor in the HB 2504 directory campus-wide (~1965
+        people), fetching only evaluation pages not already cached. The
+        first run is a real backfill &mdash; tens of thousands of requests,
+        several hours. Repeat runs are fast since almost everything is
+        already cached. Meant to run about every 120 days; eval scores only
+        change when a new term's ratings post.
+      </div>
+      <div class="statgrid">
+        <div><div class="lab">Status</div><div class="val" id="evalStatus">&mdash;</div></div>
+        <div><div class="lab">Last run</div><div class="val" id="evalLast">&mdash;</div><div class="sub" id="evalLastSub"></div></div>
+        <div><div class="lab">Next automatic run</div><div class="val" id="evalNext">&mdash;</div><div class="sub">Only while the server process stays running</div></div>
+      </div>
+      <div class="progress-live" id="evalProgress" hidden>
+        <div class="progress"><i id="evalProgressBar" style="width:0%"></i></div>
+        <div class="progress-label" id="evalProgressLabel"></div>
+      </div>
+      <button class="btn primary" id="rescrapeEvalBtn">Rescrape evaluations now</button>
+      <span id="rescrapeEvalMsg" style="margin-left:12px;font-size:13px;color:var(--ink-muted)"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="phead">Recent runs</div>
+    <div class="pad" style="overflow-x:auto">
+      <table class="admin-table" id="runsTable">
+        <thead><tr><th>Kind</th><th>Trigger</th><th>Status</th><th>Started</th><th>Sections</th><th>New evals</th><th>Summary</th></tr></thead>
+        <tbody id="runsBody"><tr><td colspan="7" class="empty">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="/admin/js/admin-common.js"></script>
+<script src="/admin/js/ingestion.js"></script>
+</body>
+</html>

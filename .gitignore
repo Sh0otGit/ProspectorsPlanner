@@ -1,0 +1,8 @@
+node_modules/
+*.sqlite
+*.db
+data/
+.cache/
+.env
+.DS_Store
+shots/
