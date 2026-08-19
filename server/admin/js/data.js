@@ -38,23 +38,19 @@ function fmtTime(t) {
   return `${h12}:${String(m).padStart(2, "0")} ${ap}`;
 }
 
-// « first, ‹ back, up to three page numbers centered on the current page,
-// › forward, » last -- same control the public site uses for RMP review
+// « first, ‹ back, the current page number (plain, not a button list), ›
+// forward, » last -- same control the public site uses for RMP review
 // pagination (prototype/js/page-instructors.js), reused here via data-*
 // attributes a delegated click listener reads instead of per-button closures.
 function pagerHTML(page, pages, kind, key) {
   if (pages <= 1) return "";
   const nav = (i, label, disabled) =>
     `<button data-pager="${kind}" data-key="${escapeHtml(key)}" data-page="${i}"${disabled ? " disabled" : ""}>${label}</button>`;
-  const num = (i) =>
-    `<button data-pager="${kind}" data-key="${escapeHtml(key)}" data-page="${i}" class="${i === page ? "on" : ""}">${i + 1}</button>`;
-  let mid = "";
-  for (let i = Math.max(0, page - 1); i <= Math.min(pages - 1, page + 1); i++) mid += num(i);
   return (
     '<div class="revpages">' +
     nav(0, "&laquo;", page === 0) +
     nav(Math.max(0, page - 1), "&lsaquo;", page === 0) +
-    mid +
+    `<span class="pgnum">${page + 1}</span>` +
     nav(Math.min(pages - 1, page + 1), "&rsaquo;", page === pages - 1) +
     nav(pages - 1, "&raquo;", page === pages - 1) +
     "</div>"

@@ -106,6 +106,45 @@ Lecture Schedule Type<br>
   assert.equal(s.room, "On-Line Course ONLINE");
 });
 
+test("regression: a description note with <br/> tags doesn't drop the whole row", () => {
+  // Real, observed markup: a section with an extra note ("Class is taught
+  // in Spanish", "This section will be delivered online...") renders that
+  // note in the last column separated by <br/> tags, e.g.
+  // "American Gover & Politics<br/><br/>Class is taught in Spanish<br/>".
+  // The old Description-column pattern ([^<]*, no tags allowed) failed
+  // the *entire* row on the first "<br/>", the same failure mode as the
+  // TBA/<ABBR> bug above but in the last column instead of the second.
+  // Confirmed against real data: POLS 2311 CRN 12388 (Patrick Timmons)
+  // still showed up as "Staff" even after that fix, while sibling
+  // sections with no extra note parsed fine.
+  const chunk = `
+<a href="/prod/owa/bwckschd.p_disp_detail_sched?term_in=202710&amp;crn_in=12388">American Gover &amp; Politics - 12388 - POLS 2311 - 027</a>
+Associated Term: </SPAN>Fall 2026<br>
+Registration Dates: </SPAN>Mar 09, 2026 to Aug 28, 2026<br>
+
+Main Campus<br>
+Lecture Schedule Type<br>
+3.000 Credits
+<table>
+<tr>
+<td CLASS="dddefault">Class</td>
+<td CLASS="dddefault">1:30 pm - 2:50 pm</td>
+<td CLASS="dddefault">R</td>
+<td CLASS="dddefault">Texas Western Hall 207<BR /><BR />ADA Accessible</td>
+<td CLASS="dddefault">Aug 24, 2026 - Dec 03, 2026</td>
+<td CLASS="dddefault">Lecture (LECT)</td>
+<td CLASS="dddefault">Patrick   Timmons (<ABBR title= "Primary">P</ABBR>)<a href="mailto:ptimmons2@utep.edu" target="x"><img src="/wtlgifs/email.gif"></a></td>
+<td CLASS="dddefault">American Gover & Politics<br/><br/>Class is taught in Spanish<br/></td>
+</tr>
+</table>`;
+  const s = parseSectionChunk(chunk);
+  assert.equal(s.instructorName, "Patrick Timmons (P)");
+  assert.equal(s.days, "R");
+  assert.equal(s.startTime, "13:30");
+  assert.equal(s.endTime, "14:50");
+  assert.equal(s.room, "Texas Western Hall 207");
+});
+
 test("parseSubjects reads option values, drops the wildcard", () => {
   const html = `<select name="sel_subj" multiple>
     <option value="%">All</option>

@@ -172,10 +172,14 @@ export function getCourse(termCode, subject, courseNumber) {
     const agg = g.username ? aggregateInstructor(evalsForUsername.all(g.username)) : null;
     // A matched rmp_professors row with no real average (possible for
     // someone RMP has on file with zero ratings) has to be treated as
-    // unmatched, not a score of 0 -- combined() in app.js multiplies
-    // p.rmp.score straight into the blend whenever p.rmp is truthy, so a
-    // null here would silently turn into NaN for the whole instructor.
-    const rmp = g.rmpRow && g.rmpRow.avg_rating != null
+    // unmatched, not a score of 0 -- combined() in app.js blends
+    // p.rmp.score straight in whenever p.rmp is truthy, so treating "no
+    // ratings yet" as a real 0 score would silently drag a good UTEP
+    // evaluation average down toward half its value. RMP's own API
+    // returns a literal 0 (not null) for avg_rating when num_ratings is
+    // 0 -- confirmed against real data, not a hypothetical -- so the
+    // guard has to check num_ratings, not just null-ness of avg_rating.
+    const rmp = g.rmpRow && g.rmpRow.avg_rating != null && g.rmpRow.num_ratings > 0
       ? {
           score: g.rmpRow.avg_rating,
           diff: g.rmpRow.avg_difficulty,

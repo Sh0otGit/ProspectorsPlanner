@@ -43,8 +43,20 @@ const CREDITS_RE = /([\d.]+)\s*Credits/;
 // columns 4 and 7 (Where, Instructors) already handle cells that can carry
 // markup, since those have the same problem for different reasons (an
 // online-course note, a mailto link with an icon).
+//
+// Column 8 (Description Text) has the same problem for a third reason:
+// a section with an extra note -- "Class is taught in Spanish", "This
+// section will be delivered online during scheduled times..." -- renders
+// that note inside the cell separated by `<br/>` tags, e.g.
+// `American Gover & Politics<br/><br/>Class is taught in Spanish<br/>`.
+// Confirmed against real data: POLS 2311 CRN 12388 (Patrick Timmons) and
+// CRN 15633 (Estella Valles-Garza) both fell into this and showed up as
+// "Staff" even after the TBA/<ABBR> fix above, while sibling sections
+// with no extra note parsed fine. This column's content is unused (only
+// destructured up through index 7, Instructors) so `[\s\S]*?` here just
+// has to stop failing the row, not extract anything new.
 const MEETING_ROW_RE =
-  /<tr>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<\/tr>/g;
+  /<tr>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<\/tr>/g;
 
 // Exported so it's testable directly against a saved chunk -- see
 // scrapers/__tests__/schedule.test.js.

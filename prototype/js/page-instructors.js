@@ -108,18 +108,15 @@ function sortReviews(list){
   return list.slice().sort((a,b)=>b.q-a.q);
 }
 
-/* « first, ‹ back, up to three page numbers centered on the current
-   page, › forward, » last. */
+/* « first, ‹ back, the current page number (plain, not a button list), ›
+   forward, » last. Same shape reused by server/admin/js/data.js's pager. */
 function pagerHTML(page, pages, nm){
   if(pages<=1) return "";
   const nav = (i,label,disabled)=>'<button data-revpage="'+i+'" data-revprof="'+esc(nm)+'"'+(disabled?" disabled":"")+'>'+label+'</button>';
-  const num = (i)=>'<button data-revpage="'+i+'" data-revprof="'+esc(nm)+'" class="'+(i===page?"on":"")+'">'+(i+1)+'</button>';
-  let mid = "";
-  for(let i=Math.max(0,page-1); i<=Math.min(pages-1,page+1); i++) mid += num(i);
   return '<div class="revpages">'
     + nav(0,"&laquo;",page===0)
     + nav(Math.max(0,page-1),"&lsaquo;",page===0)
-    + mid
+    + '<span class="pgnum">'+(page+1)+'</span>'
     + nav(Math.min(pages-1,page+1),"&rsaquo;",page===pages-1)
     + nav(pages-1,"&raquo;",page===pages-1)
     + '</div>';
@@ -136,7 +133,9 @@ function reviewsHTML(p){
   const nm = p.name;
 
   return '<details class="reviews" data-rev="'+esc(nm)+'"'+(state.revOpen.has(nm)?" open":"")+'>'
-    + '<summary>View Rate My Professors reviews ('+all.length+')</summary>'
+    + '<summary>View Rate My Professors reviews ('+all.length+')'
+      + (p.rmp && p.rmp.wta!=null ? ' &middot; '+Math.round(p.rmp.wta)+'% would take again' : "")
+    + '</summary>'
     + '<div class="revlist">'
     + slice.map(r=>
         '<div class="rev" style="border-left-color:'+qColor(Math.round(r.q))+'">'
@@ -157,6 +156,7 @@ function reviewsHTML(p){
       + '<span class="spacer"></span>'
       + pagerHTML(page,pages,nm)
     + '</div>'
+    + (p.rmp ? '<a href="https://www.ratemyprofessors.com/professor/'+esc(p.rmp.legacyId)+'" target="_blank" rel="noopener" class="rmpsrc">Source: Rate My Professors</a>' : "")
     + '</details>';
 }
 
@@ -199,9 +199,6 @@ function profHTML(code,p,hideConflict){
      + '<div><div class="k">Rate My Professors'+tip("Aggregate quality rating from Rate My Professors, a third-party site. Self-selected reviews, not a UTEP source.")+'</div><div class="v">'+(p.rmp?p.rmp.score.toFixed(1)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
      + '<div><div class="k">Difficulty'+tip("Self-reported course difficulty from Rate My Professors. Not part of the UTEP evaluation.")+'</div><div class="v">'+(p.rmp&&p.rmp.diff!=null?p.rmp.diff.toFixed(1)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
    + '</div>'
-   + (p.rmp ? '<div style="margin-top:8px"><a href="https://www.ratemyprofessors.com/professor/'+esc(p.rmp.legacyId)+'" target="_blank" rel="noopener" style="font-size:12.5px">View on Rate My Professors</a>'
-       + (p.rmp.wta!=null?' <span style="color:var(--ink-muted);font-size:12.5px">&middot; '+Math.round(p.rmp.wta)+'% would take again</span>':"")
-       + '</div>' : "")
    + reviewsHTML(p)
    + '</div>'
    + '<div class="prof-side"><h5>Sections, '+esc(TERM_LABEL||"this term")+'</h5>'

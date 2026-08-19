@@ -353,10 +353,12 @@ td.overlap.contTop.contBottom{
 .revnav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--rule);padding-top:11px;margin-top:4px}
 .revnav .pg{font-size:12.5px;color:var(--ink-muted);font-weight:700}
 .revnav .spacer{flex:1}
-.revpages{display:flex;gap:4px;flex-wrap:wrap}
+.revpages{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
 .revpages button{min-width:26px;padding:3px 6px;font-size:12px;font-weight:700;border:1px solid var(--rule-strong);background:var(--surface);cursor:pointer;border-radius:2px}
-.revpages button:hover{background:var(--surface-3)}
-.revpages button.on{background:var(--utep-blue);border-color:var(--utep-blue);color:#fff}
+.revpages button:hover:not(:disabled){background:var(--surface-3)}
+.revpages button:disabled{opacity:.4;cursor:default}
+.revpages .pgnum{min-width:20px;padding:0 4px;font-size:12.5px;font-weight:700;color:var(--ink);text-align:center}
+.rmpsrc{display:block;margin-top:9px;font-size:11.5px;color:var(--ink-muted)}
 
 .sect{border:1px solid var(--rule);padding:10px 11px;margin-bottom:8px;background:var(--surface)}
 .sect.conflict{border-left:4px solid var(--critical)}
