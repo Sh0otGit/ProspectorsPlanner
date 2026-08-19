@@ -109,15 +109,33 @@ async function serveStatic(req, res, rootDir, urlPath, { notFoundPage } = {}) {
     return;
   }
   try {
-    const s = await stat(filePath);
-    const finalPath = s.isDirectory() ? join(filePath, "index.html") : filePath;
+    let finalPath = filePath;
+    let s = await stat(finalPath);
+    if (s.isDirectory()) {
+      finalPath = join(finalPath, "index.html");
+      s = await stat(finalPath);
+    }
+    // No build step means no cache-busting hashed filenames -- a file can
+    // change without its URL changing, so a blind max-age was the wrong
+    // tool: "public, max-age=3600" (the first version of this) meant
+    // anyone who loaded the site in the hour around a deploy kept getting
+    // served their browser's own stale copy for up to an hour after the
+    // server had already moved on -- confirmed for real, not theoretical,
+    // when real instructor data shipped and a browser that had visited
+    // shortly before kept showing the fabricated data it had cached.
+    // "no-cache" (despite the name) still lets the browser keep the file --
+    // it just has to send If-Modified-Since and get a real answer first,
+    // so an unchanged file is still a cheap 304 instead of a full re-fetch,
+    // but a changed one is never silently stale.
+    const lastModified = s.mtime.toUTCString();
+    const ifModifiedSince = req.headers["if-modified-since"];
+    if (ifModifiedSince && Math.floor(new Date(ifModifiedSince).getTime() / 1000) >= Math.floor(s.mtimeMs / 1000)) {
+      res.writeHead(304, { "Cache-Control": "no-cache", "Last-Modified": lastModified });
+      return res.end();
+    }
     const body = await readFile(finalPath);
     const contentType = MIME[extname(finalPath)] || "application/octet-stream";
-    // No build step means no cache-busting hashed filenames -- a file can
-    // change without its URL changing, so this stays a short revalidation
-    // window rather than "immutable". Still turns "re-download every static
-    // asset on every page navigation" into "re-download once an hour."
-    return sendBody(req, res, 200, { "Content-Type": contentType, "Cache-Control": "public, max-age=3600" }, body);
+    return sendBody(req, res, 200, { "Content-Type": contentType, "Cache-Control": "no-cache", "Last-Modified": lastModified }, body);
   } catch {
     const ext = extname(urlPath);
     if (notFoundPage && (ext === "" || ext === ".html")) {
