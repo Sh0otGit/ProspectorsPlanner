@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { db } from "../scrapers/lib/db.js";
 import { checkPassword, createSession, verifySession, destroySession, parseCookies } from "./lib/auth.js";
 import { isRateLimited, clientIp } from "./lib/rate-limit.js";
+import { latestTerm, listCourses, getCourse } from "./lib/catalog.js";
 import {
   triggerScheduleRun,
   triggerEvaluationsRun,
@@ -194,6 +195,34 @@ const server = createServer(async (req, res) => {
   }
 
   try {
+    // ---- public API: real course/instructor data, replacing prototype/js/data.js's
+    // fabricated CATALOG (see server/lib/catalog.js for the matching/aggregation) ----
+    if (pathname === "/api/term" && req.method === "GET") {
+      const term = latestTerm();
+      return sendJson(res, 200, { termCode: term?.term_code ?? null, termLabel: term?.term_label ?? null });
+    }
+    if (pathname === "/api/courses" && req.method === "GET") {
+      const term = latestTerm();
+      if (!term) return sendJson(res, 200, { term: null, courses: [] });
+      return sendJson(res, 200, { term: term.term_label, courses: listCourses(term.term_code) });
+    }
+    if (pathname === "/api/course" && req.method === "GET") {
+      const code = (url.searchParams.get("code") || "").trim();
+      const sp = code.indexOf(" ");
+      if (sp === -1) return sendJson(res, 400, { error: "code must look like 'CS 3350'" });
+      const term = latestTerm();
+      if (!term) return sendJson(res, 200, { code, title: null, term: null, professors: [] });
+      const subject = code.slice(0, sp).toUpperCase();
+      const courseNumber = code.slice(sp + 1).toUpperCase();
+      const found = getCourse(term.term_code, subject, courseNumber);
+      return sendJson(res, 200, {
+        code,
+        title: found?.title ?? null,
+        term: term.term_label,
+        professors: found?.professors ?? [],
+      });
+    }
+
     // ---- public API: reviews submission (the "Rate this tool" card) ----
     if (pathname === "/api/reviews" && req.method === "POST") {
       if (isRateLimited(clientIp(req))) return sendJson(res, 429, { error: "Too many requests, try again shortly." });

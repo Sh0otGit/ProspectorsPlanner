@@ -1,36 +1,31 @@
 /* =====================================================================
-   STEP 1: upload / parse. The drop zone accepts a file but always loads
-   the sample; no HTML/PDF parser is built yet (see CLAUDE.md, Build
-   order phase 4).
+   STEP 1: upload / parse. The drop zone accepts a file, but there is no
+   real parser yet -- the degree evaluation parser is deliberately last in
+   the build order (see CLAUDE.md, Build order phase 4), specifically so
+   it has real course codes to validate against, which is what the rest of
+   this build (real course search, real instructor data) now provides.
+   This step is honest about that instead of pretending to extract
+   requirements from whatever file gets dropped: it acknowledges the step
+   and sends you on to search real UTEP courses directly.
    ===================================================================== */
-function parseDemo(){
+function continueToCourses(){
   state.parsed = true;
   saveState();
-  const pct = Math.round(STUDENT.earned/STUDENT.required*100);
   $("#parseOut").innerHTML =
-   '<div class="panel"><div class="phead">Result</div><div class="pad">'
-   + '<div class="kv">'
-   + '<div><div class="k">Student</div><b>'+esc(STUDENT.name)+'</b></div>'
-   + '<div><div class="k">Program</div><b>'+esc(STUDENT.program)+'</b></div>'
-   + '<div><div class="k">Catalog year</div><b>'+esc(STUDENT.catalog)+'</b></div>'
-   + '<div><div class="k">Hours earned</div><b>'+STUDENT.earned+' of '+STUDENT.required+'</b></div>'
-   + '</div>'
-   + '<div class="progress"><i style="width:'+pct+'%"></i></div>'
-   + '<div style="font-size:12.5px;color:var(--ink-muted);margin-top:6px">'
-   + pct+'% complete. '+(STUDENT.required-STUDENT.earned)+' hours remaining.</div>'
+   '<div class="notice"><b>Requirement parsing isn\'t built yet.</b> '
+   + 'This step will read your unmet requirements straight from the file once that\'s in place. '
+   + 'For now, search for the courses you still need on the next step.</div>'
    + '<div class="resultfoot">'
-   + '<button class="btn primary" id="parseContinue">Continue</button>'
-   + '<span style="font-size:13px;color:var(--ink-muted)">Nine unmet requirements</span>'
-   + '</div>'
-   + '</div></div>';
+   + '<button class="btn primary" id="parseContinue">Continue to course search</button>'
+   + '</div>';
   $("#parseContinue").onclick = ()=>{ location.href = "courses.html"; };
   renderChrome();
 }
 
-$("#demoBtn").onclick = e => { e.stopPropagation(); parseDemo(); };
-$("#drop").onclick = parseDemo;
+$("#demoBtn").onclick = e => { e.stopPropagation(); continueToCourses(); };
+$("#drop").onclick = continueToCourses;
 $("#drop").addEventListener("dragover",e=>{e.preventDefault();$("#drop").classList.add("hot")});
 $("#drop").addEventListener("dragleave",()=>$("#drop").classList.remove("hot"));
-$("#drop").addEventListener("drop",e=>{e.preventDefault();$("#drop").classList.remove("hot");parseDemo()});
+$("#drop").addEventListener("drop",e=>{e.preventDefault();$("#drop").classList.remove("hot");continueToCourses()});
 
-if(state.parsed) parseDemo();
+if(state.parsed) continueToCourses();

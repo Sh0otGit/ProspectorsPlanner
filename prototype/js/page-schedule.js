@@ -149,4 +149,16 @@ $("#submitReview").onclick = async () => {
   setTimeout(()=>{ msg.textContent=""; }, 3200);
 };
 
-renderSchedule();
+/* Chosen sections' real data (room/time/CRN) has to come from CATALOG,
+   which -- unlike the old fabricated one -- isn't populated until fetched.
+   A fresh page load (a reload, or arriving straight from a bookmark) has
+   an empty CATALOG even though state.chosen already has real picks in it,
+   so this re-fetches whatever's needed before the first render instead of
+   assuming a prior page already warmed it. */
+(async () => {
+  try {
+    await ensureCatalog([...state.chosen.keys()]);
+  } catch(e) { /* renderSchedule() still works with whatever loaded; getChosenSection just returns null for the rest */ }
+  if(TERM_LABEL) $("#schedHeading").textContent = TERM_LABEL+" schedule";
+  renderSchedule();
+})();

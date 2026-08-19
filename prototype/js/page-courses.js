@@ -1,47 +1,85 @@
 /* =====================================================================
-   STEP 2: pick unmet requirements.
+   STEP 2: search real UTEP course offerings and pick which ones you
+   still need. Replaces the old fixed personalized requirement list --
+   there's no real substitute for that yet (it needs the degree
+   evaluation parser, deliberately last in the build order, see
+   CLAUDE.md) -- with a search against every course actually offered
+   this term, from /api/courses.
    ===================================================================== */
-function renderCourses(){
-  const allItems = REQS.flatMap(g=>g.items);
-  const selHours = [...state.picked].reduce((a,c)=>{
-    const it = allItems.find(i=>i.code===c); return a + (it?it.cr:0);
-  },0);
-  const remaining = STUDENT.required - STUDENT.earned;
+let ALL_COURSES = [];
 
+function courseRow(code, title, selected){
+  return '<div class="crnrow"><div class="crntop"><span><b>'+esc(code)+'</b><br>'
+    + '<span style="color:var(--ink-muted);font-size:11.5px">'+esc(title||"")+'</span></span>'
+    + '<button class="btn xs '+(selected?"":"blue")+'" data-toggle="'+esc(code)+'">'+(selected?"Remove":"Add")+'</button></div></div>';
+}
+
+function renderStats(){
+  $("#statbar").style.gridTemplateColumns = "repeat(3,1fr)"; // this page has 3 stats, not the usual 4
   $("#statbar").innerHTML =
-    '<div><div class="lab">Hours earned</div><div class="val">'+STUDENT.earned+'</div><div class="sub">of '+STUDENT.required+' required</div></div>'
-  + '<div><div class="lab">Hours remaining</div><div class="val">'+remaining+'</div><div class="sub">about '+Math.ceil(remaining/15)+' more semesters</div></div>'
-  + '<div><div class="lab">Unmet requirements</div><div class="val">'+allItems.length+'</div><div class="sub">one needs a selection</div></div>'
-  + '<div><div class="lab">Selected</div><div class="val">'+selHours+'</div><div class="sub">hours in '+esc(STUDENT.term)+'</div></div>';
+    '<div><div class="lab">Term</div><div class="val" style="font-size:18px">'+esc(TERM_LABEL||"—")+'</div></div>'
+  + '<div><div class="lab">Courses offered</div><div class="val">'+ALL_COURSES.length+'</div><div class="sub">this term</div></div>'
+  + '<div><div class="lab">Selected</div><div class="val">'+state.picked.size+'</div><div class="sub">course'+(state.picked.size===1?"":"s")+'</div></div>';
+}
 
-  $("#reqlist").innerHTML = REQS.map(g=>
-    '<table class="req"><caption>'+esc(g.group)+'</caption>'
-    + '<thead><tr><th></th><th>Course</th><th>Title</th><th style="text-align:right">Hours</th></tr></thead><tbody>'
-    + g.items.map(it=>{
-        const sel = state.picked.has(it.code);
-        const noData = !CATALOG[it.code];
-        const cls = it.flag ? "off" : ("pick"+(sel?" sel":""));
-        return '<tr class="'+cls+'" data-code="'+esc(it.code)+'">'
-          + '<td class="chk"><input type="checkbox" '+(sel?"checked":"")+' '+(it.flag?"disabled":"")+'></td>'
-          + '<td class="code">'+esc(it.code)+'</td>'
-          + '<td>'+esc(it.title)+(it.flag?'<span class="tagflag">'+esc(it.flag)+'</span>':'')
-            + (it.note?'<span class="subnote">'+esc(it.note)+'</span>':'')
-            + (!it.flag && noData?'<span class="subnote">No sections offered in '+esc(STUDENT.term)+'</span>':'')
-          + '</td><td class="cr">'+it.cr+'</td></tr>';
+function renderSelected(){
+  const codes = [...state.picked];
+  const box = $("#selectedPanel");
+  if(!codes.length){
+    box.innerHTML = '<div class="phead">Selected courses</div><div class="pad"><div class="empty">No courses selected yet. Search above.</div></div>';
+    return;
+  }
+  box.innerHTML = '<div class="phead">Selected courses ('+codes.length+')</div><div class="pad">'
+    + codes.map(c=>{
+        const course = ALL_COURSES.find(x=>x.code===c);
+        return courseRow(c, course?course.title:"", true);
       }).join("")
-    + '</tbody></table>').join("");
+    + '</div>';
+  wireToggles();
+}
 
-  $$("table.req tr.pick").forEach(row=>{
-    const box = $("input",row);
-    row.onclick = e => {
-      if(e.target.tagName!=="INPUT") box.checked = !box.checked;
-      const c=row.dataset.code;
-      if(box.checked) state.picked.add(c);
-      else { state.picked.delete(c); state.chosen.delete(c); if(state.activeCourse===c) state.activeCourse=null; }
+function renderResults(q){
+  const box = $("#courseResults");
+  q = (q||"").trim().toLowerCase();
+  if(!q){ box.innerHTML = ""; return; }
+  const matches = ALL_COURSES.filter(c => (c.code+" "+c.title).toLowerCase().includes(q)).slice(0,40);
+  box.innerHTML = matches.length
+    ? matches.map(c=>courseRow(c.code, c.title, state.picked.has(c.code))).join("")
+    : '<div class="empty">No courses match that search.</div>';
+  wireToggles();
+}
+
+function wireToggles(){
+  $$("[data-toggle]").forEach(b=>{
+    b.onclick = () => {
+      const c = b.dataset.toggle;
+      if(state.picked.has(c)){
+        state.picked.delete(c); state.chosen.delete(c);
+        if(state.activeCourse===c) state.activeCourse=null;
+      } else state.picked.add(c);
       saveState();
-      renderCourses(); renderChrome();
+      renderStats(); renderSelected(); renderResults($("#courseSearch").value); renderChrome();
     };
   });
 }
 
-renderCourses();
+let searchTimer;
+$("#courseSearch").addEventListener("input", e=>{
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(()=>renderResults(e.target.value), 120);
+});
+
+(async ()=>{
+  const hint = $("#courseHint");
+  try{
+    const [term, data] = await Promise.all([ensureTerm(), fetch("/api/courses").then(r=>r.json())]);
+    ALL_COURSES = data.courses;
+    hint.textContent = ALL_COURSES.length
+      ? ALL_COURSES.length.toLocaleString()+" courses offered "+term+". Type to search."
+      : "No course data yet -- the schedule hasn't been scraped.";
+    renderStats();
+    renderSelected();
+  } catch(e){
+    hint.textContent = "Couldn't load course data.";
+  }
+})();

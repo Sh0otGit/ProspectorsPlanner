@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Pick the UTEP courses you still need from your parsed degree evaluation.">
+<meta name="description" content="Search real UTEP courses and pick the ones you still need.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="Select courses | Prospector's Planner">
-<meta property="og:description" content="Pick the UTEP courses you still need from your parsed degree evaluation.">
+<meta property="og:description" content="Search real UTEP courses and pick the ones you still need.">
 <meta property="og:type" content="website">
 <title>Select courses | Prospector's Planner</title>
 <link rel="stylesheet" href="css/styles.css">
@@ -21,13 +21,21 @@
   <div class="wrap">
     <div class="kicker">Step 2 of 5</div>
     <h1>Select courses</h1>
-    <p>Select the courses you intend to register for in Spring 2027.</p>
+    <p>Search real UTEP course offerings and pick the ones you still need.</p>
   </div>
 </div>
 
 <div class="body-area"><div class="wrap">
   <div class="statbar" id="statbar"></div>
-  <div id="reqlist"></div>
+  <div class="panel">
+    <div class="phead">Search courses</div>
+    <div class="pad">
+      <input class="revinput" id="courseSearch" type="text" placeholder="e.g. CS 3350, or Data Structures">
+      <div id="courseHint" style="font-size:12.5px;color:var(--ink-muted);margin-top:8px">Loading course list&hellip;</div>
+      <div id="courseResults" style="margin-top:12px"></div>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:20px" id="selectedPanel"></div>
 </div></div>
 
 <div class="actionbar" id="actionbar">
@@ -42,7 +50,6 @@
 
 <footer class="sitefoot" id="siteFooter"></footer>
 
-<script src="js/data.js"></script>
 <script>window.CURRENT_STEP = 2;</script>
 <script src="js/app.js"></script>
 <script src="js/page-courses.js"></script>

@@ -19,7 +19,7 @@
   <div class="wrap">
     <div class="kicker">Registration Support</div>
     <h1>Course Planner</h1>
-    <p>Turn your degree evaluation into a Spring 2027 schedule and a ready CRN list.</p>
+    <p>Turn your degree evaluation into a schedule and a ready CRN list.</p>
   </div>
 </div>
 
@@ -35,8 +35,8 @@
         <li>Copy your CRNs into Goldmine.</li>
       </ol>
       <div class="factbox">
-        Ratings weight UTEP course evaluations published under Texas HB 2504 and Rate My
-        Professors equally. Sections come from the public Goldmine schedule.
+        Ratings come from real UTEP course evaluations published under Texas HB 2504. Sections
+        come from the public Goldmine schedule.
       </div>
     </div>
     <div>
@@ -44,26 +44,20 @@
         <div class="phead">Start</div>
         <div class="pad">
           <a class="btn primary lg" href="upload.html" style="width:100%">Begin</a>
-          <button class="btn lg" id="viewSampleBtn" style="width:100%;margin-top:9px">View sample results</button>
         </div>
       </div>
     </div>
   </div>
   <div class="notice">
-    <b>Prototype.</b> All instructors, ratings, reviews and CRNs are fabricated. No live data
-    source is connected.
+    <b>Instructor names, ratings and sections are real</b> &mdash; scraped from UTEP's public HB
+    2504 evaluations and Banner class schedule. Requirement parsing from an uploaded degree
+    evaluation isn't built yet, so course selection is a real search instead of a personalized
+    list for now. Rate My Professors isn't wired in. See <a href="methodology.html">Methodology</a>.
   </div>
 </div></div>
 
 <footer class="sitefoot" id="siteFooter"></footer>
 
-<script src="js/data.js"></script>
 <script src="js/app.js"></script>
-<script>
-$("#viewSampleBtn").onclick = () => {
-  if(!state.parsed) seedDemo();
-  location.href = "instructors.html";
-};
-</script>
 </body>
 </html>

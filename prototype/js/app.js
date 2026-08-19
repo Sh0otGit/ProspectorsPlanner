@@ -1,7 +1,6 @@
 /* =====================================================================
    SHARED: state, formatting utilities, scoring, and the chrome
    (progress nav, breadcrumbs, action bar) rendered on every step page.
-   Requires js/data.js to be loaded first for CATALOG.
 
    State lives in sessionStorage, not localStorage: it is scoped to
    the tab and clears on close. Only the student's own choices (picked
@@ -9,6 +8,15 @@
    degree evaluation file or its parsed text. See CLAUDE.md, "The
    degree evaluation must be parsed client-side."
    ===================================================================== */
+
+/* Scoring config -- see CLAUDE.md, "Scoring." The shrinkage constants
+   (university mean, prior weight) are applied server-side now (see
+   server/lib/catalog.js), since that's where the real evaluation rows
+   live; only the eval/RMP blend weight is still needed here, and RMP is
+   never populated today (see combined() below) so this currently always
+   resolves to 100% the UTEP evaluation side. */
+const W_EVAL = 0.5, W_RMP = 0.5;
+const DIST_KEYS = ["Excellent","Good","Satisfactory","Poor","Very Poor"];
 
 const SCREENS = ["index.html","upload.html","courses.html","availability.html","instructors.html","schedule.html"];
 const STEP_LABELS = ["Start","Evaluation","Courses","Availability","Instructors","Schedule"];
@@ -21,10 +29,9 @@ const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 
 /* ---------- escaping ----------
-   Fabricated data never needs this, but real scraped/parsed names,
-   titles and reviews will flow through these same innerHTML templates
-   once Build order phases 3 to 4 land (see CLAUDE.md). Escape any
-   string that could plausibly come from outside this file. */
+   Real scraped names, titles, rooms and course descriptions flow through
+   these innerHTML templates now (see CATALOG below) -- escape any string
+   that could plausibly come from outside this file. */
 function esc(s){
   return String(s).replace(/[&<>"']/g, c => ({
     "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
@@ -41,9 +48,7 @@ function loadState(){
     blocked: new Set(d.blocked || []),
     chosen: new Map(Object.entries(d.chosen || {})),
     activeCourse: d.activeCourse || null,
-    visited: new Set(d.visited && d.visited.length ? d.visited : [0]),
-    revOpen: new Set(d.revOpen || []),
-    revPage: d.revPage || {}
+    visited: new Set(d.visited && d.visited.length ? d.visited : [0])
   };
 }
 function saveState(){
@@ -53,15 +58,49 @@ function saveState(){
     blocked: [...state.blocked],
     chosen: Object.fromEntries(state.chosen),
     activeCourse: state.activeCourse,
-    visited: [...state.visited],
-    revOpen: [...state.revOpen],
-    revPage: state.revPage
+    visited: [...state.visited]
   }));
 }
 const state = loadState();
 
+/* ---------- real course data ----------
+   Replaces the old prototype/js/data.js fabricated CATALOG. Course codes
+   in state.picked are only ever added from a real search against
+   /api/courses (see page-courses.js), so unlike the old CATALOG[c] check,
+   activeCodes() doesn't need to verify a code is "real" -- it already is,
+   by construction. That matters because CATALOG itself is now populated
+   asynchronously (a fetch, not a synchronous object literal), and the
+   chrome/nav rendering that activeCodes() feeds runs on every page load,
+   before any fetch could have resolved -- gating it on CATALOG would have
+   made every step indicator flicker "locked" until the network caught up. */
+const CATALOG = {};
+const CATALOG_TITLE = {};
+async function ensureCatalog(codes){
+  const missing = [...new Set(codes)].filter(c=>!CATALOG[c]);
+  if(!missing.length) return;
+  const results = await Promise.all(missing.map(c =>
+    fetch("/api/course?code="+encodeURIComponent(c)).then(r=>r.json())
+  ));
+  missing.forEach((c,i)=>{
+    CATALOG[c] = results[i].professors;
+    CATALOG_TITLE[c] = results[i].title;
+    if(results[i].term) TERM_LABEL = results[i].term;
+  });
+}
+
+let TERM_LABEL = null;
+async function ensureTerm(){
+  if(TERM_LABEL) return TERM_LABEL;
+  const r = await fetch("/api/term").then(r=>r.json());
+  TERM_LABEL = r.termLabel || "the current term";
+  return TERM_LABEL;
+}
+
 /* chosen course -> {profName, crn}. Resolve the live section object from
-   CATALOG rather than storing it, so data.js stays the single source. */
+   CATALOG rather than storing it, so the fetched data stays the single
+   source. Returns null (not a throw) if that course hasn't been fetched
+   into CATALOG yet on this page -- callers that need it are expected to
+   await ensureCatalog() first. */
 function getChosenSection(code){
   const c = state.chosen.get(code);
   if(!c) return null;
@@ -69,19 +108,15 @@ function getChosenSection(code){
   return p ? p.sections.find(s=>s.crn===c.crn) : null;
 }
 
-/* Steps 2 to 5 are freely navigable once the evaluation is parsed.
-   Instructors and Schedule additionally need at least one schedulable course. */
-function activeCodes(){ return [...state.picked].filter(c=>CATALOG[c]); }
+/* Steps 2 to 5 are freely navigable once the evaluation step is behind
+   you. Instructors and Schedule additionally need at least one selected
+   course. */
+function activeCodes(){ return [...state.picked]; }
 function stepReachable(i){
   if(i<=1) return true;
   if(!state.parsed) return false;
   if(i<=3) return true;
   return activeCodes().length>0;
-}
-function seedDemo(){
-  state.parsed = true;
-  ["CS 3350","CS 3432","CS 4311","MATH 3323","ENGL 3359"].forEach(c=>state.picked.add(c));
-  saveState();
 }
 
 /* ---------- formatting ---------- */
@@ -253,7 +288,7 @@ const SITE_HEADER_HTML = `
       </span>
     </a>
     <span class="spacer"></span>
-    <span class="tag">Prototype / sample data</span>
+    <span class="tag">Real UTEP course data</span>
   </div>
 </div>`;
 
@@ -300,7 +335,8 @@ const SITE_FOOTER_HTML = `
       <b style="color:#fff">Prospector's Planner is an independent student project.</b> It is not affiliated with,
       sponsored by or endorsed by The University of Texas at El Paso. No UTEP logo, wordmark, pick,
       boxmark, seal or mascot is used. UTEP is referenced only to describe which students the tool
-      serves. Prototype build; all data shown is fabricated for design review.
+      serves. Instructor, evaluation and schedule data is real, scraped from public UTEP sources
+      -- see <a href="methodology.html" style="color:#ffb257">Methodology</a>.
     </div>
   </div>`;
 

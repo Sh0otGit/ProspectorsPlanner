@@ -5,16 +5,23 @@ finds the requirements the student has not met, pulls the sections offered next
 term, ranks the instructors teaching them, and outputs a conflict-free schedule
 plus a CRN list ready to paste into Goldmine at registration time.
 
-**Status:** working front-end prototype with fabricated data
-(`prototype/*.html`, `prototype/css/`, `prototype/js/`), plus a real backend
-(`server/`, plain `node:http`, no framework) and working scrapers
-(`scrapers/`) for HB 2504 evaluations and the public Banner class schedule.
-The prototype pages still show fabricated `CATALOG`/`REVIEWS` data -- wiring
-them to the real scraped data in `scrapers/data/lode.db` is next (Build order
-phase 3). Run with `ADMIN_PASSWORD=yourpassword node server/index.js`; it
-serves the public site and the password-gated admin panel
-(`/admin/login.html`) from one process on port 8420. No build step, no npm
-dependencies anywhere in the project.
+**Status:** the public site now runs on real data (Build order phase 3, done
+2026-08-19) -- `server/lib/catalog.js` joins the scraped `sections`,
+`instructors` and `evaluations` tables into the same per-course shape the
+prototype used to get from a fabricated `CATALOG`, served through
+`/api/term`, `/api/courses` and `/api/course`. `prototype/js/data.js` (the
+fabricated `CATALOG`/`REVIEWS`) is gone. The one thing that's *not* real yet
+is "your unmet requirements": there's no degree-evaluation parser (Build
+order phase 4, still deliberately last), so Step 2 is a real search against
+every course actually offered this term instead of a personalized list.
+Rate My Professors is still unscraped, so instructor scores are 100% the
+HB 2504 evaluation side of the blend -- see "Scoring" below. Plus a
+password-gated admin panel (`server/`, plain `node:http`, no framework) and
+working scrapers (`scrapers/`) for HB 2504 evaluations and the public Banner
+class schedule. Run with `ADMIN_PASSWORD=yourpassword node server/index.js`;
+it serves the public site and the admin panel (`/admin/login.html`) from one
+process on port 8420. No build step, no npm dependencies anywhere in the
+project.
 
 Not affiliated with, sponsored by or endorsed by The University of Texas at El
 Paso.
@@ -268,17 +275,44 @@ Ordered by risk — prove the data exists before doing the laborious parts.
    above.</details>
 2. **Schedule ingest — done.** `scrapers/schedule.js` gets CRN/days/times/
    room/instructor directly, full campus, one subject at a time (see
-   Backend and admin above for why it's split from evaluations). There's no
-   separate Goldmine-name-to-HB2504-username join to do since HB 2504
-   usernames are their own key, not derived from Goldmine names.
-3. **Wire the prototype to real data.** Still fabricated. Replace `CATALOG`/
-   `REVIEWS` in `prototype/js/data.js` with fetches against `scrapers/data/lode.db`
-   (through a small read API in `server/index.js` — doesn't exist yet, only
-   the admin and reviews endpoints do). Keep the scoring/shrinkage/display
-   rules above intact.
-4. **Degree evaluation parser**, deliberately last, once real course codes
-   exist to validate against. Runs in-browser, never uploads. Fails loudly
-   when unsure rather than guessing.
+   Backend and admin above for why it's split from evaluations). HB 2504
+   usernames are their own key, not derived from Goldmine names — but a
+   Goldmine-name-to-HB2504-username join turned out to be very much needed
+   anyway once real course/instructor data got wired up in phase 3 below:
+   Banner's schedule gives instructor names as "First Last (P)", HB 2504
+   gives them as "Last, First[ Middle initial]", and there's no shared ID
+   between the two sources at all. Solved in `server/lib/catalog.js` by
+   matching on the *set* of name words (one side's words fully contained in
+   the other's, so a missing middle initial doesn't break the match) rather
+   than an exact string — confirmed necessary against real data, not
+   theoretical: "Vladik Kreinovich" (Banner) only matched "Kreinovich,
+   Vladik Y." (HB 2504) once the match allowed for that extra initial.
+3. **Wire the prototype to real data — done 2026-08-19.** `prototype/js/data.js`
+   (the fabricated `CATALOG`/`REVIEWS`) is deleted. `server/lib/catalog.js`
+   joins `sections`/`instructors`/`evaluations` into the same per-course
+   shape, served through `/api/term`, `/api/courses`, `/api/course` (public,
+   no auth — this is student-facing data, not admin). The scoring/shrinkage
+   rules above are applied server-side now, in `aggregateInstructor()`,
+   aggregated across *all* of an instructor's evaluations campus-wide (every
+   course, every term on file), not just the course being looked up — that's
+   what "rank on the instructor rating, not the course rating" requires.
+   Recency weighting (a linear decay by year parsed from `term_label`) is
+   applied to the raw average going into that aggregate, but not to the
+   response count feeding the shrinkage formula itself — shrinkage is about
+   sample-size confidence, which shouldn't be discounted by how old the
+   sample is. RMP fields are always `null` (never scraped, see Data sources)
+   and every section omits seats/capacity (doesn't exist in any public UTEP
+   source, not just unscraped) — both are left out of the UI entirely rather
+   than rendered as a permanent "n/a". Step 2 (course selection) can't be
+   "your unmet requirements" without the phase 4 parser below, so it's a
+   real search against every course offered this term instead, fetched once
+   from `/api/courses` (~2,145 rows this term) and filtered client-side.
+4. **Degree evaluation parser** — next up. Real course codes to validate
+   against now exist (`/api/courses`, phase 3 above), which is what this was
+   waiting on. Runs in-browser, never uploads. Fails loudly when unsure
+   rather than guessing. Until this lands, Step 1 (upload) doesn't extract
+   anything — it just acknowledges the file and sends you to the real course
+   search in Step 2.
 5. **Ship.** `.ics` export, real persistence (localStorage) for return visits,
    touch support on the availability grid, an elective-block browser, live
    seat-count refresh during registration week, stale-data error states.
