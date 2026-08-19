@@ -7,11 +7,14 @@
        CLAUDE.md), not something to repeat daily.
    Both are callable standalone (`node scrapers/run.js schedule` or
    `node scrapers/run.js evaluations`) and from server/lib/scheduler.js. */
+import { pathToFileURL } from "node:url";
 import { db } from "./lib/db.js";
 import { fetchDirectory, filterByDepartment } from "./faculty_directory.js";
 import { fetchProfileEvaluationLinks } from "./profiles.js";
 import { fetchEvaluation } from "./evaluations.js";
 import { fetchSchedule, fetchSubjects } from "./schedule.js";
+import { fetchAllProfessors, fetchProfessorDetail } from "./rmp.js";
+import { nameTokenSet, cleanBannerName, findByName } from "../server/lib/name-match.js";
 
 export const DEFAULT_TERM = "202710"; // Fall 2026
 export const DEFAULT_DEPARTMENT = "Computer Science"; // still available for a scoped run
@@ -186,9 +189,169 @@ export async function scrapeAllEvaluations(onProgress) {
 }
 
 /* =====================================================================
-   CLI: node scrapers/run.js [schedule|evaluations] [--all]
+   RATE MY PROFESSORS -- see rmp.js's header for why this exists despite
+   RMP's ToS, and CLAUDE.md's Data sources entry for the same. Two steps:
+   the full campus professor list (aggregate numbers, cheap), then a
+   *bounded* review pull -- but only for professors who also match someone
+   actually teaching a real UTEP section this term, not the full ~2,400.
+   Scraping detail pages for professors nobody's actively comparing on
+   this site would be exactly the unbounded pull CLAUDE.md's plan says
+   not to do.
    ===================================================================== */
-if (import.meta.url === `file://${process.argv[1]}`) {
+const upsertRmpProfessor = db.prepare(`
+  INSERT INTO rmp_professors (legacy_id, first_name, last_name, department,
+    avg_rating, num_ratings, would_take_again_pct, avg_difficulty, scraped_at)
+  VALUES (@legacyId, @firstName, @lastName, @department,
+    @avgRating, @numRatings, @wouldTakeAgainPercent, @avgDifficulty, @scrapedAt)
+  ON CONFLICT(legacy_id) DO UPDATE SET
+    first_name=excluded.first_name, last_name=excluded.last_name, department=excluded.department,
+    avg_rating=excluded.avg_rating, num_ratings=excluded.num_ratings,
+    would_take_again_pct=excluded.would_take_again_pct, avg_difficulty=excluded.avg_difficulty,
+    scraped_at=excluded.scraped_at
+`);
+const upsertRmpReview = db.prepare(`
+  INSERT INTO rmp_reviews (legacy_id, review_id, course_code, rating_date, quality, difficulty,
+    would_take_again, grade, tags, comment, scraped_at)
+  VALUES (@legacyId, @reviewId, @courseCode, @ratingDate, @quality, @difficulty,
+    @wouldTakeAgain, @grade, @tags, @comment, @scrapedAt)
+  ON CONFLICT(legacy_id, review_id) DO UPDATE SET
+    course_code=excluded.course_code, rating_date=excluded.rating_date, quality=excluded.quality,
+    difficulty=excluded.difficulty, would_take_again=excluded.would_take_again, grade=excluded.grade,
+    tags=excluded.tags, comment=excluded.comment, scraped_at=excluded.scraped_at
+`);
+const deleteRmpReviewsFor = db.prepare(`DELETE FROM rmp_reviews WHERE legacy_id = ?`);
+
+/* Every UTEP professor RMP has on file, aggregate numbers only. Batched
+   into one transaction (same reasoning as the schedule/evaluations
+   scrapers -- see CLAUDE.md's Performance note) since this is ~2,400
+   single-row upserts that would otherwise each be their own fsync. */
+export async function scrapeAllRmpProfessors(onProgress) {
+  const professors = await fetchAllProfessors((done, total) => onProgress?.(done, total, "professor list", 0));
+  const scrapedAt = new Date().toISOString();
+  db.exec("BEGIN");
+  try {
+    for (const p of professors) {
+      upsertRmpProfessor.run({
+        legacyId: p.legacyId,
+        firstName: (p.firstName || "").trim(),
+        lastName: (p.lastName || "").trim(),
+        department: p.department || null,
+        avgRating: p.avgRating ?? null,
+        numRatings: p.numRatings ?? null,
+        wouldTakeAgainPercent: p.wouldTakeAgainPercent ?? null,
+        avgDifficulty: p.avgDifficulty ?? null,
+        scrapedAt,
+      });
+    }
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+  return professors.length;
+}
+
+/* Distinct Banner instructor names currently teaching a real section,
+   matched against the rmp_professors list just scraped -- this is the
+   bound. A professor RMP has on file but who isn't teaching anything
+   real right now never gets a detail page fetched, so this project's
+   review-text footprint tracks "instructors students might actually be
+   comparing," not "everyone RMP has ever heard of at UTEP." */
+function currentlyTeachingRmpMatches() {
+  const names = db
+    .prepare(`SELECT DISTINCT instructor_name FROM sections WHERE instructor_name IS NOT NULL`)
+    .all()
+    .map((r) => cleanBannerName(r.instructor_name))
+    .filter(Boolean);
+  const rmpIndex = db
+    .prepare(`SELECT * FROM rmp_professors`)
+    .all()
+    .map((row) => ({ tokens: nameTokenSet(`${row.first_name} ${row.last_name}`), row }));
+  const matches = new Map(); // legacy_id -> row, de-duplicated
+  for (const name of names) {
+    const match = findByName(rmpIndex, name);
+    if (match) matches.set(match.legacy_id, match);
+  }
+  return [...matches.values()];
+}
+
+/* The bounded part: one detail-page fetch per currently-teaching matched
+   professor, storing whatever reviews that page embeds (see rmp.js).
+   Replaces that professor's whole review set each time rather than
+   accumulating forever, since RMP doesn't expose a stable "since last
+   scrape" cursor for reviews the way HB 2504's evaluations do. */
+export async function scrapeRmpReviews(onProgress) {
+  const targets = currentlyTeachingRmpMatches();
+  let reviewCount = 0;
+  for (let i = 0; i < targets.length; i++) {
+    const t = targets[i];
+    const detail = await fetchProfessorDetail(t.legacy_id);
+    const scrapedAt = new Date().toISOString();
+    db.exec("BEGIN");
+    try {
+      upsertRmpProfessor.run({
+        legacyId: detail.legacyId,
+        firstName: detail.firstName || "",
+        lastName: detail.lastName || "",
+        department: detail.department,
+        avgRating: detail.avgRating,
+        numRatings: detail.numRatings,
+        wouldTakeAgainPercent: detail.wouldTakeAgainPercent,
+        avgDifficulty: detail.avgDifficulty,
+        scrapedAt,
+      });
+      deleteRmpReviewsFor.run(detail.legacyId);
+      for (const r of detail.reviews) {
+        upsertRmpReview.run({
+          legacyId: detail.legacyId,
+          reviewId: r.reviewId,
+          courseCode: r.courseCode,
+          ratingDate: r.date,
+          quality: r.quality,
+          difficulty: r.difficulty,
+          wouldTakeAgain: r.wouldTakeAgain,
+          grade: r.grade,
+          tags: JSON.stringify(r.tags),
+          comment: r.comment,
+          scrapedAt,
+        });
+        reviewCount++;
+      }
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+    onProgress?.(i + 1, targets.length, `${detail.firstName} ${detail.lastName}`.trim(), reviewCount);
+  }
+  return { instructorsMatched: targets.length, reviewCount };
+}
+
+/* The whole RMP scrape: campus list, then bounded reviews for whoever's
+   actually teaching right now. One admin button, two steps. */
+export async function scrapeRmp(onProgress) {
+  const professorCount = await scrapeAllRmpProfessors(onProgress);
+  const { instructorsMatched, reviewCount } = await scrapeRmpReviews(onProgress);
+  return { professorCount, instructorsMatched, reviewCount };
+}
+
+/* =====================================================================
+   CLI: node scrapers/run.js [schedule|evaluations|rmp] [--all]
+
+   "Is this file the one Node was actually invoked on, or just imported
+   by something else" (server/lib/scheduler.js imports this same file and
+   must NOT trigger the CLI block on server boot) can't be a plain
+   `import.meta.url === \`file://${process.argv[1]}\`` string-build --
+   process.argv[1] is a plain filesystem path ("C:\dev\lode\scrapers\run.js"
+   on Windows, backslashes and no leading "file://"), import.meta.url is a
+   real URL ("file:///C:/dev/lode/scrapers/run.js", forward slashes, three
+   slashes after the scheme). Those never match by string equality on
+   Windows -- confirmed the hard way: every `node scrapers/run.js <mode>`
+   invocation this project ever ran from a Windows shell silently did
+   nothing, the whole CLI block just never executed. pathToFileURL() is
+   what actually normalizes a filesystem path into the same URL form
+   import.meta.url already is, on any platform. */
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [, , mode] = process.argv;
   if (mode === "evaluations") {
     scrapeAllEvaluations((done, total, label, newEvals) =>
@@ -196,6 +359,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     )
       .then((r) => console.log(`\n${r.instructors} instructors scanned campus-wide, ${r.newEvaluations} new evaluations`))
       .catch((e) => { console.error("\nEvaluations scrape failed:", e.message); process.exit(1); });
+  } else if (mode === "rmp") {
+    scrapeRmp((done, total, label) => process.stdout.write(`\r${done}/${total} (${label})   `))
+      .then((r) => console.log(`\n${r.professorCount} RMP professors listed, ${r.instructorsMatched} matched to real sections, ${r.reviewCount} reviews stored`))
+      .catch((e) => { console.error("\nRMP scrape failed:", e.message); process.exit(1); });
   } else if (mode === "schedule" || mode === undefined) {
     scrapeAllSections(undefined, (done, total, label, count) =>
       process.stdout.write(`\r${done}/${total} subjects (${label}), ${count} sections   `)
@@ -203,7 +370,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       .then((r) => console.log(`\n${r.subjectsScanned} subjects scanned, ${r.sectionsCount} sections`))
       .catch((e) => { console.error("\nSchedule scrape failed:", e.message); process.exit(1); });
   } else {
-    console.error(`Unknown mode "${mode}". Use "schedule" or "evaluations".`);
+    console.error(`Unknown mode "${mode}". Use "schedule", "evaluations", or "rmp".`);
     process.exit(1);
   }
 }

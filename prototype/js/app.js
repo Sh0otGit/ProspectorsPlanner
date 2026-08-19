@@ -12,11 +12,10 @@
 /* Scoring config -- see CLAUDE.md, "Scoring." The shrinkage constants
    (university mean, prior weight) are applied server-side now (see
    server/lib/catalog.js), since that's where the real evaluation rows
-   live; only the eval/RMP blend weight is still needed here, and RMP is
-   never populated today (see combined() below) so this currently always
-   resolves to 100% the UTEP evaluation side. */
+   live; only the eval/RMP blend weight is still needed here. */
 const W_EVAL = 0.5, W_RMP = 0.5;
 const DIST_KEYS = ["Excellent","Good","Satisfactory","Poor","Very Poor"];
+const REVIEWS_PER_PAGE = 3;
 
 const SCREENS = ["index.html","upload.html","courses.html","availability.html","instructors.html","schedule.html"];
 const STEP_LABELS = ["Start","Evaluation","Courses","Availability","Instructors","Schedule"];
@@ -48,7 +47,9 @@ function loadState(){
     blocked: new Set(d.blocked || []),
     chosen: new Map(Object.entries(d.chosen || {})),
     activeCourse: d.activeCourse || null,
-    visited: new Set(d.visited && d.visited.length ? d.visited : [0])
+    visited: new Set(d.visited && d.visited.length ? d.visited : [0]),
+    revOpen: new Set(d.revOpen || []),
+    revPage: d.revPage || {}
   };
 }
 function saveState(){
@@ -58,7 +59,9 @@ function saveState(){
     blocked: [...state.blocked],
     chosen: Object.fromEntries(state.chosen),
     activeCourse: state.activeCourse,
-    visited: [...state.visited]
+    visited: [...state.visited],
+    revOpen: [...state.revOpen],
+    revPage: state.revPage
   }));
 }
 const state = loadState();
@@ -148,32 +151,24 @@ function sectionSlots(sec){
   return out;
 }
 const hitsBlocked = sec => sectionSlots(sec).some(k=>state.blocked.has(k));
-function occupiedSlots(exceptCode){
-  const s=new Set();
-  for(const code of state.chosen.keys()){
-    if(code===exceptCode) continue;
-    const sec = getChosenSection(code);
-    if(sec) sectionSlots(sec).forEach(k=>s.add(k));
+
+/* Codes of other added courses whose section overlaps this one's -- lets
+   the UI name which course conflicts, not just whether one does. */
+function conflictingCodes(sec, exceptCode){
+  const mine = new Set(sectionSlots(sec));
+  const out = [];
+  for(const other of state.chosen.keys()){
+    if(other===exceptCode) continue;
+    const otherSec = getChosenSection(other);
+    if(otherSec && sectionSlots(otherSec).some(k=>mine.has(k))) out.push(other);
   }
-  return s;
+  return out;
 }
-const hitsEnrolled = (sec,code) => {
-  const occ=occupiedSlots(code);
-  return sectionSlots(sec).some(k=>occ.has(k));
-};
 
 /* Number of other added courses whose section overlaps this one's. */
 function conflictCount(code){
   const sec = getChosenSection(code);
-  if(!sec) return 0;
-  const mine = new Set(sectionSlots(sec));
-  let n = 0;
-  for(const other of state.chosen.keys()){
-    if(other===code) continue;
-    const otherSec = getChosenSection(other);
-    if(otherSec && sectionSlots(otherSec).some(k=>mine.has(k))) n++;
-  }
-  return n;
+  return sec ? conflictingCodes(sec, code).length : 0;
 }
 
 function combined(p){

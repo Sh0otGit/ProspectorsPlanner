@@ -8,6 +8,7 @@
        <td><a ... href="CourseEval?username=X&courseID=NNN" ...>Evaluation</a></td>
      </tr> */
 import { politeFetch } from "./lib/fetch.js";
+import { decodeEntities } from "./lib/decode-entities.js";
 
 const BASE = "https://hb2504.utep.edu";
 const ROW_RE =
@@ -18,7 +19,8 @@ const ROW_RE =
 export function parseProfileLinks(html) {
   const links = [];
   for (const m of html.matchAll(ROW_RE)) {
-    const [, termLabel, courseCell, crn, linkUsername, courseId] = m;
+    const [, termLabel, rawCourseCell, crn, linkUsername, courseId] = m;
+    const courseCell = decodeEntities(rawCourseCell);
     const dashIdx = courseCell.indexOf(" - ");
     const courseCode = (dashIdx === -1 ? courseCell : courseCell.slice(0, dashIdx)).trim();
     const courseTitle = (dashIdx === -1 ? "" : courseCell.slice(dashIdx + 3)).trim();

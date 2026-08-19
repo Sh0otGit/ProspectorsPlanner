@@ -1,4 +1,9 @@
-const nextAutoRunAt = { schedule: null, evaluations: null };
+const KINDS = {
+  schedule: { prefix: "sched", btn: "rescrapeSchedBtn", msg: "rescrapeSchedMsg", label: "Rescrape schedule now", countField: "sections_count", countLabel: (n) => `${n} sections` },
+  evaluations: { prefix: "eval", btn: "rescrapeEvalBtn", msg: "rescrapeEvalMsg", label: "Rescrape evaluations now", countField: "evaluations_count", countLabel: (n) => `${n} new evaluations` },
+  rmp: { prefix: "rmp", btn: "rescrapeRmpBtn", msg: "rescrapeRmpMsg", label: "Rescrape RMP now", countField: "rmp_count", countLabel: (n) => `${n} reviews` },
+};
+const nextAutoRunAt = { schedule: null, evaluations: null, rmp: null };
 
 function fmtDate(iso) {
   if (!iso) return "Never";
@@ -21,8 +26,8 @@ async function loadStatus() {
   const res = await adminFetch("/admin/api/status");
   const data = await res.json();
 
-  for (const kind of ["schedule", "evaluations"]) {
-    const k = kind === "schedule" ? "sched" : "eval";
+  for (const [kind, cfg] of Object.entries(KINDS)) {
+    const k = cfg.prefix;
     const info = data[kind];
     document.getElementById(`${k}Status`).textContent = info.running ? "Running" : "Idle";
     nextAutoRunAt[kind] = new Date(info.nextAutoRunAt);
@@ -36,17 +41,17 @@ async function loadStatus() {
       document.getElementById(`${k}Last`).textContent = "Never";
     }
 
-    const btn = document.getElementById(kind === "schedule" ? "rescrapeSchedBtn" : "rescrapeEvalBtn");
+    const btn = document.getElementById(cfg.btn);
     btn.disabled = info.running;
-    btn.textContent = info.running ? "Running…" : (kind === "schedule" ? "Rescrape schedule now" : "Rescrape evaluations now");
+    btn.textContent = info.running ? "Running…" : cfg.label;
 
     const progressWrap = document.getElementById(`${k}Progress`);
     if (info.running && info.lastRun && info.lastRun.progress_total) {
-      const { progress_current, progress_done, progress_total, sections_count, evaluations_count } = info.lastRun;
+      const { progress_current, progress_done, progress_total } = info.lastRun;
       const pct = Math.min(100, Math.round((progress_done / progress_total) * 100));
       progressWrap.hidden = false;
       document.getElementById(`${k}ProgressBar`).style.width = pct + "%";
-      const countLabel = kind === "schedule" ? `${sections_count} sections` : `${evaluations_count} new evaluations`;
+      const countLabel = cfg.countLabel(info.lastRun[cfg.countField] ?? 0);
       document.getElementById(`${k}ProgressLabel`).textContent =
         `${progress_done} / ${progress_total} — ${progress_current || ""} — ${countLabel} so far`;
     } else {
@@ -60,7 +65,7 @@ async function loadRuns() {
   const { runs } = await res.json();
   const body = document.getElementById("runsBody");
   if (!runs.length) {
-    body.innerHTML = '<tr><td colspan="7" class="empty">No runs yet.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="empty">No runs yet.</td></tr>';
     return;
   }
   body.innerHTML = runs.map((r) => `
@@ -71,6 +76,7 @@ async function loadRuns() {
       <td>${fmtDate(r.started_at)}</td>
       <td>${r.sections_count ?? "—"}</td>
       <td>${r.evaluations_count ?? "—"}</td>
+      <td>${r.rmp_count ?? "—"}</td>
       <td style="max-width:280px">${r.summary ? escapeHtml(r.summary) : ""}</td>
     </tr>`).join("");
 }
@@ -96,11 +102,18 @@ document.getElementById("rescrapeEvalBtn").onclick = async () => {
   await refresh();
 };
 
+document.getElementById("rescrapeRmpBtn").onclick = async () => {
+  const msg = document.getElementById("rescrapeRmpMsg");
+  const res = await adminFetch("/admin/api/rescrape-rmp", { method: "POST" });
+  const body = await res.json().catch(() => ({}));
+  msg.textContent = res.status === 202 ? "Started." : (body.error || "Could not start.");
+  await refresh();
+};
+
 refresh();
 setInterval(() => {
-  for (const kind of ["schedule", "evaluations"]) {
-    const k = kind === "schedule" ? "sched" : "eval";
-    if (nextAutoRunAt[kind]) document.getElementById(`${k}Next`).textContent = fmtCountdown(nextAutoRunAt[kind]);
+  for (const [kind, cfg] of Object.entries(KINDS)) {
+    if (nextAutoRunAt[kind]) document.getElementById(`${cfg.prefix}Next`).textContent = fmtCountdown(nextAutoRunAt[kind]);
   }
 }, 30000);
 setInterval(refresh, 15000);

@@ -3,9 +3,11 @@
    CATALOG/CATALOG_TITLE are fetched on demand (see ensureCatalog in
    app.js) rather than available synchronously the way the old fabricated
    CATALOG was, so this whole page waits on that fetch before its first
-   render. No RMP data exists (never scraped, see CLAUDE.md) and no seat
-   counts exist (not published anywhere public) -- both are left out of
-   the UI entirely rather than shown as a permanent "n/a".
+   render. RMP data (aggregate + a bounded review sample) is real when a
+   Banner name matches an rmp_professors row -- see server/lib/catalog.js
+   and scrapers/rmp.js -- and every RMP block links back to the source
+   page, per CLAUDE.md's plan for this source. No seat counts exist (not
+   published anywhere public), left out of the UI entirely.
    ===================================================================== */
 async function init(){
   const codes = activeCodes();
@@ -35,14 +37,19 @@ function renderResults(){
     const title = CATALOG_TITLE[code];
     const pick = state.chosen.get(code);
     const profs = CATALOG[code] || [];
-    const conflicts = pick ? conflictCount(code) : 0;
+    /* Both kinds of problem a picked section can have -- clashing with
+       another added course, and sitting on a blocked hour -- count toward
+       this badge, not just the course-vs-course kind. A section that does
+       both showed "Conflict (1)" before, hiding the blocked-hour half. */
+    const pickSec = pick ? getChosenSection(code) : null;
+    const issues = pickSec ? conflictCount(code) + (hitsBlocked(pickSec)?1:0) : 0;
     return '<button class="ctab'+(code===state.activeCourse?" on":"")+(pick?" added":"")+'" data-tab="'+esc(code)+'">'
       + '<span class="c">'+esc(code)+'</span>'
       + '<span class="t">'+(title?esc(title):"")+'</span>'
       + '<span class="s">'
       + (pick ? "CRN "+esc(pick.crn)+" added" : num(profs.length)+" instructor"+(profs.length===1?"":"s"))
       + '</span>'
-      + (conflicts ? '<span class="tabconflict">Conflict ('+conflicts+')</span>' : "")
+      + (issues ? '<span class="tabconflict">Conflict ('+issues+')</span>' : "")
       + '</button>';
   }).join("");
   $$("[data-tab]").forEach(b=>b.onclick=()=>{ state.activeCourse=b.dataset.tab; saveState(); renderResults(); });
@@ -78,6 +85,79 @@ function renderResults(){
       renderResults(); renderChrome();
     };
   });
+
+  $$("details[data-rev]").forEach(d=>{
+    d.ontoggle = ()=>{
+      const nm = d.dataset.rev;
+      if(d.open) state.revOpen.add(nm); else state.revOpen.delete(nm);
+      saveState();
+    };
+  });
+  $$("[data-revpage]").forEach(b=>{
+    b.onclick = e => {
+      e.preventDefault(); e.stopPropagation();
+      state.revPage[b.dataset.revprof] = +b.dataset.revpage;
+      saveState();
+      renderResults();
+    };
+  });
+}
+
+/* Sorted by rating only for now. See sortReviews below if that changes. */
+function sortReviews(list){
+  return list.slice().sort((a,b)=>b.q-a.q);
+}
+
+/* « first, ‹ back, up to three page numbers centered on the current
+   page, › forward, » last. */
+function pagerHTML(page, pages, nm){
+  if(pages<=1) return "";
+  const nav = (i,label,disabled)=>'<button data-revpage="'+i+'" data-revprof="'+esc(nm)+'"'+(disabled?" disabled":"")+'>'+label+'</button>';
+  const num = (i)=>'<button data-revpage="'+i+'" data-revprof="'+esc(nm)+'" class="'+(i===page?"on":"")+'">'+(i+1)+'</button>';
+  let mid = "";
+  for(let i=Math.max(0,page-1); i<=Math.min(pages-1,page+1); i++) mid += num(i);
+  return '<div class="revpages">'
+    + nav(0,"&laquo;",page===0)
+    + nav(Math.max(0,page-1),"&lsaquo;",page===0)
+    + mid
+    + nav(Math.min(pages-1,page+1),"&rsaquo;",page===pages-1)
+    + nav(pages-1,"&raquo;",page===pages-1)
+    + '</div>';
+}
+
+function reviewsHTML(p){
+  const raw = p.reviews || [];
+  if(!raw.length) return "";
+  const all = sortReviews(raw);
+  const pages = Math.ceil(all.length / REVIEWS_PER_PAGE);
+  let page = state.revPage[p.name] || 0;
+  if(page > pages-1) page = pages-1;
+  const slice = all.slice(page*REVIEWS_PER_PAGE, page*REVIEWS_PER_PAGE + REVIEWS_PER_PAGE);
+  const nm = p.name;
+
+  return '<details class="reviews" data-rev="'+esc(nm)+'"'+(state.revOpen.has(nm)?" open":"")+'>'
+    + '<summary>View Rate My Professors reviews ('+all.length+')</summary>'
+    + '<div class="revlist">'
+    + slice.map(r=>
+        '<div class="rev" style="border-left-color:'+qColor(Math.round(r.q))+'">'
+        + '<div class="rev-top">'
+          + '<span class="rev-q" style="background:'+qColor(Math.round(r.q))+'">'+r.q.toFixed(1)+'</span>'
+          + '<span class="rev-course">'+esc(r.course)+'</span>'
+          + '<span>'+esc(r.date)+'</span>'
+          + (r.d!=null?'<span>Difficulty '+r.d.toFixed(1)+'</span>':"")
+          + (r.grade?'<span>Grade '+esc(r.grade)+'</span>':"")
+          + (r.wta!=null?'<span>'+(r.wta?"Would take again":"Would not take again")+'</span>':"")
+        + '</div>'
+        + '<div class="rev-text">'+esc(r.text)+'</div>'
+        + (r.tags&&r.tags.length?'<div class="rev-tags">'+r.tags.map(t=>'<span class="rev-tag">'+esc(t)+'</span>').join("")+'</div>':"")
+        + '</div>').join("")
+    + '</div>'
+    + '<div class="revnav">'
+      + '<span class="pg">Page '+(page+1)+' of '+pages+'</span>'
+      + '<span class="spacer"></span>'
+      + pagerHTML(page,pages,nm)
+    + '</div>'
+    + '</details>';
 }
 
 function profHTML(code,p,hideConflict){
@@ -114,24 +194,31 @@ function profHTML(code,p,hideConflict){
      + '<span class="bignum">'+(score==null?"n/a":score.toFixed(2))+'</span>'
      + '<span class="of">of 5.00</span></div>'
    + warn + distHTML
-   + '<div class="metrics" style="grid-template-columns:1fr;max-width:220px">'
+   + '<div class="metrics">'
      + '<div><div class="k">UTEP evaluation'+tip("Instructor rating from UTEP course evaluations, published under Texas HB 2504. Shrunk toward the university mean when response counts are low.")+'</div><div class="v">'+(p.evalAdj?p.evalAdj.toFixed(2)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
+     + '<div><div class="k">Rate My Professors'+tip("Aggregate quality rating from Rate My Professors, a third-party site. Self-selected reviews, not a UTEP source.")+'</div><div class="v">'+(p.rmp?p.rmp.score.toFixed(1)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
+     + '<div><div class="k">Difficulty'+tip("Self-reported course difficulty from Rate My Professors. Not part of the UTEP evaluation.")+'</div><div class="v">'+(p.rmp&&p.rmp.diff!=null?p.rmp.diff.toFixed(1)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
    + '</div>'
+   + (p.rmp ? '<div style="margin-top:8px"><a href="https://www.ratemyprofessors.com/professor/'+esc(p.rmp.legacyId)+'" target="_blank" rel="noopener" style="font-size:12.5px">View on Rate My Professors</a>'
+       + (p.rmp.wta!=null?' <span style="color:var(--ink-muted);font-size:12.5px">&middot; '+Math.round(p.rmp.wta)+'% would take again</span>':"")
+       + '</div>' : "")
+   + reviewsHTML(p)
    + '</div>'
    + '<div class="prof-side"><h5>Sections, '+esc(TERM_LABEL||"this term")+'</h5>'
    + secs.map(s=>{
       const blocked = hitsBlocked(s);
-      const clash   = hitsEnrolled(s,code);
+      const clashWith = conflictingCodes(s,code);
+      const clash = clashWith.length>0;
       const added   = pick && pick.crn===s.crn;
       const when    = s.days.length ? s.days.join("")+" &middot; "+fmt(s.start)+" to "+fmt(s.end) : "Asynchronous";
       return '<div class="sect '+(added?"added":"")+' '+((blocked||clash)&&!added?"conflict":"")+'">'
         + '<div style="display:flex;justify-content:space-between;gap:8px">'
           + '<span class="crn">CRN '+esc(s.crn)+'</span>'
           + '<span style="font-size:11.5px;color:var(--ink-muted)">'+esc(s.scheduleType||"")+'</span></div>'
-        + '<div class="when">'+when+'</div>'
+        + '<div class="when'+(clash?" clashtime":"")+'">'+when+'</div>'
         + '<div class="where">'+esc(s.room||"TBA")+'</div>'
         + (blocked?'<div class="warnline">Overlaps a blocked hour</div>':"")
-        + (clash?'<div class="warnline">Conflicts with a section you added</div>':"")
+        + (clash?'<div class="warnline">Conflicts with '+clashWith.map(esc).join(", ")+'</div>':"")
         + '<button class="btn sm '+(added?"":"blue")+'" style="margin-top:9px;width:100%" data-add '
           + 'data-code="'+esc(code)+'" data-prof="'+esc(p.name)+'" data-crn="'+esc(s.crn)+'">'
           + (added?"Remove":"Add to schedule")+'</button>'

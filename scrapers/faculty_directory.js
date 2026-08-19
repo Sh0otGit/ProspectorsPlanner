@@ -5,6 +5,7 @@
        <span class="fst-italic"> - College - Department[ - Sub-unit] - Rank</span>
      </p> */
 import { politeFetch } from "./lib/fetch.js";
+import { decodeEntities } from "./lib/decode-entities.js";
 
 const BASE = "https://hb2504.utep.edu";
 const ROW_RE =
@@ -16,8 +17,8 @@ export function parseDirectory(html) {
   const rows = [];
   for (const m of html.matchAll(ROW_RE)) {
     const [, username, rawName, rawMeta] = m;
-    const name = rawName.replace(/\s+/g, " ").trim();
-    const parts = rawMeta.split(" - ").map((s) => s.trim());
+    const name = decodeEntities(rawName.replace(/\s+/g, " ").trim());
+    const parts = decodeEntities(rawMeta).split(" - ").map((s) => s.trim());
     rows.push({
       username,
       name,

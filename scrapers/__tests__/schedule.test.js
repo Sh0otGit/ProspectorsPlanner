@@ -70,6 +70,42 @@ test("returns null (not throw) for a chunk with no header match", () => {
   assert.equal(parseSectionChunk("<p>not a section chunk</p>"), null);
 });
 
+test("regression: a TBA/async section's <ABBR>-wrapped time doesn't drop the whole row", () => {
+  // Real, observed markup for an online/TBA section: Banner wraps "TBA" in
+  // `<ABBR title = "To Be Announced">TBA</ABBR>`, not plain text. The old
+  // Time-column pattern ([^<]*, no tags allowed) couldn't match past that
+  // "<", which failed the *entire* row -- not just the time -- silently
+  // dropping instructor name and days too. Confirmed at campus scale: 4,720
+  // of 7,196 sections (65.6%) had come back with instructor_name null
+  // before this fix, for exactly this reason.
+  const chunk = `
+<a href="/prod/owa/bwckschd.p_disp_detail_sched?term_in=202710&amp;crn_in=18283">Introduction to Politics - 18283 - POLS 2310 - 002</a>
+Associated Term: </SPAN>Fall 2026<br>
+Registration Dates: </SPAN>Mar 09, 2026 to Aug 28, 2026<br>
+
+Main Campus<br>
+Lecture Schedule Type<br>
+3.000 Credits
+<table>
+<tr>
+<td CLASS="dddefault">Class</td>
+<td CLASS="dddefault"><ABBR title = "To Be Announced">TBA</ABBR></td>
+<td CLASS="dddefault">&nbsp;</td>
+<td CLASS="dddefault">On-Line Course ONLINE<BR /><BR />ADA Accessible</td>
+<td CLASS="dddefault">Aug 24, 2026 - Dec 03, 2026</td>
+<td CLASS="dddefault">Lecture (LECT)</td>
+<td CLASS="dddefault">Estella Leticia Guadalupe  Valles-Garza (<ABBR title= "Primary">P</ABBR>)<a href="mailto:evalles9@utep.edu" target="x"><img src="/wtlgifs/email.gif"></a></td>
+<td CLASS="dddefault">Lecture</td>
+</tr>
+</table>`;
+  const s = parseSectionChunk(chunk);
+  assert.equal(s.instructorName, "Estella Leticia Guadalupe Valles-Garza (P)");
+  assert.equal(s.days, null); // real day/nbsp cell for a genuinely TBA section -- correctly null, not "&nbsp;"
+  assert.equal(s.startTime, null);
+  assert.equal(s.endTime, null);
+  assert.equal(s.room, "On-Line Course ONLINE");
+});
+
 test("parseSubjects reads option values, drops the wildcard", () => {
   const html = `<select name="sel_subj" multiple>
     <option value="%">All</option>

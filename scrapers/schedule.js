@@ -7,6 +7,7 @@
    No seats/capacity here -- confirmed absent from this public view, see
    CLAUDE.md. Only meeting time, room, and instructor are available. */
 import { politeFetch } from "./lib/fetch.js";
+import { decodeEntities } from "./lib/decode-entities.js";
 
 const BASE = "https://www.goldmine.utep.edu/prod/owa";
 const WILDCARD_FIELDS = [
@@ -31,8 +32,19 @@ const FIELD_RE = (label) => new RegExp(`${label}:\\s*<\\/SPAN>([^<]+)<br`, "i");
 const CAMPUS_RE = /\n\s*([A-Za-z0-9 .,'-]+?) Campus\s*<br/;
 const SCHED_TYPE_RE = /\n([A-Za-z0-9 .,'()/-]+?) Schedule Type\s*<br/;
 const CREDITS_RE = /([\d.]+)\s*Credits/;
+// Column 2 (Time) has to allow tags: a TBA/async section's cell is
+// literally `<ABBR title = "To Be Announced">TBA</ABBR>`, not plain text --
+// confirmed against live data after 4,720 of 7,196 sections (65.6%,
+// campus-wide) turned up with instructor_name/days/time all null. With
+// `[^<]*` (no tags allowed) here, the regex engine hits the `<` of `<ABBR`
+// and can't complete the match, which fails the *entire* row, not just the
+// time field -- silently dropping every other column, instructor included,
+// for any section Banner marks this way. `[\s\S]*?` here matches how
+// columns 4 and 7 (Where, Instructors) already handle cells that can carry
+// markup, since those have the same problem for different reasons (an
+// online-course note, a mailto link with an icon).
 const MEETING_ROW_RE =
-  /<tr>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<\/tr>/g;
+  /<tr>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<td CLASS="dddefault">([\s\S]*?)<\/td>\s*<td CLASS="dddefault">([^<]*)<\/td>\s*<\/tr>/g;
 
 // Exported so it's testable directly against a saved chunk -- see
 // scrapers/__tests__/schedule.test.js.
@@ -58,31 +70,40 @@ export function parseSectionChunk(chunk) {
   const meetingRows = [...chunk.matchAll(MEETING_ROW_RE)];
   if (meetingRows.length) {
     const [, , time, d, where, , , instr] = meetingRows[0];
-    days = d.trim() || null;
-    const timeParts = time.split(" - ").map((s) => s.trim());
+    // "&nbsp;" (a real day-column value for an async section, not empty
+    // text) doesn't trim away the way whitespace does -- .trim() alone
+    // would leave it as the literal string "&nbsp;" instead of null.
+    days = d.replace(/&nbsp;/gi, " ").trim() || null;
+    // Time now arrives as raw cell markup (see MEETING_ROW_RE above), so
+    // "TBA" has to be unwrapped from its <ABBR> tag before the tba check
+    // below can see it as plain text instead of failing to match "TBA"
+    // inside "<ABBR ...>TBA</ABBR>" and wrongly trying to parse that as a
+    // real time.
+    const timeText = time.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    const timeParts = timeText.split(" - ").map((s) => s.trim());
     if (timeParts.length === 2 && timeParts[0].toLowerCase() !== "tba") {
       startTime = to24h(timeParts[0]);
       endTime = to24h(timeParts[1]);
     }
-    room = where.split(/<br/i)[0].replace(/&amp;/g, "&").trim() || null;
-    instructorName = instr.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim() || null;
+    room = decodeEntities(where.split(/<br/i)[0].trim()) || null;
+    instructorName = decodeEntities(instr.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()) || null;
   }
 
   return {
     termCode,
-    termLabel: term ? term[1].trim() : null,
+    termLabel: term ? decodeEntities(term[1].trim()) : null,
     crn,
     subject,
     courseNumber,
     section,
-    title: title.trim(),
+    title: decodeEntities(title.trim()),
     instructorName,
     days,
     startTime,
     endTime,
     room,
-    campus: campus ? campus[1].trim() : null,
-    scheduleType: schedType ? schedType[1].trim() : null,
+    campus: campus ? decodeEntities(campus[1].trim()) : null,
+    scheduleType: schedType ? decodeEntities(schedType[1].trim()) : null,
     credits: credits ? parseFloat(credits[1]) : null,
     regStart,
     regEnd,

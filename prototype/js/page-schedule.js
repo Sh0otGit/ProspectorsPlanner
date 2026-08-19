@@ -40,7 +40,8 @@ function renderSchedule(){
       const codes = [...new Set(evs.map(e=>e.code))];
       const cls = "hasclass overlap"+(prevOverlap?" contTop":"")+(nextOverlap?" contBottom":"");
       return '<td class="'+cls+'">'
-        + '<div class="ovblock" data-goto-code="'+esc(codes[0])+'" title="Fix this conflict in Instructors">'
+        + '<div class="ovblock" data-goto-code="'+esc(codes[0])+'" data-codes="'+esc(codes.join(","))+'" '
+        + 'aria-label="Conflict between '+codes.map(esc).join(" and ")+'. Click to fix in Instructors.">'
         + (!prevOverlap?'<span class="lbl">'+codes.map(esc).join(" / ")+'</span>':"")
         + '</div></td>';
     }
@@ -51,7 +52,7 @@ function renderSchedule(){
       const first = !prev.some(x=>x.code===ev.code);
       const last  = !next.some(x=>x.code===ev.code);
       const c = "var("+PALETTE[ev.i%5]+")";
-      return '<span class="blk'+(first?" first":"")+(last?" last":"")+'" style="'
+      return '<span class="blk'+(first?" first":"")+(last?" last":"")+'" data-code="'+esc(ev.code)+'" style="'
         + 'background:color-mix(in srgb,'+c+' 20%,#fff);border-color:'+c+'">'
         + (first?'<span class="lbl">'+esc(ev.code)+'</span>':"")
         + '</span>';
@@ -67,6 +68,8 @@ function renderSchedule(){
     };
   });
 
+  wireCalHover(picks);
+
   $("#conflictNote").innerHTML = pairs.size
     ? '<div class="conflictnote"><b>Time conflict.</b> '
       + [...pairs].map(esc).join("; ")+' overlap. The overlapping time is outlined in red. '
@@ -79,12 +82,17 @@ function renderSchedule(){
     + (pairs.size?'<span><i class="swatch" style="background:var(--critical)"></i>Overlap</span>':"");
 
   $("#crnList").innerHTML = picks.length
-    ? picks.map(pk=>
-        '<div class="crnrow"><div class="crntop"><span><b>'+esc(pk.section.crn)+'</b><br>'
-        + '<span style="color:var(--ink-muted);font-size:11.5px">'+esc(pk.code)+', '+esc(pk.profName)+'</span></span>'
-        + '<span style="text-align:right;font-size:11.5px;color:var(--ink-muted)">'
-        + (pk.section.days.length?pk.section.days.join("")+"<br>"+fmt(pk.section.start):"Online")+'</span></div>'
-        + '<button class="btn xs" data-copy-crn="'+esc(pk.section.crn)+'">Copy CRN</button></div>').join("")
+    ? picks.map(pk=>{
+        const title = CATALOG_TITLE[pk.code];
+        return '<div class="crnrow"><div class="crntop">'
+          + '<span class="crn-info"><b>CRN '+esc(pk.section.crn)+'</b>'
+          + (title?'<span class="crn-title">'+esc(title)+'</span>':"")
+          + '<span class="crn-code">'+esc(pk.code)+'</span>'
+          + '<span class="crn-prof">'+esc(pk.profName)+'</span></span>'
+          + '<span class="crn-when">'
+          + (pk.section.days.length?pk.section.days.join("")+"<br>"+fmt(pk.section.start):"Online")+'</span></div>'
+          + '<button class="btn xs" data-copy-crn="'+esc(pk.section.crn)+'">Copy CRN</button></div>';
+      }).join("")
     : '<div style="color:var(--ink-muted);font-size:13.5px">No sections added.</div>';
 
   $$("[data-copy-crn]").forEach(b=>{
@@ -95,6 +103,53 @@ function renderSchedule(){
       setTimeout(()=>$("#copyMsg").textContent="",2200);
     };
   });
+}
+
+/* Hovering any slot of a class highlights every slot that class occupies
+   (not just the one under the cursor) and shows a tooltip with what's
+   scraped about it. An overlap cell belongs to two or more classes at
+   once, so it highlights all of them and the tooltip lists each. Wired
+   fresh on every render since calSkeleton() replaces the table's markup
+   each time. */
+let calTipEl = null;
+function wireCalHover(picks){
+  const byCode = new Map(picks.map(pk=>[pk.code,pk]));
+  if(!calTipEl){
+    calTipEl = document.createElement("div");
+    calTipEl.className = "calTip";
+    document.body.appendChild(calTipEl);
+  }
+
+  function rowHTML(code){
+    const pk = byCode.get(code);
+    if(!pk) return "";
+    const title = CATALOG_TITLE[code];
+    const s = pk.section;
+    const when = s.days.length ? s.days.join("")+" &middot; "+fmt(s.start)+" to "+fmt(s.end) : "Asynchronous";
+    return '<div class="calTipRow"><b>'+esc(code)+'</b>'+(title?" &middot; "+esc(title):"")+'<br>'
+      + 'CRN '+esc(s.crn)+' &middot; '+esc(pk.profName)+'<br>'
+      + when + (s.room?' &middot; '+esc(s.room):"")+'</div>';
+  }
+
+  const cal = $("#schedCal");
+  cal.onmouseover = e => {
+    const el = e.target.closest("[data-code],[data-codes]");
+    if(!el) return;
+    const codes = el.dataset.code ? [el.dataset.code] : el.dataset.codes.split(",");
+    $$("[data-code]",cal).forEach(x=>x.classList.toggle("hoverblk", codes.includes(x.dataset.code)));
+    $$("[data-codes]",cal).forEach(x=>x.classList.toggle("hoverblk", x.dataset.codes.split(",").some(c=>codes.includes(c))));
+    calTipEl.innerHTML = codes.map(rowHTML).join("");
+    calTipEl.style.display = "block";
+  };
+  cal.onmousemove = e => {
+    if(calTipEl.style.display!=="block") return;
+    calTipEl.style.left = (e.pageX+16)+"px";
+    calTipEl.style.top = (e.pageY+16)+"px";
+  };
+  cal.onmouseleave = () => {
+    $$("[data-code],[data-codes]",cal).forEach(x=>x.classList.remove("hoverblk"));
+    calTipEl.style.display = "none";
+  };
 }
 
 /* =====================================================================

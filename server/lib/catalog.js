@@ -23,30 +23,10 @@
    evaluation data, never shown -- its "Last, First" order reads as an
    admin record, not something to put in front of a student. */
 import { db } from "../../scrapers/lib/db.js";
+import { nameTokenSet, cleanBannerName, findByName } from "./name-match.js";
 
 const PRIOR_MEAN = 4.2;
 const PRIOR_C = 12;
-
-function nameTokenSet(raw) {
-  return new Set(
-    (raw || "")
-      .replace(/\([^)]*\)/g, " ")
-      .replace(/[^a-zA-Z\s'-]/g, " ")
-      .trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean)
-  );
-}
-
-function isSubset(smaller, larger) {
-  for (const t of smaller) if (!larger.has(t)) return false;
-  return true;
-}
-
-function cleanBannerName(raw) {
-  return (raw || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
-}
 
 // Rebuilt per call rather than cached -- the instructors table only changes
 // on a scrape (every ~120 days) and is a couple thousand rows, cheap enough
@@ -58,20 +38,15 @@ function instructorIndex() {
     .map((row) => ({ tokens: nameTokenSet(row.name), row }));
 }
 
-// Prefers an exact word-set match when one exists, so a subset match
-// elsewhere in a ~2,000-person directory can't outrank the real one.
-function findInstructor(index, bannerName) {
-  const bannerTokens = nameTokenSet(bannerName);
-  if (!bannerTokens.size) return null;
-  let subsetMatch = null;
-  for (const { tokens, row } of index) {
-    if (tokens.size === bannerTokens.size && isSubset(bannerTokens, tokens)) return row;
-    if (!subsetMatch && (isSubset(bannerTokens, tokens) || isSubset(tokens, bannerTokens))) subsetMatch = row;
-  }
-  return subsetMatch;
+function rmpIndex() {
+  return db
+    .prepare(`SELECT * FROM rmp_professors`)
+    .all()
+    .map((row) => ({ tokens: nameTokenSet(`${row.first_name} ${row.last_name}`), row }));
 }
 
 const evalsForUsername = db.prepare(`SELECT * FROM evaluations WHERE username = ?`);
+const rmpReviewsForLegacyId = db.prepare(`SELECT * FROM rmp_reviews WHERE legacy_id = ? ORDER BY rating_date DESC`);
 
 // Recent terms count more than old ones (CLAUDE.md's scoring rules say so
 // explicitly) -- a simple linear decay by year parsed out of the term
@@ -138,11 +113,24 @@ export function listCourses(termCode) {
 }
 
 /* One course's real sections, grouped by matched (or best-effort
-   unmatched) instructor, each with an aggregated rating. No RMP field is
-   ever populated -- Rate My Professors was never scraped (see CLAUDE.md,
-   Data sources: "RMP school ID still not looked up") -- and every section
-   omits seats/capacity, since that data doesn't exist in any public UTEP
+   unmatched) instructor, each with an aggregated HB 2504 rating and,
+   where a Banner name matches an rmp_professors row (same word-set
+   matching as the HB 2504 side, see name-match.js), a real RMP aggregate
+   and a bounded review sample (scrapers/rmp.js only ever stores the
+   handful of reviews RMP's own professor page embeds server-side, not a
+   deeper pull). Unmatched on either side is "no data," the same state
+   already shown for a brand new hire, not an error. Every section omits
+   seats/capacity, since that data doesn't exist in any public UTEP
    source at all, not just one this project hasn't gotten to yet. */
+// "Apr 2026", matching the granularity the old fabricated reviews used --
+// RMP's own timestamp is a full "2026-08-17 16:31:40 +0000 UTC" string,
+// more precision than a review date needs here.
+function formatReviewDate(raw) {
+  const d = raw ? new Date(raw.replace(" +0000 UTC", "Z").replace(" ", "T")) : null;
+  if (!d || isNaN(d)) return raw || "";
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
 export function getCourse(termCode, subject, courseNumber) {
   const sections = db
     .prepare(`SELECT * FROM sections WHERE term_code = ? AND subject = ? AND course_number = ? ORDER BY section ASC`)
@@ -150,16 +138,19 @@ export function getCourse(termCode, subject, courseNumber) {
   if (!sections.length) return null;
 
   const idx = instructorIndex();
-  const groups = new Map(); // cleaned Banner name -> { name, dept, username, sections }
+  const rmpIdx = rmpIndex();
+  const groups = new Map(); // cleaned Banner name -> { name, dept, username, rmpRow, sections }
   for (const s of sections) {
     const cleaned = cleanBannerName(s.instructor_name);
     const key = cleaned || "__staff__";
     if (!groups.has(key)) {
-      const matched = cleaned ? findInstructor(idx, cleaned) : null;
+      const matched = cleaned ? findByName(idx, cleaned) : null;
+      const rmpMatched = cleaned ? findByName(rmpIdx, cleaned) : null;
       groups.set(key, {
         name: cleaned || "Staff",
         dept: matched ? matched.department : null,
         username: matched ? matched.username : null,
+        rmpRow: rmpMatched,
         sections: [],
       });
     }
@@ -179,6 +170,32 @@ export function getCourse(termCode, subject, courseNumber) {
 
   const professors = [...groups.values()].map((g) => {
     const agg = g.username ? aggregateInstructor(evalsForUsername.all(g.username)) : null;
+    // A matched rmp_professors row with no real average (possible for
+    // someone RMP has on file with zero ratings) has to be treated as
+    // unmatched, not a score of 0 -- combined() in app.js multiplies
+    // p.rmp.score straight into the blend whenever p.rmp is truthy, so a
+    // null here would silently turn into NaN for the whole instructor.
+    const rmp = g.rmpRow && g.rmpRow.avg_rating != null
+      ? {
+          score: g.rmpRow.avg_rating,
+          diff: g.rmpRow.avg_difficulty,
+          wta: g.rmpRow.would_take_again_pct,
+          n: g.rmpRow.num_ratings,
+          legacyId: g.rmpRow.legacy_id,
+        }
+      : null;
+    const reviews = g.rmpRow
+      ? rmpReviewsForLegacyId.all(g.rmpRow.legacy_id).map((r) => ({
+          course: r.course_code || "",
+          date: formatReviewDate(r.rating_date),
+          q: r.quality,
+          d: r.difficulty,
+          wta: r.would_take_again === 1 ? true : r.would_take_again === 0 ? false : null,
+          grade: r.grade || "",
+          tags: r.tags ? JSON.parse(r.tags) : [],
+          text: r.comment || "",
+        }))
+      : [];
     return {
       name: g.name,
       dept: g.dept,
@@ -186,7 +203,8 @@ export function getCourse(termCode, subject, courseNumber) {
       evalN: agg?.n ?? 0,
       evalAdj: agg?.adj ?? null,
       dist: agg?.dist ?? null,
-      rmp: null,
+      rmp,
+      reviews,
       sections: g.sections,
     };
   });

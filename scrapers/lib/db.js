@@ -134,6 +134,42 @@ CREATE TABLE IF NOT EXISTS problem_reports (
   text          TEXT NOT NULL,
   submitted_at  TEXT NOT NULL
 );
+
+/* Rate My Professors. Unlike every other table in this file, this one is
+   sourced from a site whose own Terms of Service explicitly prohibit
+   automated access -- see CLAUDE.md, Data sources, and scrapers/rmp.js's
+   header comment for the full reasoning. Two tables, matching the two
+   scrape steps: the full campus professor list (aggregate numbers only,
+   cheap, ~2,400 rows) and a *bounded* review sample (only for instructors
+   who also match someone actually teaching a real UTEP course right now
+   -- see scrapers/run.js -- and only the handful of reviews RMP's own
+   professor page embeds server-side, never a deeper pull). */
+CREATE TABLE IF NOT EXISTS rmp_professors (
+  legacy_id             INTEGER PRIMARY KEY,
+  first_name            TEXT,
+  last_name             TEXT,
+  department            TEXT,
+  avg_rating            REAL,
+  num_ratings           INTEGER,
+  would_take_again_pct  REAL,
+  avg_difficulty        REAL,
+  scraped_at            TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS rmp_reviews (
+  legacy_id         INTEGER NOT NULL,
+  review_id         INTEGER NOT NULL,
+  course_code       TEXT,
+  rating_date       TEXT,
+  quality           REAL,
+  difficulty        REAL,
+  would_take_again  INTEGER,  -- 1 yes, 0 no, -1 not answered
+  grade             TEXT,
+  tags              TEXT,     -- JSON array, e.g. ["Amazing lectures","Respected"]
+  comment           TEXT,
+  scraped_at        TEXT NOT NULL,
+  PRIMARY KEY (legacy_id, review_id)
+);
 `);
 
 /* Migrations for scrape_runs columns added after the table already existed
@@ -148,3 +184,4 @@ ensureColumn("scrape_runs", "kind", `kind TEXT NOT NULL DEFAULT 'schedule'`);
 ensureColumn("scrape_runs", "progress_current", `progress_current TEXT`);
 ensureColumn("scrape_runs", "progress_done", `progress_done INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "progress_total", `progress_total INTEGER DEFAULT 0`);
+ensureColumn("scrape_runs", "rmp_count", `rmp_count INTEGER DEFAULT 0`);

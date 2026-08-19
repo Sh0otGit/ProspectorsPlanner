@@ -44,6 +44,20 @@ test("collapses internal whitespace in the display name", () => {
   assert.equal(rows[0].name, "Kotal, Anantaa");
 });
 
+test("regression: department text decodes HTML entities instead of storing them literally", () => {
+  // Real, observed bug: HB 2504's directory page encodes an apostrophe as
+  // "&#x27;", and that literal six-character string was landing in the
+  // database and on screen as "Women&#x27;s and Gender Studies" instead of
+  // "Women's and Gender Studies" -- confirmed against the real Clyde
+  // Daines row, not a hypothetical.
+  const html = `<p class="FacultyRow">
+  <a href="/Home/Profile?username=cjdaines"> Daines, Clyde </a>
+  <span class="fst-italic"> - College of Liberal Arts - Political Science and Public Administration - Women&#x27;s and Gender Studies - Lecturer</span>
+</p>`;
+  const rows = parseDirectory(html);
+  assert.equal(rows[0].department, "Political Science and Public Administration - Women's and Gender Studies");
+});
+
 test("returns an empty array (not a throw) when nothing matches", () => {
   // fetchDirectory() is the one that turns this into a loud failure --
   // parseDirectory itself just reports what it found.

@@ -63,12 +63,39 @@
     </div>
   </div>
 
+  <div class="panel" style="margin-bottom:20px">
+    <div class="phead">Rate My Professors &mdash; every 30 days</div>
+    <div class="pad">
+      <div class="notice danger" style="margin-bottom:14px">
+        <b>RMP's own Terms of Service prohibit automated access.</b> Scraped
+        anyway, a deliberate decision &mdash; see CLAUDE.md's Data sources
+        entry and <code>scrapers/rmp.js</code> for the full reasoning. Two
+        steps: the full campus professor list (~2,400 people, aggregate
+        numbers only, ~24 requests), then a bounded review pull &mdash; only
+        for instructors who also match someone actually teaching a real
+        section this term, and only the handful of reviews RMP's own
+        professor page shows, never a deeper pull.
+      </div>
+      <div class="statgrid">
+        <div><div class="lab">Status</div><div class="val" id="rmpStatus">&mdash;</div></div>
+        <div><div class="lab">Last run</div><div class="val" id="rmpLast">&mdash;</div><div class="sub" id="rmpLastSub"></div></div>
+        <div><div class="lab">Next automatic run</div><div class="val" id="rmpNext">&mdash;</div><div class="sub">Only while the server process stays running</div></div>
+      </div>
+      <div class="progress-live" id="rmpProgress" hidden>
+        <div class="progress"><i id="rmpProgressBar" style="width:0%"></i></div>
+        <div class="progress-label" id="rmpProgressLabel"></div>
+      </div>
+      <button class="btn primary" id="rescrapeRmpBtn">Rescrape RMP now</button>
+      <span id="rescrapeRmpMsg" style="margin-left:12px;font-size:13px;color:var(--ink-muted)"></span>
+    </div>
+  </div>
+
   <div class="panel">
     <div class="phead">Recent runs</div>
     <div class="pad" style="overflow-x:auto">
       <table class="admin-table" id="runsTable">
-        <thead><tr><th>Kind</th><th>Trigger</th><th>Status</th><th>Started</th><th>Sections</th><th>New evals</th><th>Summary</th></tr></thead>
-        <tbody id="runsBody"><tr><td colspan="7" class="empty">Loading&hellip;</td></tr></tbody>
+        <thead><tr><th>Kind</th><th>Trigger</th><th>Status</th><th>Started</th><th>Sections</th><th>New evals</th><th>RMP</th><th>Summary</th></tr></thead>
+        <tbody id="runsBody"><tr><td colspan="8" class="empty">Loading&hellip;</td></tr></tbody>
       </table>
     </div>
   </div>

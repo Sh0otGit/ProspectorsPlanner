@@ -14,8 +14,10 @@ fabricated `CATALOG`/`REVIEWS`) is gone. The one thing that's *not* real yet
 is "your unmet requirements": there's no degree-evaluation parser (Build
 order phase 4, still deliberately last), so Step 2 is a real search against
 every course actually offered this term instead of a personalized list.
-Rate My Professors is still unscraped, so instructor scores are 100% the
-HB 2504 evaluation side of the blend -- see "Scoring" below. Plus a
+Rate My Professors is now scraped too (`scrapers/rmp.js`, done 2026-08-19) --
+a deliberate exception to this project's otherwise legally-clean data
+sourcing, since RMP's own ToS prohibits it; see Data sources below for the
+reasoning and CLAUDE.md's own record of that decision. Plus a
 password-gated admin panel (`server/`, plain `node:http`, no framework) and
 working scrapers (`scrapers/`) for HB 2504 evaluations and the public Banner
 class schedule. Run with `ADMIN_PASSWORD=yourpassword node server/index.js`;
@@ -111,7 +113,7 @@ Rules that follow:
 | `goldmine9.utep.edu` (Banner 9 Self-Service) | What a student actually registers with: CRN, days, times, room, instructor, seats | **CAS login required** | Confirmed 2026-08-18: the entire app, including class search, redirects to `cas.utep.edu` SSO. No anonymous access at all. This supersedes the old Banner 8 OWA assumption below. |
 | `www.goldmine.utep.edu/prod/owa/bwckschd.p_get_crse_unsec` (legacy Banner 8, public HB 2504 view) | CRN, subject/course/section, days, times, room, instructor, credits, term, registration dates | none | Confirmed working 2026-08-18 for Fall 2026 (term code `202710`). See exact request shape below. **Does not include seats/capacity/enrollment counts anywhere** — that's not on this view at all, only on the CAS-gated Banner 9 side. Everything else Phase 2 needs is here. |
 | Goldmine degree evaluation | Student's unmet requirements | student's own | Saved as HTML (not PDF) via Degree Evaluation → Generate Request → Ctrl+S. Hardest part; parser is last on the roadmap. |
-| Rate My Professors | Qualitative reviews, difficulty, would-take-again | none | Undocumented GraphQL at `ratemyprofessors.com/graphql`. ToS prohibits scraping/republication. UTEP school ID not yet looked up. Secondary signal only: cache lightly, link back, show aggregates + a bounded sample, be ready to drop it. |
+| Rate My Professors | Qualitative reviews, difficulty, would-take-again | none | **Scraped despite an explicit ToS prohibition** (Section 6, confirmed current as of this decision: bans "automated software, devices, scripts, robots... to access, scrape, crawl or spider any web pages or other services" on the site) — a deliberate, informed call by the project owner, not an oversight. Researched first: no official API or partner program exists (confirmed 2026-08-19); the "undocumented GraphQL" below is the same endpoint third-party wrappers use, not a sanctioned alternative, since it's still "a service contained in the site" under that same clause. UTEP's RMP school ID is `4058` (`U2Nob29sLTQwNTg=` base64, found via the live school search). Professor list: `POST ratemyprofessors.com/graphql`, `TeacherSearchPaginationQuery`, `schoolID` variable, up to `count:100` per page accepted (~24 requests for ~2,400 UTEP professors) — found by watching real browser network traffic with CDP, not copied from a wrapper. Professor detail pages need no GraphQL call at all: server-rendered, with the full Relay store (aggregate + up to 5 reviews) embedded in `window.__RELAY_STORE__ = {...}`, a plain HTML fetch and a regex like every other scraper here. Kept to the plan: cache lightly, link back (every RMP block on the site links to the source professor page), show aggregates plus a *bounded* sample (only the ~5 reviews RMP's own page embeds, never deeper pagination), and only for instructors who also match someone actually teaching a real section this term (`scrapers/run.js`'s `currentlyTeachingRmpMatches`) — not the full campus list. Be ready to drop `rmp_professors`/`rmp_reviews` entirely if it ever needs to go. |
 
 **Schedule crawl path (`bwckschd.p_get_crse_unsec`):** one POST per subject,
 no cookies needed (this app is fully stateless — confirmed 2026-08-19, the
@@ -197,8 +199,8 @@ the public `prototype/` site and a password-gated admin panel from one port.
   server refuses to start admin logins without it), not per-user accounts —
   this is a single-operator tool. Sessions are random tokens in the
   `admin_sessions` table, sent as an HttpOnly cookie, 12-hour expiry.
-- **Two independent scrapers**, deliberately not run together, each with its
-  own cadence tracked in SQLite (not an in-memory timer, so a restart
+- **Three independent scrapers**, deliberately not run together, each with
+  its own cadence tracked in SQLite (not an in-memory timer, so a restart
   doesn't reset the countdown) and its own button on the ingestion page:
   - **Schedule** — every subject (~149), every section, one term. Rooms/
     times/instructors can change during add/drop, so this runs daily. A
@@ -211,8 +213,14 @@ the public `prototype/` site and a password-gated admin panel from one port.
     aggressively, backfill once" above), so the *first* run is a genuine
     backfill — confirmed 2026-08-19, campus-wide, several hours — and every
     run after that is fast.
-  - Neither auto-runs on a fresh database with no prior run — the first run
-    of each, especially the evaluations backfill, is a deliberate action via
+  - **RMP** — the full campus professor list (~2,400 people, aggregate
+    numbers only), then a bounded review pull for whoever's actually
+    teaching a real section right now — see Data sources for why this one
+    exists despite a ToS that says not to. Runs every 30 days; RMP reviews
+    post anytime, not tied to a UTEP term, but frequent enough scraping
+    isn't warranted and isn't worth the added ToS-risk footprint.
+  - None auto-run on a fresh database with no prior run — the first run of
+    each, especially the evaluations backfill, is a deliberate action via
     the ingestion page's buttons, not something that fires the moment the
     server boots. Only fires at all while the server process stays alive —
     there is no OS-level cron under this.
@@ -260,13 +268,14 @@ decision to make deliberately).
 
 Ordered by risk — prove the data exists before doing the laborious parts.
 
-1. **Prove the data — done for the two sources that don't need a login.**
+1. **Prove the data — done for all three sources that don't need a login.**
    Full campus Fall 2026 schedule confirmed 2026-08-19: 7,196 sections
    across all 149 subjects. HB 2504 evaluations: proven at Computer Science
    scale (49 instructors, 940 evaluations) before the campus-wide backfill
    (~1965 instructors) was kicked off — see the ingestion page for whether
    it's finished. Seats/enrollment remain out of reach (CAS login only,
-   ruled out — see Data sources). RMP school ID still not looked up.
+   ruled out — see Data sources). RMP school ID found (`4058`) and the
+   scraper built the same day — see Data sources for the full path.
    <details><summary>Original plan</summary>Verify the Goldmine schedule
    POST endpoint and the RMP school ID (ten minutes each). Scrape the HB
    2504 directory, walk one department's profiles (~30 instructors), parse
@@ -300,12 +309,15 @@ Ordered by risk — prove the data exists before doing the laborious parts.
    applied to the raw average going into that aggregate, but not to the
    response count feeding the shrinkage formula itself — shrinkage is about
    sample-size confidence, which shouldn't be discounted by how old the
-   sample is. RMP fields are always `null` (never scraped, see Data sources)
-   and every section omits seats/capacity (doesn't exist in any public UTEP
-   source, not just unscraped) — both are left out of the UI entirely rather
-   than rendered as a permanent "n/a". Step 2 (course selection) can't be
-   "your unmet requirements" without the phase 4 parser below, so it's a
-   real search against every course offered this term instead, fetched once
+   sample is. RMP fields were `null` at first (never scraped) but are real
+   now too — see Data sources — via the same word-set matching applied a
+   second time (Banner name to RMP's separate firstName/lastName fields
+   this time, `server/lib/name-match.js` shared between both). Every
+   section still omits seats/capacity (doesn't exist in any public UTEP
+   source, not just unscraped) — left out of the UI entirely rather than
+   rendered as a permanent "n/a". Step 2 (course selection) can't be "your
+   unmet requirements" without the phase 4 parser below, so it's a real
+   search against every course offered this term instead, fetched once
    from `/api/courses` (~2,145 rows this term) and filtered client-side.
 4. **Degree evaluation parser** — next up. Real course codes to validate
    against now exist (`/api/courses`, phase 3 above), which is what this was

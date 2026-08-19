@@ -17,12 +17,14 @@ import { latestTerm, listCourses, getCourse } from "./lib/catalog.js";
 import {
   triggerScheduleRun,
   triggerEvaluationsRun,
+  triggerRmpRun,
   lastRun,
   nextAutoRunAt,
   isRunning,
   startAutoScheduler,
   SCHEDULE_INTERVAL_HOURS,
   EVALUATIONS_INTERVAL_DAYS,
+  RMP_INTERVAL_DAYS,
 } from "./lib/scheduler.js";
 
 const PORT = process.env.PORT || 8420;
@@ -317,6 +319,12 @@ const server = createServer(async (req, res) => {
           nextAutoRunAt: nextAutoRunAt("evaluations").toISOString(),
           autoIntervalDays: EVALUATIONS_INTERVAL_DAYS,
         },
+        rmp: {
+          running: isRunning("rmp"),
+          lastRun: lastRun("rmp"),
+          nextAutoRunAt: nextAutoRunAt("rmp").toISOString(),
+          autoIntervalDays: RMP_INTERVAL_DAYS,
+        },
       });
     }
     if (pathname === "/admin/api/rescrape-schedule" && req.method === "POST") {
@@ -330,6 +338,12 @@ const server = createServer(async (req, res) => {
       if (isRunning("evaluations")) return sendJson(res, 409, { error: "An evaluations scrape is already running." });
       triggerEvaluationsRun("manual").catch((e) => console.error("Manual evaluations scrape failed:", e.message));
       return sendJson(res, 202, { ok: true, message: "Evaluations scrape started. This is a multi-hour job." });
+    }
+    if (pathname === "/admin/api/rescrape-rmp" && req.method === "POST") {
+      if (!requireAuth(req, res)) return;
+      if (isRunning("rmp")) return sendJson(res, 409, { error: "An RMP scrape is already running." });
+      triggerRmpRun("manual").catch((e) => console.error("Manual RMP scrape failed:", e.message));
+      return sendJson(res, 202, { ok: true, message: "RMP scrape started." });
     }
     if (pathname === "/admin/api/scrape-runs" && req.method === "GET") {
       if (!requireAuth(req, res)) return;
