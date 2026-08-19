@@ -95,6 +95,17 @@ export async function fetchProfessorDetail(legacyId) {
   const teacher = Object.values(store).find((v) => v && v.__typename === "Teacher" && v.legacyId === legacyId);
   if (!teacher) throw new Error(`fetchProfessorDetail(${legacyId}): no Teacher node in the Relay store`);
 
+  // Not inlined on the Teacher node -- it's a Relay reference to a
+  // separate "ratingsDistribution" node elsewhere in the same store,
+  // keyed by that ref string. r1 (awful) through r5 (awesome), the same
+  // bucket counts RMP's own page graphs, so this is real distribution
+  // data, not something derived from avgRating after the fact.
+  const distRef = teacher.ratingsDistribution?.__ref;
+  const distNode = distRef ? store[distRef] : null;
+  const ratingsDistribution = distNode
+    ? { r1: distNode.r1 ?? 0, r2: distNode.r2 ?? 0, r3: distNode.r3 ?? 0, r4: distNode.r4 ?? 0, r5: distNode.r5 ?? 0 }
+    : null;
+
   const reviews = Object.values(store)
     .filter((v) => v && v.__typename === "Rating")
     .map((r) => ({
@@ -118,6 +129,7 @@ export async function fetchProfessorDetail(legacyId) {
     numRatings: teacher.numRatings ?? null,
     wouldTakeAgainPercent: teacher.wouldTakeAgainPercent ?? null,
     avgDifficulty: teacher.avgDifficulty ?? null,
+    ratingsDistribution,
     reviews,
   };
 }

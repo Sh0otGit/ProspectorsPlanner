@@ -52,8 +52,16 @@ function renderSchedule(){
       const first = !prev.some(x=>x.code===ev.code);
       const last  = !next.some(x=>x.code===ev.code);
       const c = "var("+PALETTE[ev.i%5]+")";
+      // --c carries this block's own palette color as a custom property so
+      // the .hoverblk rule below can mix a deeper shade of the *same*
+      // color rather than a foreign hover color. first/last (already
+      // computed for the plain border above) double as the hover outline's
+      // own contTop/contBottom-style continuity flags -- a class spanning
+      // several half-hour slots hovers as one unbroken box, not a stack of
+      // individually outlined cells, the same fix already applied to the
+      // conflict/overlap outline.
       return '<span class="blk'+(first?" first":"")+(last?" last":"")+'" data-code="'+esc(ev.code)+'" style="'
-        + 'background:color-mix(in srgb,'+c+' 20%,#fff);border-color:'+c+'">'
+        + '--c:'+c+';background:color-mix(in srgb,'+c+' 20%,#fff);border-color:'+c+'">'
         + (first?'<span class="lbl">'+esc(ev.code)+'</span>':"")
         + '</span>';
     }).join("");

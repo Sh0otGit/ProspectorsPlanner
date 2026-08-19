@@ -200,13 +200,25 @@ export async function scrapeAllEvaluations(onProgress) {
    ===================================================================== */
 const upsertRmpProfessor = db.prepare(`
   INSERT INTO rmp_professors (legacy_id, first_name, last_name, department,
-    avg_rating, num_ratings, would_take_again_pct, avg_difficulty, scraped_at)
+    avg_rating, num_ratings, would_take_again_pct, avg_difficulty,
+    dist_r1, dist_r2, dist_r3, dist_r4, dist_r5, scraped_at)
   VALUES (@legacyId, @firstName, @lastName, @department,
-    @avgRating, @numRatings, @wouldTakeAgainPercent, @avgDifficulty, @scrapedAt)
+    @avgRating, @numRatings, @wouldTakeAgainPercent, @avgDifficulty,
+    @distR1, @distR2, @distR3, @distR4, @distR5, @scrapedAt)
   ON CONFLICT(legacy_id) DO UPDATE SET
     first_name=excluded.first_name, last_name=excluded.last_name, department=excluded.department,
     avg_rating=excluded.avg_rating, num_ratings=excluded.num_ratings,
     would_take_again_pct=excluded.would_take_again_pct, avg_difficulty=excluded.avg_difficulty,
+    -- The full-campus list pass (scrapeAllRmpProfessors) never has a
+    -- distribution to offer -- only the bounded detail-page pass
+    -- (scrapeRmpReviews) does. COALESCE keeps whatever a prior detail
+    -- fetch already stored instead of the list pass wiping it back to
+    -- null on its next run.
+    dist_r1=COALESCE(excluded.dist_r1, rmp_professors.dist_r1),
+    dist_r2=COALESCE(excluded.dist_r2, rmp_professors.dist_r2),
+    dist_r3=COALESCE(excluded.dist_r3, rmp_professors.dist_r3),
+    dist_r4=COALESCE(excluded.dist_r4, rmp_professors.dist_r4),
+    dist_r5=COALESCE(excluded.dist_r5, rmp_professors.dist_r5),
     scraped_at=excluded.scraped_at
 `);
 const upsertRmpReview = db.prepare(`
@@ -240,6 +252,11 @@ export async function scrapeAllRmpProfessors(onProgress) {
         numRatings: p.numRatings ?? null,
         wouldTakeAgainPercent: p.wouldTakeAgainPercent ?? null,
         avgDifficulty: p.avgDifficulty ?? null,
+        // The search/list query never carries a distribution -- only a
+        // detail-page fetch does (see scrapeRmpReviews below). Left null
+        // here so the COALESCE in the upsert keeps whatever a prior
+        // detail fetch already stored, rather than wiping it out.
+        distR1: null, distR2: null, distR3: null, distR4: null, distR5: null,
         scrapedAt,
       });
     }
@@ -298,6 +315,11 @@ export async function scrapeRmpReviews(onProgress) {
         numRatings: detail.numRatings,
         wouldTakeAgainPercent: detail.wouldTakeAgainPercent,
         avgDifficulty: detail.avgDifficulty,
+        distR1: detail.ratingsDistribution?.r1 ?? null,
+        distR2: detail.ratingsDistribution?.r2 ?? null,
+        distR3: detail.ratingsDistribution?.r3 ?? null,
+        distR4: detail.ratingsDistribution?.r4 ?? null,
+        distR5: detail.ratingsDistribution?.r5 ?? null,
         scrapedAt,
       });
       deleteRmpReviewsFor.run(detail.legacyId);

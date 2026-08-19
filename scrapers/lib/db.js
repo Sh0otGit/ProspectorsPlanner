@@ -153,6 +153,11 @@ CREATE TABLE IF NOT EXISTS rmp_professors (
   num_ratings           INTEGER,
   would_take_again_pct  REAL,
   avg_difficulty        REAL,
+  dist_r1               INTEGER,  -- quality-rating counts, 1 (awful) to 5 (awesome) --
+  dist_r2               INTEGER,  -- same bucket count RMP's own page graphs, not derived --
+  dist_r3               INTEGER,  -- from avg_rating. NULL (not 0) when a professor has no --
+  dist_r4               INTEGER,  -- ratingsDistribution node in the Relay store at all.  --
+  dist_r5               INTEGER,
   scraped_at            TEXT NOT NULL
 );
 
@@ -185,3 +190,8 @@ ensureColumn("scrape_runs", "progress_current", `progress_current TEXT`);
 ensureColumn("scrape_runs", "progress_done", `progress_done INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "progress_total", `progress_total INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "rmp_count", `rmp_count INTEGER DEFAULT 0`);
+ensureColumn("rmp_professors", "dist_r1", `dist_r1 INTEGER`);
+ensureColumn("rmp_professors", "dist_r2", `dist_r2 INTEGER`);
+ensureColumn("rmp_professors", "dist_r3", `dist_r3 INTEGER`);
+ensureColumn("rmp_professors", "dist_r4", `dist_r4 INTEGER`);
+ensureColumn("rmp_professors", "dist_r5", `dist_r5 INTEGER`);

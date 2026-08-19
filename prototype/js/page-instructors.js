@@ -134,7 +134,7 @@ function reviewsHTML(p){
 
   return '<details class="reviews" data-rev="'+esc(nm)+'"'+(state.revOpen.has(nm)?" open":"")+'>'
     + '<summary>View Rate My Professors reviews ('+all.length+')'
-      + (p.rmp && p.rmp.wta!=null ? ' &middot; '+Math.round(p.rmp.wta)+'% would take again' : "")
+      + (p.rmp && p.rmp.wta!=null ? ' <span class="wta">&middot; '+Math.round(p.rmp.wta)+'% would take again</span>' : "")
     + '</summary>'
     + '<div class="revlist">'
     + slice.map(r=>
@@ -160,6 +160,23 @@ function reviewsHTML(p){
     + '</details>';
 }
 
+/* One thin source row of the combined distribution bar -- see distHTML in
+   profHTML below. Bucket text doesn't fit inside a bar this thin, so the
+   per-segment breakdown lives in the title tooltip instead; the shared
+   legend under both rows still names the five buckets by color. */
+function distRowHTML(label, dist, n, unit){
+  if(!dist) return "";
+  return '<div class="distrow">'
+    + '<span class="distsrc">'+label+'</span>'
+    + '<div class="stack">'
+    + dist.map((v,i)=> v>0
+        ? '<span style="width:'+v+'%;background:var(--r'+(5-i)+')" title="'+DIST_KEYS[i]+': '+v.toFixed(0)+'%"></span>'
+        : "").join("")
+    + '</div>'
+    + '<span class="distn">'+num(n)+' '+unit+'</span>'
+    + '</div>';
+}
+
 function profHTML(code,p,hideConflict){
   const score = combined(p);
   const pick  = state.chosen.get(code);
@@ -167,19 +184,17 @@ function profHTML(code,p,hideConflict){
   if(hideConflict) secs = secs.filter(s=>!hitsBlocked(s));
   if(!secs.length) return "";
 
-  const distHTML = p.dist
+  const rmpDist = p.rmp && p.rmp.dist;
+  const distHTML = (p.dist || rmpDist)
     ? '<div class="distrib">'
-      + '<div class="hdr"><span>Overall rating of the instructor</span><span>'+num(p.evalN)+' responses</span></div>'
-      + '<div class="stack">'
-      + p.dist.map((v,i)=> v>0
-          ? '<span class="'+(i===2?"darktext":"")+'" style="width:'+v+'%;background:var(--r'+(5-i)+')" '
-            + 'title="'+DIST_KEYS[i]+': '+v.toFixed(0)+'%">'+(v>=12?v.toFixed(0)+"%":"")+'</span>'
-          : "").join("")
-      + '</div><div class="distlegend">'
-      + DIST_KEYS.map((k,i)=> p.dist[i]>0 ? '<span><i style="background:var(--r'+(5-i)+')"></i>'+k+' '+p.dist[i].toFixed(0)+'%</span>' : "").join("")
+      + '<div class="hdr"><span>Overall rating of the instructor</span></div>'
+      + distRowHTML("UTEP", p.dist, p.evalN, "responses")
+      + distRowHTML("RMP", rmpDist, p.rmp?.n, "ratings")
+      + '<div class="distlegend">'
+      + DIST_KEYS.map((k,i)=>'<span><i style="background:var(--r'+(5-i)+')"></i>'+k+'</span>').join("")
       + '</div></div>'
     : '<div class="distrib"><div class="hdr"><span>Overall rating of the instructor</span></div>'
-      + '<div style="font-size:13px;color:var(--ink-muted);padding:5px 0">No HB 2504 evaluations on file for this instructor yet.</div></div>';
+      + '<div style="font-size:13px;color:var(--ink-muted);padding:5px 0">No UTEP evaluation or Rate My Professors rating distribution on file for this instructor yet.</div></div>';
 
   const warn = (p.evalN>0 && p.evalN<10)
     ? '<div class="provisional">Based on '+num(p.evalN)+' responses. Treat this rating as provisional.</div>' : "";

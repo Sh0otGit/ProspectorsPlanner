@@ -179,6 +179,18 @@ export function getCourse(termCode, subject, courseNumber) {
     // returns a literal 0 (not null) for avg_rating when num_ratings is
     // 0 -- confirmed against real data, not a hypothetical -- so the
     // guard has to check num_ratings, not just null-ness of avg_rating.
+    // Distribution counts only exist for the bounded set of currently-
+    // teaching matched instructors (a detail-page fetch, not the full
+    // campus list -- see scrapers/rmp.js), so a real rmp match can still
+    // have dist_r1 null even with a real score. Same [Excellent..Very
+    // Poor] percentage-array shape as the UTEP `dist` above (r5 down to
+    // r1) so either can drive the same bar-rendering code.
+    const rmpDistTotal = g.rmpRow
+      ? (g.rmpRow.dist_r1 ?? 0) + (g.rmpRow.dist_r2 ?? 0) + (g.rmpRow.dist_r3 ?? 0) + (g.rmpRow.dist_r4 ?? 0) + (g.rmpRow.dist_r5 ?? 0)
+      : 0;
+    const rmpDist = g.rmpRow && g.rmpRow.dist_r1 != null && rmpDistTotal > 0
+      ? [g.rmpRow.dist_r5, g.rmpRow.dist_r4, g.rmpRow.dist_r3, g.rmpRow.dist_r2, g.rmpRow.dist_r1].map((n) => (n / rmpDistTotal) * 100)
+      : null;
     const rmp = g.rmpRow && g.rmpRow.avg_rating != null && g.rmpRow.num_ratings > 0
       ? {
           score: g.rmpRow.avg_rating,
@@ -186,6 +198,7 @@ export function getCourse(termCode, subject, courseNumber) {
           wta: g.rmpRow.would_take_again_pct,
           n: g.rmpRow.num_ratings,
           legacyId: g.rmpRow.legacy_id,
+          dist: rmpDist,
         }
       : null;
     const reviews = g.rmpRow
