@@ -282,14 +282,18 @@ const server = createServer(async (req, res) => {
       if (!requireAuth(req, res)) return;
       const q = (url.searchParams.get("q") || "").trim().toLowerCase();
       if (q.length < 2) return sendJson(res, 200, { instructors: [] });
-      const like = `%${q}%`;
+      // Every token has to appear *somewhere* across name/username/
+      // department, not the query as one literal phrase -- the scraped
+      // schedule stores instructors as Banner's "First Last", but this
+      // table stores HB 2504's "Last, First". A phrase match would never
+      // find "Mondragon, Oscar" from a search for "Oscar Mondragon" (see
+      // the click-to-search handler in data.js), a token match does.
+      const tokens = q.split(/\s+/).filter(Boolean).slice(0, 8);
+      const clause = tokens.map(() => `(lower(name) LIKE ? OR lower(username) LIKE ? OR lower(department) LIKE ?)`).join(" AND ");
+      const params = tokens.flatMap((t) => [`%${t}%`, `%${t}%`, `%${t}%`]);
       const rows = db
-        .prepare(
-          `SELECT * FROM instructors
-           WHERE lower(name) LIKE ? OR lower(username) LIKE ? OR lower(department) LIKE ?
-           ORDER BY name ASC LIMIT 30`
-        )
-        .all(like, like, like);
+        .prepare(`SELECT * FROM instructors WHERE ${clause} ORDER BY name ASC LIMIT 30`)
+        .all(...params);
       const evalsFor = db.prepare(`SELECT * FROM evaluations WHERE username = ? ORDER BY term_label DESC, course_code ASC`);
       const instructors = rows.map((r) => ({ ...r, evaluations: evalsFor.all(r.username) }));
       return sendJson(res, 200, { instructors });

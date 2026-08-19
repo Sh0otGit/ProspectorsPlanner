@@ -54,18 +54,27 @@ table.admin-table tr:last-child td{border-bottom:0}
 .datatree details{border:1px solid var(--rule);margin-bottom:6px;background:var(--surface)}
 .datatree summary{cursor:pointer;padding:9px 12px;font-weight:700;font-size:13.5px;list-style:none;display:flex;justify-content:space-between;gap:10px;align-items:center}
 .datatree summary::-webkit-details-marker{display:none}
-.datatree summary::before{content:"\25B8";font-size:11px;color:var(--ink-muted);margin-right:8px;transition:transform .1s}
-.datatree details[open]>summary::before{transform:rotate(90deg)}
+/* Label and count are the only two flex items in the summary -- the chevron
+   and label live together in .row-left so justify-content:space-between
+   pushes exactly two things apart (label block, count) instead of spacing
+   every word/mark inside the label out across the row. Search highlighting
+   used to insert <mark> as its own flex sibling, which is what caused that. */
+.datatree .row-left{display:flex;align-items:center;gap:8px;min-width:0}
+.datatree .chev{font-size:11px;color:var(--ink-muted);transition:transform .1s;flex:none}
+.datatree details[open]>summary .chev{transform:rotate(90deg)}
+.datatree .lbl{min-width:0}
 .datatree summary:hover{background:var(--surface-2)}
-.datatree .count{font-weight:400;color:var(--ink-muted);font-size:12px;white-space:nowrap}
+.datatree .count{font-weight:400;color:var(--ink-muted);font-size:12px;white-space:nowrap;flex:none}
 .datatree .term-group>summary{font-family:var(--font-display);text-transform:uppercase;letter-spacing:.05em;background:var(--utep-blue);color:#fff}
 .datatree .term-group>summary:hover{background:var(--utep-blue-lt)}
-.datatree .term-group>summary::before{color:#9fb3d1}
+.datatree .term-group>summary .chev{color:#9fb3d1}
 .datatree .subj-group{margin:8px 10px}
 .datatree .course-group{margin:6px 10px}
 .datatree .course-body{padding:2px 12px 12px}
 .datatree .course-body table{margin-top:6px}
 .datatree mark{background:#fff1c2;color:inherit;padding:0 1px}
+.instr-link{background:none;border:0;padding:0;font:inherit;color:var(--link);cursor:pointer;text-align:left}
+.instr-link:hover{text-decoration:underline}
 
 .profcard{border:1px solid var(--rule);background:var(--surface);margin-bottom:14px}
 .profcard>header{background:var(--surface-2);border-bottom:1px solid var(--rule);padding:11px 14px}
@@ -77,5 +86,12 @@ table.admin-table tr:last-child td{border-bottom:0}
 .evalrow .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .evalrow .course{font-weight:700}
 .evalrow .term{color:var(--ink-muted);font-size:12px}
-.evalrow .nums{display:flex;gap:16px;margin-top:4px;font-size:12.5px;color:var(--ink-2);flex-wrap:wrap}
-.evalrow .nums b{color:var(--ink)}
+.evalrow .avgs{display:flex;gap:18px;margin-top:5px;font-size:12.5px;color:var(--ink-2);flex-wrap:wrap}
+.evalrow .avgs b{color:var(--ink);font-size:14px}
+.ratingtoggles{display:flex;gap:14px;margin-top:6px}
+.ratingtoggles summary{cursor:pointer;color:var(--link);font-size:12.5px;list-style:none}
+.ratingtoggles summary:hover{text-decoration:underline}
+.ratingtoggles summary::-webkit-details-marker{display:none}
+.ratingbreak{margin-top:6px;display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--ink-2)}
+.ratingbreak div{display:flex;align-items:center;gap:7px}
+.ratingbreak b{margin-left:auto;color:var(--ink)}
