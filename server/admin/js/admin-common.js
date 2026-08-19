@@ -5,6 +5,7 @@
    instead of copy-pasting the markup into a fourth file (reports.html). */
 const ADMIN_NAV_ITEMS = [
   { page: "ingestion", label: "Ingestion" },
+  { page: "data", label: "Data" },
   { page: "reviews", label: "Reviews" },
   { page: "reports", label: "Reports" },
   { page: "analytics", label: "Analytics" },

@@ -262,10 +262,51 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 200, { reports });
     }
 
-    // ---- admin static pages (session-protected, except the login page itself) ----
+    // ---- data browser: every scraped section, grouped client-side by
+    // term/subject/course number since there's currently one term's worth
+    // (a few thousand rows) -- small enough to ship whole and let the
+    // browser's own search filter it instead of round-tripping per keystroke ----
+    if (pathname === "/admin/api/data/classes" && req.method === "GET") {
+      if (!requireAuth(req, res)) return;
+      const sections = db
+        .prepare(`SELECT * FROM sections ORDER BY term_code DESC, subject ASC, course_number ASC, section ASC LIMIT 20000`)
+        .all();
+      return sendJson(res, 200, { sections });
+    }
+
+    // ---- data browser: instructor search, one profile + all evaluations
+    // on file at a time -- unlike classes this stays server-searched, since
+    // a campus-wide backfill means "everyone" is a much bigger dump than
+    // "everyone who taught this term" ----
+    if (pathname === "/admin/api/data/instructors" && req.method === "GET") {
+      if (!requireAuth(req, res)) return;
+      const q = (url.searchParams.get("q") || "").trim().toLowerCase();
+      if (q.length < 2) return sendJson(res, 200, { instructors: [] });
+      const like = `%${q}%`;
+      const rows = db
+        .prepare(
+          `SELECT * FROM instructors
+           WHERE lower(name) LIKE ? OR lower(username) LIKE ? OR lower(department) LIKE ?
+           ORDER BY name ASC LIMIT 30`
+        )
+        .all(like, like, like);
+      const evalsFor = db.prepare(`SELECT * FROM evaluations WHERE username = ? ORDER BY term_label DESC, course_code ASC`);
+      const instructors = rows.map((r) => ({ ...r, evaluations: evalsFor.all(r.username) }));
+      return sendJson(res, 200, { instructors });
+    }
+
+    // ---- admin static pages (session-protected, except the login page and
+    // the CSS/JS/etc it needs to render itself) ----
     if (pathname.startsWith("/admin")) {
       const isLoginPage = pathname === "/admin" || pathname === "/admin/" || pathname === "/admin/login.html";
-      if (!isLoginPage && !verifySession(getSessionToken(req))) {
+      // A visitor with no session yet is, by definition, everyone looking
+      // at the login page -- gating its own stylesheet and script behind
+      // the session it doesn't have yet meant they always 302'd to
+      // login.html itself, and the browser tried (and refused) to apply
+      // that HTML response as CSS. Assets carry no admin data themselves;
+      // only the HTML pages and the /admin/api/* routes above need auth.
+      const isAsset = extname(pathname) !== "" && extname(pathname) !== ".html";
+      if (!isLoginPage && !isAsset && !verifySession(getSessionToken(req))) {
         res.writeHead(302, { Location: "/admin/login.html" });
         return res.end();
       }

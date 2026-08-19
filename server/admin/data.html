@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>Data | Prospector's Planner Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap">
+<link rel="stylesheet" href="/css/styles.css">
+<link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body data-admin-page="data">
+
+<div id="adminHeader"></div>
+
+<div class="admin-shell">
+  <nav class="admin-nav" id="adminNav"></nav>
+
+  <div class="panel" style="margin-bottom:20px">
+    <div class="phead">Classes &mdash; semester &rsaquo; subject &rsaquo; course number</div>
+    <div class="pad">
+      <div class="note" style="margin-bottom:14px">
+        Every scraped section, from <code>sections</code>. Filters by subject, course
+        number, title, or instructor as you type &mdash; everything else stays
+        collapsed until you open it.
+      </div>
+      <div class="datasearch">
+        <input class="revinput" id="classSearch" type="text" placeholder="e.g. CS 3350, Data Structures, or an instructor's name">
+        <div class="datahint" id="classHint">Loading&hellip;</div>
+      </div>
+      <div class="datatree" id="classTree"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="phead">Professors &mdash; HB 2504 profile + evaluations</div>
+    <div class="pad">
+      <div class="note" style="margin-bottom:14px">
+        Search by name, HB 2504 username, or department. Each result shows
+        everything scraped from that instructor's profile and every course
+        evaluation on file for them.
+      </div>
+      <div class="datasearch">
+        <input class="revinput" id="profSearch" type="text" placeholder="e.g. Kotal, or Computer Science">
+        <div class="datahint" id="profHint">Type at least 2 characters to search.</div>
+      </div>
+      <div id="profResults"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/admin/js/admin-common.js"></script>
+<script src="/admin/js/data.js"></script>
+</body>
+</html>
