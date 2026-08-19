@@ -1,0 +1,13 @@
+{
+  "name": "prospectors-planner",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "scrape:schedule": "node scrapers/run.js schedule",
+    "scrape:evaluations": "node scrapers/run.js evaluations"
+  }
+}
