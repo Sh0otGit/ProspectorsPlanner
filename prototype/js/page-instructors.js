@@ -217,6 +217,7 @@ function profHTML(code,p,hideConflict){
    + reviewsHTML(p)
    + '</div>'
    + '<div class="prof-side"><h5>Sections, '+esc(TERM_LABEL||"this term")+'</h5>'
+   + '<div class="sectlist">'
    + secs.map(s=>{
       const blocked = hitsBlocked(s);
       const clashWith = conflictingCodes(s,code);
@@ -236,7 +237,7 @@ function profHTML(code,p,hideConflict){
           + (added?"Remove":"Add to schedule")+'</button>'
         + '</div>';
      }).join("")
-   + '</div></div>';
+   + '</div></div></div>';
 }
 
 ["fHideConflict","fOnlyData"].forEach(id=>$("#"+id).onchange=renderResults);

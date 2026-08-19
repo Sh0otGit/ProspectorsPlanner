@@ -226,31 +226,42 @@ function renderChrome(){
   }).join("");
   $$(".item.done,.item.avail").forEach(el=>el.onclick=()=>{ location.href = SCREENS[+el.dataset.step]; });
 
-  $("#backBtn").style.visibility = n<=1 ? "hidden" : "visible";
-  $("#backBtn").onclick = ()=>{ location.href = SCREENS[n-1]; };
+  /* No more fixed bottom bar -- each page places its own Back/Skip/
+     Continue inline wherever makes sense for that page's layout (courses
+     and availability under their main panel, instructors under the Your
+     Courses tab, schedule under the calendar, none of the three on step
+     1 since it already has its own Continue inside the result panel). So
+     every lookup here is optional: a page that doesn't have a given
+     control just skips wiring it instead of erroring on a missing element. */
+  const back=$("#backBtn"), skip=$("#skipBtn"), next=$("#nextBtn"), hint=$("#navHint");
 
-  const skip=$("#skipBtn"), next=$("#nextBtn"), hint=$("#navHint");
-  skip.style.display = n===3 ? "" : "none";
-  skip.onclick = ()=>{ location.href = SCREENS[4]; };
-
-  /* Step 1 carries its own Continue button inside the result panel.
-     Step 5 is the last step: nothing to continue to. */
-  next.style.display = (n===1 || n===5) ? "none" : "";
-  next.onclick = ()=>{ location.href = SCREENS[n+1]; };
+  if(back){
+    back.style.visibility = n<=1 ? "hidden" : "visible";
+    back.onclick = ()=>{ location.href = SCREENS[n-1]; };
+  }
+  if(skip){
+    skip.style.display = n===3 ? "" : "none";
+    skip.onclick = ()=>{ location.href = SCREENS[4]; };
+  }
+  if(next){
+    next.style.display = (n===1 || n===5) ? "none" : "";
+    next.onclick = ()=>{ location.href = SCREENS[n+1]; };
+  }
 
   if(n===2){
-    const c=state.picked.size; next.disabled=c===0; next.textContent="Continue";
-    hint.textContent = c ? numCap(c)+" course"+(c>1?"s":"")+" selected" : "Select at least one course";
+    const c=state.picked.size;
+    if(next){ next.disabled=c===0; next.textContent="Continue"; }
+    if(hint) hint.textContent = c ? numCap(c)+" course"+(c>1?"s":"")+" selected" : "Select at least one course";
   } else if(n===3){
-    next.disabled=false; next.textContent="Continue";
-    hint.textContent = state.blocked.size ? numCap(state.blocked.size)+" half-hour blocks marked" : "No hours blocked";
+    if(next){ next.disabled=false; next.textContent="Continue"; }
+    if(hint) hint.textContent = state.blocked.size ? numCap(state.blocked.size)+" half-hour blocks marked" : "No hours blocked";
   } else if(n===4){
     const c=state.chosen.size, t=activeCodes().length;
-    next.disabled=c===0; next.textContent="View schedule";
-    hint.textContent = numCap(c)+" of "+num(t)+" courses scheduled";
+    if(next){ next.disabled=c===0; next.textContent="View schedule"; }
+    if(hint) hint.textContent = numCap(c)+" of "+num(t)+" courses scheduled";
   } else if(n===5){
-    hint.textContent = "Copy your CRNs into Goldmine when your registration window opens.";
-  } else {
+    if(hint) hint.textContent = "Copy your CRNs into Goldmine when your registration window opens.";
+  } else if(hint){
     hint.textContent = "";
   }
 }
