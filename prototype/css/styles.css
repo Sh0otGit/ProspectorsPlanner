@@ -17,10 +17,18 @@
    Tungsten is a paid license restricted to UTEP staff producing
    official marketing material, so it is not used here. The guide's
    own stated fallback pairing is Roboto Condensed for titles and
-   headings, Open Sans for body and UI text, both open licensed and
-   loaded from Google Fonts. System sans-serifs are the last-resort
-   fallback if the web fonts fail to load.
-   ============================================================ */
+   headings, Open Sans for body and UI text, both open licensed.
+   Self-hosted below (prototype/fonts/*.woff2, static per-weight files,
+   not Google's variable-font build -- see how they were fetched if
+   ever re-pulling a newer version) instead of linked from Google Fonts,
+   so every page load skips the extra DNS/TLS round trip to
+   fonts.googleapis.com and fonts.gstatic.com. System sans-serifs are
+   the last-resort fallback if these fail to load. */
+@font-face{font-family:"Open Sans";font-style:normal;font-weight:400;font-display:swap;src:url("/fonts/open-sans-400.woff2") format("woff2")}
+@font-face{font-family:"Open Sans";font-style:normal;font-weight:700;font-display:swap;src:url("/fonts/open-sans-700.woff2") format("woff2")}
+@font-face{font-family:"Roboto Condensed";font-style:normal;font-weight:400;font-display:swap;src:url("/fonts/roboto-condensed-400.woff2") format("woff2")}
+@font-face{font-family:"Roboto Condensed";font-style:normal;font-weight:700;font-display:swap;src:url("/fonts/roboto-condensed-700.woff2") format("woff2")}
+
 :root{
   --utep-orange:#ff8200;
   --utep-orange-dk:#cc6800;

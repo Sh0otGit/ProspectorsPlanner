@@ -2,9 +2,11 @@
    one-operator tool. Password lives in an env var, never in source.
    Sessions are random tokens stored server-side with an expiry; the
    client only ever holds the opaque token in an HttpOnly cookie. */
-import { randomBytes, timingSafeEqual, scryptSync } from "node:crypto";
+import { randomBytes, timingSafeEqual, scrypt as scryptCb } from "node:crypto";
+import { promisify } from "node:util";
 import { db } from "../../scrapers/lib/db.js";
 
+const scrypt = promisify(scryptCb);
 const SESSION_HOURS = 12;
 
 function constantTimeEqual(a, b) {
@@ -14,7 +16,13 @@ function constantTimeEqual(a, b) {
   return timingSafeEqual(bufA, bufB);
 }
 
-export function checkPassword(candidate) {
+// Async scrypt instead of scryptSync: measured at ~77ms wall-clock per call
+// on this machine, and scryptSync runs on Node's single main thread, which
+// means that 77ms blocks every other request the server has in flight, not
+// just other login attempts. The async version still does the same CPU
+// work, but on libuv's threadpool instead of the event loop, so the rest
+// of the server keeps responding while a login is being checked.
+export async function checkPassword(candidate) {
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) {
     throw new Error(
@@ -23,8 +31,7 @@ export function checkPassword(candidate) {
   }
   // scrypt both sides so comparison time doesn't leak the real password's length
   const salt = "prospectors-planner-admin";
-  const a = scryptSync(candidate, salt, 32);
-  const b = scryptSync(expected, salt, 32);
+  const [a, b] = await Promise.all([scrypt(candidate, salt, 32), scrypt(expected, salt, 32)]);
   return timingSafeEqual(a, b);
 }
 

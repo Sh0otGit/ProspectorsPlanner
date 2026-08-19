@@ -7,6 +7,7 @@
    ADMIN_PASSWORD set. */
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
+import { gzipSync } from "node:zlib";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { db } from "../scrapers/lib/db.js";
@@ -41,13 +42,28 @@ const MIME = {
   ".ico": "image/x-icon",
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
+  ".woff2": "font/woff2",
 };
 
-// A same-origin CSP that still allows what this site actually uses: Google
-// Fonts (the only external host anything loads from) and the small inline
-// <script> blocks a few pages carry (index.html's sample-data button,
-// report.html's submit handler) -- a nonce-based CSP would be tighter but
-// isn't worth the added complexity for a single-operator prototype.
+// Text-ish types worth gzipping. Already-compressed formats (png, woff2,
+// ico) get bigger, not smaller, if you gzip them again -- skip those.
+const COMPRESSIBLE = new Set([
+  "text/html; charset=utf-8",
+  "text/css; charset=utf-8",
+  "text/javascript; charset=utf-8",
+  "application/json; charset=utf-8",
+  "image/svg+xml",
+  "text/plain; charset=utf-8",
+  "application/xml; charset=utf-8",
+]);
+
+// A same-origin CSP that still allows what this site actually uses: the
+// small inline <script> blocks a few pages carry (index.html's sample-data
+// button, report.html's submit handler) -- a nonce-based CSP would be
+// tighter but isn't worth the added complexity for a single-operator
+// prototype. Fonts used to need fonts.googleapis.com/fonts.gstatic.com
+// here too; both are self-hosted from /fonts now (see styles.css), so
+// neither host needs an allowance anymore.
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -56,8 +72,8 @@ const SECURITY_HEADERS = {
   "Content-Security-Policy": [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
     "img-src 'self' data:",
     "connect-src 'self'",
     "base-uri 'none'",
@@ -65,11 +81,26 @@ const SECURITY_HEADERS = {
   ].join("; "),
 };
 
+// Sends `body` with gzip applied when the client says it accepts it and
+// compression is actually worth it (skips tiny bodies and already-
+// compressed formats). One place for every static/JSON response to go
+// through instead of duplicating the accept-encoding check everywhere.
+function sendBody(req, res, status, headers, body) {
+  const buf = Buffer.isBuffer(body) ? body : Buffer.from(body);
+  const acceptsGzip = /\bgzip\b/.test(req.headers["accept-encoding"] || "");
+  if (acceptsGzip && buf.length > 1024 && COMPRESSIBLE.has(headers["Content-Type"])) {
+    res.writeHead(status, { ...headers, "Content-Encoding": "gzip", Vary: "Accept-Encoding" });
+    return res.end(gzipSync(buf));
+  }
+  res.writeHead(status, headers);
+  res.end(buf);
+}
+
 // notFoundPage/errorPage: when set, a missing file or thrown error for an
 // HTML-navigation request (empty or .html extension -- not a missing CSS/
 // JS/image asset, which should stay a plain 404) serves that styled page
 // instead of bare text, without changing the status code a caller sees.
-async function serveStatic(res, rootDir, urlPath, { notFoundPage } = {}) {
+async function serveStatic(req, res, rootDir, urlPath, { notFoundPage } = {}) {
   const safePath = normalize(urlPath).replace(/^(\.\.[/\\])+/, "");
   const filePath = join(rootDir, safePath === "/" ? "index.html" : safePath);
   if (!filePath.startsWith(rootDir)) {
@@ -80,15 +111,18 @@ async function serveStatic(res, rootDir, urlPath, { notFoundPage } = {}) {
     const s = await stat(filePath);
     const finalPath = s.isDirectory() ? join(filePath, "index.html") : filePath;
     const body = await readFile(finalPath);
-    res.writeHead(200, { "Content-Type": MIME[extname(finalPath)] || "application/octet-stream" });
-    res.end(body);
+    const contentType = MIME[extname(finalPath)] || "application/octet-stream";
+    // No build step means no cache-busting hashed filenames -- a file can
+    // change without its URL changing, so this stays a short revalidation
+    // window rather than "immutable". Still turns "re-download every static
+    // asset on every page navigation" into "re-download once an hour."
+    return sendBody(req, res, 200, { "Content-Type": contentType, "Cache-Control": "public, max-age=3600" }, body);
   } catch {
     const ext = extname(urlPath);
     if (notFoundPage && (ext === "" || ext === ".html")) {
       try {
         const body = await readFile(notFoundPage);
-        res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
-        return res.end(body);
+        return sendBody(req, res, 404, { "Content-Type": "text/html; charset=utf-8" }, body);
       } catch {
         /* fall through to the plain-text 404 below if the page itself is missing */
       }
@@ -114,8 +148,12 @@ function readJsonBody(req) {
 }
 
 function sendJson(res, status, obj) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify(obj));
+  // res.req is Node's own back-reference from a ServerResponse to the
+  // IncomingMessage that produced it -- reading it here means every one of
+  // this function's ~25 call sites stays sendJson(res, status, obj), none
+  // of them need to start threading req through as a 4th argument just for
+  // this to see the request's Accept-Encoding header.
+  sendBody(res.req, res, status, { "Content-Type": "application/json; charset=utf-8" }, JSON.stringify(obj));
 }
 
 function getSessionToken(req) {
@@ -198,7 +236,7 @@ const server = createServer(async (req, res) => {
       const body = await readJsonBody(req);
       let ok;
       try {
-        ok = checkPassword(String(body.password || ""));
+        ok = await checkPassword(String(body.password || ""));
       } catch (e) {
         return sendJson(res, 500, { error: e.message });
       }
@@ -316,11 +354,11 @@ const server = createServer(async (req, res) => {
       }
       let sub = pathname.slice("/admin".length) || "/login.html";
       if (sub === "/") sub = "/login.html";
-      return serveStatic(res, ADMIN_DIR, sub);
+      return serveStatic(req, res, ADMIN_DIR, sub);
     }
 
     // ---- everything else: the public prototype site ----
-    return serveStatic(res, PROTOTYPE_DIR, pathname, { notFoundPage: NOT_FOUND_PAGE });
+    return serveStatic(req, res, PROTOTYPE_DIR, pathname, { notFoundPage: NOT_FOUND_PAGE });
   } catch (err) {
     console.error(err);
     // API callers need a real error status to react to; a page navigation

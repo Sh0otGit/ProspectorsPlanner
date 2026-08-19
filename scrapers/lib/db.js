@@ -14,6 +14,15 @@ mkdirSync(dirname(DB_PATH), { recursive: true });
 
 export const db = new DatabaseSync(DB_PATH);
 
+/* WAL instead of the default rollback-journal mode: a writer no longer
+   locks the whole file against readers. Matters specifically because the
+   scrapers now batch their inserts into per-subject/per-instructor
+   transactions (see scrapers/run.js) instead of one implicit transaction
+   per row -- without WAL, a batched transaction would block the admin
+   panel's own reads (ingestion progress polling, the Data tab) for its
+   whole duration instead of just a single row's fsync. */
+db.exec("PRAGMA journal_mode = WAL");
+
 /* Every table carries the term it was scraped for and when, so re-running
    for a new term appends a parallel slice instead of overwriting the last
    one. See CLAUDE.md, "semester by semester logs." */

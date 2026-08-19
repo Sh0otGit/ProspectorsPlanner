@@ -220,7 +220,25 @@ the public `prototype/` site and a password-gated admin panel from one port.
   Hosted: set `DB_DIR` to a mounted persistent disk's path (e.g. Render's
   default `/var/data`) — without a real disk under it, a fresh container
   has no file at all and a redeploy silently wipes everything scraped so
-  far. `ADMIN_PASSWORD` still has no default either way.
+  far. `ADMIN_PASSWORD` still has no default either way. Opened in WAL mode
+  (`db.js`), so a scraper's write transactions don't lock out the admin
+  panel's own reads while a scrape is running.
+- **Performance:** confirmed and fixed 2026-08-19 after a video raised five
+  general claims about what makes sites slow — measured against this
+  codebase rather than assumed, full writeup was a published audit, not
+  kept here. What changed: JSON/HTML/CSS/JS responses gzip when the
+  client accepts it (`sendBody` in `index.js`); static assets get
+  `Cache-Control: public, max-age=3600` (short because there's no
+  cache-busting hashed filename to invalidate on, by design — no build
+  step); both scrapers batch their inserts into one transaction per
+  subject/instructor instead of one per row (measured 2,187× faster
+  locally for 7,196 rows); `checkPassword` uses async `scrypt` instead of
+  `scryptSync` so a login attempt's hashing no longer blocks every other
+  request the single-threaded server has in flight. Deliberately
+  unchanged: `politeFetch`'s 700ms delay between scraper requests (that's
+  the point, not a bug) and the lack of secondary indexes beyond primary
+  keys (fine at current row counts, revisit once several terms' worth of
+  "semester by semester logs" have accumulated in the same tables).
 
 **Analytics brainstorm** lives on `/admin/analytics.html` itself (six ideas,
 each with what it needs), not duplicated here since the page is the more
@@ -312,10 +330,18 @@ paid license restricted to UTEP staff producing official material, so it's
 never used here. The guide's own documented fallback pairing is what this
 project uses instead: **Roboto Condensed** (weights 400/700) for structural
 headers and display text, **Open Sans** (weights 400/700) for body and UI
-text, both loaded from Google Fonts (`prototype/*.html` `<head>`), open
-licensed, no restriction on third-party use. System sans-serifs are the
-fallback stack if the web fonts fail to load. Don't add any other webfont
-without checking its license first.
+text, both open licensed, no restriction on third-party use. Self-hosted as
+static (non-variable) WOFF2 files in `prototype/fonts/`, referenced from
+`styles.css` — not loaded from Google Fonts, which every page used to link
+directly; self-hosting was one of the 2026-08-19 performance fixes, since it
+cuts the DNS/TLS round trip to fonts.googleapis.com/fonts.gstatic.com that
+every page load used to pay before any text could render. Pulling a newer
+version means re-fetching the CSS2 API with an older Chrome UA string (e.g.
+Chrome/60) to force static per-weight files instead of Google's variable-font
+build, which a modern UA gets by default and which isn't what these
+`@font-face` declarations expect. System sans-serifs are the fallback stack
+if the self-hosted files fail to load. Don't add any other webfont without
+checking its license first.
 
 Orange is an accent (masthead rule, active step, primary button, "action
 required" flags), never a fill. Section-level actions are navy.

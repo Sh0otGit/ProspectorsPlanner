@@ -40,7 +40,21 @@ const upsertSection = db.prepare(`
 export async function scrapeSchedule(term = DEFAULT_TERM, subject = DEFAULT_SUBJECT) {
   const sections = await fetchSchedule(term, subject, "");
   const scrapedAt = new Date().toISOString();
-  for (const s of sections) upsertSection.run({ ...s, scrapedAt });
+  // One transaction per subject instead of one per section: SQLite fsyncs
+  // once per uncommitted transaction, so 7,196 individual inserts meant
+  // 7,196 fsyncs. Measured locally: ~12.9s for that many one-row
+  // transactions vs. ~6ms wrapped in one -- a difference this loop was
+  // paying on every single scrape run. Scoped to one subject (not the
+  // whole scrape) so the write lock a transaction holds stays brief; see
+  // db.js for the WAL mode change that keeps this from blocking reads too.
+  db.exec("BEGIN");
+  try {
+    for (const s of sections) upsertSection.run({ ...s, scrapedAt });
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
   return sections.length;
 }
 
@@ -86,45 +100,64 @@ async function scrapeInstructorList(targets, onProgress) {
   let newEvals = 0;
   for (let i = 0; i < targets.length; i++) {
     const instr = targets[i];
-    // node:sqlite rejects named params that don't appear in the query, so
-    // this can't be a plain spread -- `instr` also carries `rank`, which
-    // isn't stored (not used anywhere yet).
-    upsertInstructor.run({
-      username: instr.username,
-      name: instr.name,
-      college: instr.college,
-      department: instr.department,
-      updatedAt: now,
-    });
     const links = await fetchProfileEvaluationLinks(instr.username);
-    for (const link of links) {
-      if (evalExists.get(link.username, link.courseId)) continue; // already cached, never re-fetched
-      const ev = await fetchEvaluation(link.username, link.courseId);
-      insertEval.run({
-        username: link.username,
-        courseId: link.courseId,
-        termLabel: link.termLabel,
-        courseCode: link.courseCode,
-        courseTitle: link.courseTitle,
-        crn: link.crn,
-        instructorAvg: ev.instructor?.avg ?? null,
-        instructorN: ev.responseCount ?? null,
-        instructorExcellent: ev.instructor?.excellent ?? null,
-        instructorGood: ev.instructor?.good ?? null,
-        instructorSatisfactory: ev.instructor?.satisfactory ?? null,
-        instructorPoor: ev.instructor?.poor ?? null,
-        instructorVeryPoor: ev.instructor?.veryPoor ?? null,
-        instructorNoResponse: ev.instructor?.noResponse ?? null,
-        courseAvg: ev.course?.avg ?? null,
-        courseExcellent: ev.course?.excellent ?? null,
-        courseGood: ev.course?.good ?? null,
-        courseSatisfactory: ev.course?.satisfactory ?? null,
-        coursePoor: ev.course?.poor ?? null,
-        courseVeryPoor: ev.course?.veryPoor ?? null,
-        courseNoResponse: ev.course?.noResponse ?? null,
-        scrapedAt: now,
+    const newLinks = links.filter((link) => !evalExists.get(link.username, link.courseId));
+    // Fetch every new evaluation *before* opening a transaction -- each
+    // fetch is a rate-limited network request (~700ms, see fetch.js), and
+    // a transaction sitting open across awaits like that would hold its
+    // write lock for the length of the slowest part of the whole loop
+    // instead of the length of the actual writes.
+    const fetched = [];
+    for (const link of newLinks) fetched.push({ link, ev: await fetchEvaluation(link.username, link.courseId) });
+
+    // Now the fast part: this instructor's upsert plus every evaluation
+    // just fetched for them, committed together instead of as N+1
+    // separate transactions. Same reasoning as scrapeSchedule's batching
+    // above -- brief, per-instructor, not one transaction for the whole
+    // multi-hour backfill.
+    db.exec("BEGIN");
+    try {
+      // node:sqlite rejects named params that don't appear in the query,
+      // so this can't be a plain spread -- `instr` also carries `rank`,
+      // which isn't stored (not used anywhere yet).
+      upsertInstructor.run({
+        username: instr.username,
+        name: instr.name,
+        college: instr.college,
+        department: instr.department,
+        updatedAt: now,
       });
-      newEvals++;
+      for (const { link, ev } of fetched) {
+        insertEval.run({
+          username: link.username,
+          courseId: link.courseId,
+          termLabel: link.termLabel,
+          courseCode: link.courseCode,
+          courseTitle: link.courseTitle,
+          crn: link.crn,
+          instructorAvg: ev.instructor?.avg ?? null,
+          instructorN: ev.responseCount ?? null,
+          instructorExcellent: ev.instructor?.excellent ?? null,
+          instructorGood: ev.instructor?.good ?? null,
+          instructorSatisfactory: ev.instructor?.satisfactory ?? null,
+          instructorPoor: ev.instructor?.poor ?? null,
+          instructorVeryPoor: ev.instructor?.veryPoor ?? null,
+          instructorNoResponse: ev.instructor?.noResponse ?? null,
+          courseAvg: ev.course?.avg ?? null,
+          courseExcellent: ev.course?.excellent ?? null,
+          courseGood: ev.course?.good ?? null,
+          courseSatisfactory: ev.course?.satisfactory ?? null,
+          coursePoor: ev.course?.poor ?? null,
+          courseVeryPoor: ev.course?.veryPoor ?? null,
+          courseNoResponse: ev.course?.noResponse ?? null,
+          scrapedAt: now,
+        });
+        newEvals++;
+      }
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
     }
     onProgress?.(i + 1, targets.length, instr.username, newEvals);
   }
