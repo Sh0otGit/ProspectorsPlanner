@@ -58,10 +58,6 @@ function saveState(){
     revPage: state.revPage
   }));
 }
-function resetState(){
-  sessionStorage.removeItem(SS_KEY);
-}
-
 const state = loadState();
 
 /* chosen course -> {profName, crn}. Resolve the live section object from
@@ -240,10 +236,6 @@ const SITE_HEADER_HTML = `
 <div class="utility">
   <div class="wrap">
     <span class="unaff">Not affiliated with or endorsed by The University of Texas at El Paso</span>
-    <span class="spacer"></span>
-    <a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a>
-    <a href="#" onclick="return false">my.UTEP</a>
-    <button id="restartBtn">Start over</button>
   </div>
 </div>
 
@@ -318,10 +310,5 @@ function renderSiteChrome(){
   if(f) f.innerHTML = SITE_FOOTER_HTML;
 }
 renderSiteChrome();
-
-$("#restartBtn").onclick = ()=>{
-  resetState();
-  location.href = "index.html";
-};
 
 renderChrome();

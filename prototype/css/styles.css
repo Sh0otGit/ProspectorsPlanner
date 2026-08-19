@@ -82,13 +82,15 @@ button{font-family:inherit;color:inherit}
 a{color:var(--link)}
 .wrap{max-width:1160px;margin:0 auto;padding:0 24px;min-width:0}
 
-/* ---------- utility strip ---------- */
-.utility{background:var(--utep-blue);color:#fff;font-size:12px}
-.utility .wrap{display:flex;align-items:center;gap:18px;min-height:32px;flex-wrap:wrap}
-.utility .unaff{color:#cfd6e0}
-.utility .spacer{flex:1}
-.utility a,.utility button{color:#fff;text-decoration:none;background:none;border:0;font-size:12px;cursor:pointer;padding:0}
-.utility a:hover,.utility button:hover{text-decoration:underline}
+/* ---------- utility strip ----------
+   Plain text, no band of color -- just the required non-affiliation
+   notice sitting quietly above the masthead. Goldmine/my.UTEP/Start over
+   used to live here too; removed rather than restyled (Start over's
+   sessionStorage-reset behavior went with it -- nothing else in the UI
+   offers that reset now). */
+.utility{background:var(--surface);color:var(--ink-2);font-size:11.5px}
+.utility .wrap{display:flex;align-items:center;min-height:26px}
+.utility .unaff{color:var(--ink-2)}
 
 /* ---------- masthead ---------- */
 .masthead{background:var(--surface);border-bottom:4px solid var(--utep-orange)}
@@ -116,7 +118,7 @@ a{color:var(--link)}
 .utility .wrap > *, .masthead .wrap > *, .actionbar .wrap > *{min-width:0}
 
 /* ---------- section nav ---------- */
-.sectionnav{background:var(--surface-2);border-bottom:1px solid var(--rule)}
+.sectionnav{background:var(--surface-2);border-bottom:1px solid var(--rule);margin:16px 0}
 .sectionnav .wrap{display:flex;gap:0;overflow-x:auto}
 .sectionnav .item{
   font-family:var(--font-display);letter-spacing:.04em;text-transform:uppercase;
