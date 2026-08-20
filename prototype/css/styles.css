@@ -303,6 +303,33 @@ td.hasclass{position:relative;padding:0}
 .blk.hoverblk.last{box-shadow:inset 2px 0 0 0 var(--c),inset -2px 0 0 0 var(--c),inset 0 -2px 0 0 var(--c)}
 .blk.hoverblk.first.last{box-shadow:inset 2px 0 0 0 var(--c),inset -2px 0 0 0 var(--c),inset 0 2px 0 0 var(--c),inset 0 -2px 0 0 var(--c)}
 
+/* A class sitting on an hour marked unavailable gets the same red
+   outline treatment as two classes overlapping each other (td.overlap
+   below), just layered on top of the class's own color instead of
+   replacing it -- one class with a scheduling problem, not two classes
+   competing for a slot. Comes after .hoverblk above on purpose: same
+   box-shadow property, so source order decides the tie, and a real
+   problem should stay visible through a hover instead of hover
+   temporarily hiding it. .contTop/.contBottom continuity mirrors
+   td.overlap's own -- see page-schedule.js for how they're computed
+   (checked against the same CRN in the adjacent slot, not just "is that
+   slot also blocked," so only an actually-continuous run merges). */
+.blk.blockconflict{
+  box-shadow: inset 2px 0 0 0 var(--critical), inset -2px 0 0 0 var(--critical),
+              inset 0 2px 0 0 var(--critical), inset 0 -2px 0 0 var(--critical);
+}
+.blk.blockconflict.contTop{
+  box-shadow: inset 2px 0 0 0 var(--critical), inset -2px 0 0 0 var(--critical),
+              inset 0 -2px 0 0 var(--critical);
+}
+.blk.blockconflict.contBottom{
+  box-shadow: inset 2px 0 0 0 var(--critical), inset -2px 0 0 0 var(--critical),
+              inset 0 2px 0 0 var(--critical);
+}
+.blk.blockconflict.contTop.contBottom{
+  box-shadow: inset 2px 0 0 0 var(--critical), inset -2px 0 0 0 var(--critical);
+}
+
 /* Tooltip shown while hovering a class block on the schedule calendar --
    see wireCalHover() in page-schedule.js. Positioned in document
    coordinates (pageX/pageY), so it lives outside the table as a single

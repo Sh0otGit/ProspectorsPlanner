@@ -9,6 +9,24 @@
 // styles.css for why.
 const PALETTE = ["--series-1","--series-2","--r4","--star","--r5","--series-3","--series-4","--series-5","--series-6","--series-7"];
 
+/* Null if this pick's section has no time problem, otherwise a plain-
+   English clause ("overlaps POLS 3315.") for the Copy CRN confirmation
+   dialog -- reuses the same conflictingCodes()/hitsBlocked() app.js
+   already computes for the calendar and Instructors page, so this is
+   never a second, possibly-out-of-sync notion of "conflict." */
+function describeTimeConflict(code, scheduleType){
+  const entry = state.chosen.get(code)?.get(scheduleType);
+  const sec = entry ? resolveSection(code, entry) : null;
+  if(!sec) return null;
+  const clashWith = conflictingCodes(sec, code, scheduleType);
+  const blocked = hitsBlocked(sec);
+  if(!clashWith.length && !blocked) return null;
+  const parts = [];
+  if(clashWith.length) parts.push("overlaps "+clashWith.join(", "));
+  if(blocked) parts.push("overlaps an hour you marked unavailable");
+  return parts.join(" and ")+".";
+}
+
 function renderSchedule(){
   /* {code, profName, section, scheduleType} for every added pick, resolved
      live from CATALOG. A course can now contribute more than one pick
@@ -64,10 +82,23 @@ function renderSchedule(){
 
     const prev = map.get(d+"-"+(i-1)) || [];
     const next = map.get(d+"-"+(i+1)) || [];
+    const blocked = state.blocked.has(k);
     const blocks = evs.map(ev=>{
       const first = !prev.some(x=>x.crn===ev.crn);
       const last  = !next.some(x=>x.crn===ev.crn);
       const c = "var("+PALETTE[ev.i%PALETTE.length]+")";
+      // A single class sitting on an hour the student marked unavailable
+      // gets the same red outline treatment as two classes overlapping
+      // each other, just on top of the class's own color instead of
+      // replacing it with .ovblock's solid red -- this is one class with
+      // a scheduling problem, not two classes fighting over a slot, so
+      // it should still read as that one class. contTop/contBottom below
+      // mirror td.overlap's own continuity trick (checked against the
+      // *same CRN* in the adjacent slot, not just "is that slot also
+      // blocked," so a blocked run only merges into one box while it's
+      // actually the same class the whole way through).
+      const prevBlocked = blocked && state.blocked.has(d+"-"+(i-1)) && prev.some(x=>x.crn===ev.crn);
+      const nextBlocked = blocked && state.blocked.has(d+"-"+(i+1)) && next.some(x=>x.crn===ev.crn);
       // --c carries this block's own palette color as a custom property so
       // the .hoverblk rule below can mix a deeper shade of the *same*
       // color rather than a foreign hover color. first/last (already
@@ -80,9 +111,9 @@ function renderSchedule(){
       // cross-highlight each other, they're different sections at different
       // times. data-goto-code stays a plain course code since either one
       // should land on the same Instructors tab.
-      return '<span class="blk'+(first?" first":"")+(last?" last":"")+'" data-crn="'+esc(ev.crn)+'" '
+      return '<span class="blk'+(first?" first":"")+(last?" last":"")+(blocked?" blockconflict":"")+(blocked&&!prevBlocked?" contTop":"")+(blocked&&!nextBlocked?" contBottom":"")+'" data-crn="'+esc(ev.crn)+'" '
         + 'role="button" tabindex="0" data-goto-code="'+esc(ev.code)+'" '
-        + 'aria-label="'+esc(ev.code)+'. Click to view or edit in Instructors." style="'
+        + 'aria-label="'+esc(ev.code)+(blocked?". Overlaps an hour you marked unavailable.":"")+' Click to view or edit in Instructors." style="'
         + '--c:'+c+';background:color-mix(in srgb,'+c+' 20%,#fff);border-color:'+c+'">'
         + (first?'<span class="lbl">'+esc(ev.code)+'</span>':"")
         + '</span>';
@@ -129,7 +160,7 @@ function renderSchedule(){
           + '<span class="crn-prof">'+esc(pk.profName)+'</span></span>'
           + '<span class="crn-when">'
           + (pk.section.days.length?pk.section.days.join("")+"<br>"+fmt(pk.section.start):"Online")
-          + '<button class="btn xs" data-copy-crn="'+esc(pk.section.crn)+'">Copy CRN</button>'
+          + '<button class="btn xs" data-copy-crn="'+esc(pk.section.crn)+'" data-code="'+esc(pk.code)+'" data-type="'+esc(pk.scheduleType||"")+'">Copy CRN</button>'
           + '</span></div></div>';
       }).join("")
     : '<div style="color:var(--ink-muted);font-size:13.5px">No sections added.</div>';
@@ -137,7 +168,11 @@ function renderSchedule(){
   $$("[data-copy-crn]").forEach(b=>{
     const label = b.textContent;
     b.onclick = () => {
-      const crn = b.dataset.copyCrn;
+      const crn = b.dataset.copyCrn, code = b.dataset.code, type = b.dataset.type;
+      const conflict = describeTimeConflict(code, type);
+      if(conflict && !confirm("Are you sure? CRN "+crn+" ("+code+") "+conflict+" Goldmine may reject conflicting CRNs together.")){
+        return;
+      }
       if(navigator.clipboard) navigator.clipboard.writeText(crn).catch(()=>{});
       $("#copyMsg").textContent = "Copied CRN "+crn+".";
       setTimeout(()=>$("#copyMsg").textContent="",2200);
