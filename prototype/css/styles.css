@@ -197,6 +197,10 @@ a{color:var(--link)}
 .btn.sm{padding:7px 12px;font-size:13px}
 .btn.xs{padding:4px 10px;font-size:12px;font-weight:700}
 .btn:disabled{opacity:.45;cursor:not-allowed}
+/* Copy CRN's own momentary confirmation, on the button itself where the
+   click happened -- not just the shared #copyMsg line below the whole
+   worksheet, easy to miss with several rows on screen. */
+.btn.copied{background:var(--good);border-color:var(--good);color:#fff}
 
 /* ---------- panels ---------- */
 .panel{background:var(--surface);border:1px solid var(--rule);border-radius:2px}

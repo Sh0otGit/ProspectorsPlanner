@@ -135,11 +135,21 @@ function renderSchedule(){
     : '<div style="color:var(--ink-muted);font-size:13.5px">No sections added.</div>';
 
   $$("[data-copy-crn]").forEach(b=>{
+    const label = b.textContent;
     b.onclick = () => {
       const crn = b.dataset.copyCrn;
       if(navigator.clipboard) navigator.clipboard.writeText(crn).catch(()=>{});
       $("#copyMsg").textContent = "Copied CRN "+crn+".";
       setTimeout(()=>$("#copyMsg").textContent="",2200);
+      // On the button itself too, right where the click happened, not
+      // just the shared message line below the whole worksheet.
+      b.textContent = "Copied!";
+      b.classList.add("copied");
+      clearTimeout(b._copiedTimer);
+      b._copiedTimer = setTimeout(()=>{
+        b.textContent = label;
+        b.classList.remove("copied");
+      }, 1600);
     };
   });
 }
