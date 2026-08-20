@@ -51,6 +51,30 @@ function scrollToChosenSection(){
   profEl.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+/* .prof-main and .prof-side size to their own natural content
+   (see .prof's align-items:start in styles.css), so .sectlist itself
+   has to be capped in JS to whatever height .prof-main ends up being --
+   the whole point being the section list scales with the professor
+   card, not the other way around, while staying scrollable for an
+   instructor with far more sections than the card is tall. "chrome"
+   below is .prof-side's own padding/heading height (everything in that
+   column besides the list itself), measured live rather than hard-coded
+   so it stays correct if that markup ever changes. Skipped once .prof
+   stacks to a single column under the mobile breakpoint (styles.css),
+   where .prof-main and .prof-side are no longer side by side and
+   nothing needs matching. */
+function syncSectionListHeights(){
+  $$(".prof").forEach(p=>{
+    const main = p.querySelector(".prof-main"), side = p.querySelector(".prof-side"), list = p.querySelector(".sectlist");
+    if(!main || !side || !list) return;
+    const mainRect = main.getBoundingClientRect(), sideRect = side.getBoundingClientRect();
+    if(Math.abs(mainRect.top - sideRect.top) > 2){ list.style.maxHeight = ""; return; }
+    list.style.maxHeight = "";
+    const chrome = sideRect.height - list.getBoundingClientRect().height;
+    list.style.maxHeight = Math.max(140, mainRect.height - chrome) + "px";
+  });
+}
+
 function renderResults(){
   const codes = activeCodes();
   if(!state.activeCourse || !codes.includes(state.activeCourse)) state.activeCourse = codes[0];
@@ -80,7 +104,6 @@ function renderResults(){
     // if the same person also teaches the new course, misleadingly
     // pre-expanded) once you've switched to a different course entirely.
     state.revOpen.clear();
-    state.revExpanded.clear();
     saveState();
     renderResults();
     scrollToChosenSection();
@@ -105,6 +128,8 @@ function renderResults(){
     + '</header>'
     + (rows || '<div class="empty">No instructors listed for this course this term.</div>')
     + '</section>';
+
+  syncSectionListHeights();
 
   /* .res-side (the "Your courses" panel) is position:sticky, which only
      has room to stay pinned to the viewport for as long as its own grid
@@ -166,15 +191,6 @@ function renderResults(){
       renderResults();
     };
   });
-  $$("[data-revmore]").forEach(b=>{
-    b.onclick = e => {
-      e.preventDefault(); e.stopPropagation();
-      const key = b.dataset.revmore;
-      if(state.revExpanded.has(key)) state.revExpanded.delete(key); else state.revExpanded.add(key);
-      saveState();
-      renderResults();
-    };
-  });
 }
 
 /* Sorted by rating only for now. See sortReviews below if that changes. */
@@ -211,13 +227,8 @@ function reviewsHTML(p){
       + (p.rmp && p.rmp.wta!=null ? ' <span class="wta">&middot; '+Math.round(p.rmp.wta)+'% would take again</span>' : "")
     + '</summary>'
     + '<div class="revlist">'
-    + slice.map((r,i)=>{
-        const idx = page*REVIEWS_PER_PAGE + i;
-        const key = nm+"|"+idx;
-        const long = r.text && r.text.length > REVIEW_TRUNCATE_AT;
-        const expanded = state.revExpanded.has(key);
-        const shown = long && !expanded ? r.text.slice(0, REVIEW_TRUNCATE_AT).trimEnd()+"…" : r.text;
-        return '<div class="rev" style="border-left-color:'+qColor(Math.round(r.q))+'">'
+    + slice.map(r=>
+        '<div class="rev" style="border-left-color:'+qColor(Math.round(r.q))+'">'
         + '<div class="rev-top">'
           + '<span class="rev-q'+([3,4].includes(Math.round(r.q))?" darktext":"")+'" style="background:'+qColor(Math.round(r.q))+'">'+r.q.toFixed(1)+'</span>'
           + '<span class="rev-course">'+esc(r.course)+'</span>'
@@ -226,11 +237,9 @@ function reviewsHTML(p){
           + (r.grade?'<span>Grade '+esc(r.grade)+'</span>':"")
           + (r.wta!=null?'<span>'+(r.wta?"Would take again":"Would not take again")+'</span>':"")
         + '</div>'
-        + '<div class="rev-text">'+esc(shown)+'</div>'
-        + (long ? '<button class="revmore" data-revmore="'+esc(key)+'">'+(expanded?"Show less":"Show more")+'</button>' : "")
+        + '<div class="rev-text">'+esc(r.text)+'</div>'
         + (r.tags&&r.tags.length?'<div class="rev-tags">'+r.tags.map(t=>'<span class="rev-tag">'+esc(t)+'</span>').join("")+'</div>':"")
-        + '</div>';
-      }).join("")
+        + '</div>').join("")
     + '</div>'
     + '<div class="revnav">'
       + '<span class="pg">Page '+(page+1)+' of '+pages+'</span>'

@@ -14,12 +14,6 @@
 const W_EVAL = 0.5, W_RMP = 0.5;
 const DIST_KEYS = ["Excellent","Good","Satisfactory","Poor","Very Poor"];
 const REVIEWS_PER_PAGE = 3;
-/* Real RMP comment lengths measured against the scraped data run from 1 to
-   428 characters, median 286 -- clipping around the median (with a "Show
-   more" toggle for the rest) keeps most reviews on a page close to the
-   same rendered height, instead of one long review making the "next page"
-   button jump far down the screen from where it sat on the previous page. */
-const REVIEW_TRUNCATE_AT = 240;
 
 const SCREENS = ["index.html","courses.html","availability.html","instructors.html","schedule.html"];
 const STEP_LABELS = ["Start","Courses","Availability","Instructors","Schedule"];
@@ -52,8 +46,7 @@ function loadState(){
     activeCourse: d.activeCourse || null,
     visited: new Set(d.visited && d.visited.length ? d.visited : [0]),
     revOpen: new Set(d.revOpen || []),
-    revPage: d.revPage || {},
-    revExpanded: new Set(d.revExpanded || [])
+    revPage: d.revPage || {}
   };
 }
 function saveState(){
@@ -64,8 +57,7 @@ function saveState(){
     activeCourse: state.activeCourse,
     visited: [...state.visited],
     revOpen: [...state.revOpen],
-    revPage: state.revPage,
-    revExpanded: [...state.revExpanded]
+    revPage: state.revPage
   }));
 }
 const state = loadState();
