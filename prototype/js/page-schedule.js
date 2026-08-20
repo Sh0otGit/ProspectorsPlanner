@@ -1,13 +1,8 @@
 /* =====================================================================
-   STEP 5: rendered schedule grid and CRN worksheet.
+   STEP 5: rendered schedule grid and CRN worksheet. PALETTE lives in
+   app.js now (also used by page-map.js, so each added course reads as
+   the same color on both pages).
    ===================================================================== */
-// Ten distinct colors, not five -- a student can have more picks than
-// that once a course with a required lab/seminar counts as two (see
-// server/lib/catalog.js's components), and reusing a color after five
-// made two genuinely unrelated classes look like the same one at a
-// glance. None of these are red; see the --series-3.. definitions in
-// styles.css for why.
-const PALETTE = ["--series-1","--series-2","--r4","--star","--r5","--series-3","--series-4","--series-5","--series-6","--series-7"];
 
 /* Null if this pick's section has no time problem, otherwise a plain-
    English clause ("overlaps POLS 3315.") for the Copy CRN confirmation

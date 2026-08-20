@@ -387,6 +387,26 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .conflictnote{border-left:4px solid var(--critical);background:#fdf1f0;padding:11px 14px;font-size:13px;margin-top:14px}
 .conflictnote b{color:var(--critical)}
 
+/* ============ CAMPUS MAP ============
+   No basemap imagery (no external map-tile service is part of this
+   project's zero-dependency approach, see CLAUDE.md) -- just a plain
+   surface with a hairline border, matching every other panel/calendar on
+   this site, and pins projected onto it from real lat/lng (see
+   page-map.js's projector()). */
+.mapwrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface)}
+#campusMap{display:block;width:100%;height:auto}
+.mapbg{fill:var(--surface-2)}
+.bldgpin{cursor:pointer}
+.bldgpin circle{fill:color-mix(in srgb,var(--c) 25%,#fff);stroke:var(--c);stroke-width:2.5;transition:r .12s}
+.bldgpin:hover circle,.bldgpin:focus-visible circle{r:13}
+.bldgpin:focus-visible{outline:none}
+.pinlabel{font-size:11px;font-weight:700;fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--surface-2);stroke-width:3px}
+.pinbadge{font-size:10px;font-weight:700;fill:#fff;text-anchor:middle;pointer-events:none}
+.parkpin{cursor:pointer}
+.parkpin circle{fill:var(--surface-3);stroke:var(--ink-muted);stroke-width:1.5}
+.parkpin:hover circle,.parkpin:focus-visible circle{r:7}
+.parkpin:focus-visible{outline:none}
+
 /* ============ RESULTS ============ */
 .res-layout{display:grid;grid-template-columns:250px 1fr;gap:22px;align-items:start}
 .res-side{position:sticky;top:14px;min-width:0}

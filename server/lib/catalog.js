@@ -24,6 +24,7 @@
    admin record, not something to put in front of a student. */
 import { db } from "../../scrapers/lib/db.js";
 import { nameTokenSet, cleanBannerName, findByName } from "./name-match.js";
+import { matchBuilding, allLocations } from "./campusmap.js";
 
 const PRIOR_MEAN = 4.2;
 const PRIOR_C = 12;
@@ -189,6 +190,10 @@ export function getCourse(termCode, subject, courseNumber) {
 
   const idx = instructorIndex();
   const rmpIdx = rmpIndex();
+  // Fetched once per course, not once per section -- matchBuilding() is
+  // a full scan over every campus location, and a course can have dozens
+  // of sections (see the Map page for what building ends up being used).
+  const campusLocations = allLocations();
   const groups = new Map(); // cleaned Banner name -> { name, dept, username, rmpRow, sections }
   for (const s of sections) {
     const cleaned = cleanBannerName(s.instructor_name);
@@ -215,6 +220,10 @@ export function getCourse(termCode, subject, courseNumber) {
       credits: s.credits,
       regStart: s.reg_start,
       regEnd: s.reg_end,
+      // null for an async/TBA section (no room at all) or a room this
+      // project's Map data doesn't cover -- see server/lib/campusmap.js
+      // for what that second case actually is (not a guess either way).
+      building: s.room && s.room !== "TBA" ? matchBuilding(s.room, campusLocations) : null,
     });
   }
 

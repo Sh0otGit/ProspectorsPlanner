@@ -16,6 +16,14 @@ const DIST_KEYS = ["Excellent","Good","Satisfactory","Poor","Very Poor"];
 const REVIEWS_PER_PAGE = 3;
 
 const SCREENS = ["index.html","courses.html","availability.html","instructors.html","schedule.html"];
+// Ten distinct colors, not five -- a student can have more picks than
+// that once a course with a required lab/seminar counts as two (see
+// server/lib/catalog.js's components), and reusing a color after five
+// made two genuinely unrelated classes look like the same one at a
+// glance. None of these are red; see the --series-3.. definitions in
+// styles.css for why. Shared between page-schedule.js and page-map.js so
+// a course reads as the same color on both pages.
+const PALETTE = ["--series-1","--series-2","--r4","--star","--r5","--series-3","--series-4","--series-5","--series-6","--series-7"];
 const STEP_LABELS = ["Start","Courses","Availability","Instructors","Schedule"];
 const DAYS = ["M","T","W","R","F","S"];
 const DAY_NAMES = {M:"Mon",T:"Tue",W:"Wed",R:"Thu",F:"Fri",S:"Sat"};
@@ -316,8 +324,16 @@ function renderChrome(){
     const mark = i===0 ? "" : i;
     return '<button class="'+cls+'" data-step="'+i+'"'+(cls==="item locked"?" disabled":"")
          + '><span class="n">'+mark+'</span>'+l+'</button>';
-  }).join("");
-  $$(".item.done,.item.avail").forEach(el=>el.onclick=()=>{ location.href = SCREENS[+el.dataset.step]; });
+  }).join("")
+  // Map isn't part of the numbered 1-4 flow (see CLAUDE.md -- that count
+  // is settled elsewhere in this file's own step logic) -- it's an
+  // always-reachable utility view, same idea as Start, just appended
+  // after Schedule instead of before Courses. No lock state: it renders
+  // its own empty state fine with nothing picked yet.
+  + '<button class="item '+(n==="map"?"active":"avail")+'" data-map-link><span class="n"></span>Map</button>';
+  $$(".item.done[data-step],.item.avail[data-step]").forEach(el=>el.onclick=()=>{ location.href = SCREENS[+el.dataset.step]; });
+  const mapLink = $("[data-map-link]");
+  if(mapLink) mapLink.onclick = () => { location.href = "map.html"; };
 
   /* No fixed bottom bar -- each page places its own Back/Skip/Continue
      inline wherever makes sense for that page's layout (courses and

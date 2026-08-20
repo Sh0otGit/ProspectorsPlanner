@@ -14,6 +14,7 @@ import { fetchProfileEvaluationLinks } from "./profiles.js";
 import { fetchEvaluation } from "./evaluations.js";
 import { fetchSchedule, fetchSubjects } from "./schedule.js";
 import { fetchAllProfessors, fetchProfessorDetail } from "./rmp.js";
+import { fetchCampusLocations } from "./campusmap.js";
 import { nameTokenSet, cleanBannerName, findByName } from "../server/lib/name-match.js";
 
 export const DEFAULT_TERM = "202710"; // Fall 2026
@@ -375,7 +376,39 @@ export async function scrapeRmp(onProgress) {
 }
 
 /* =====================================================================
-   CLI: node scrapers/run.js [schedule|evaluations|rmp] [--all]
+   CAMPUS MAP -- every ~120 days, same cadence as evaluations. Building
+   and parking-lot locations don't move; this exists purely to pick up a
+   newly-constructed building or a renamed one, which happens on a
+   semesters-not-days timescale. See campusmap.js's header for the full
+   sourcing reasoning (Concept3D, not UTEP's own published data).
+   ===================================================================== */
+const insertCampusLocation = db.prepare(
+  `INSERT OR REPLACE INTO campus_locations (id, name, lat, lng, is_parking, scraped_at) VALUES (?, ?, ?, ?, ?, ?)`
+);
+
+/* One request for /locations, one for the category tree -- nothing like
+   the per-subject/per-instructor batching the other scrapers need, so no
+   onProgress callback here; the admin ingestion page just shows this one
+   as done once it resolves. Whole table replaced each run (not appended
+   per term the way sections is) since a building's location isn't
+   term-scoped data. */
+export async function scrapeCampusMap() {
+  const points = await fetchCampusLocations();
+  const scrapedAt = new Date().toISOString();
+  db.exec("BEGIN");
+  try {
+    db.exec("DELETE FROM campus_locations");
+    for (const p of points) insertCampusLocation.run(p.id, p.name, p.lat, p.lng, p.isParking ? 1 : 0, scrapedAt);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+  return { locationCount: points.length };
+}
+
+/* =====================================================================
+   CLI: node scrapers/run.js [schedule|evaluations|rmp|campusmap] [--all]
 
    "Is this file the one Node was actually invoked on, or just imported
    by something else" (server/lib/scheduler.js imports this same file and
@@ -402,6 +435,10 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     scrapeRmp((done, total, label) => process.stdout.write(`\r${done}/${total} (${label})   `))
       .then((r) => console.log(`\n${r.professorCount} RMP professors listed, ${r.instructorsMatched} matched to real sections, ${r.reviewCount} reviews stored`))
       .catch((e) => { console.error("\nRMP scrape failed:", e.message); process.exit(1); });
+  } else if (mode === "campusmap") {
+    scrapeCampusMap()
+      .then((r) => console.log(`${r.locationCount} campus locations stored`))
+      .catch((e) => { console.error("Campus map scrape failed:", e.message); process.exit(1); });
   } else if (mode === "schedule" || mode === undefined) {
     scrapeAllSections(undefined, (done, total, label, count) =>
       process.stdout.write(`\r${done}/${total} subjects (${label}), ${count} sections   `)
@@ -409,7 +446,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       .then((r) => console.log(`\n${r.subjectsScanned} subjects scanned, ${r.sectionsCount} sections`))
       .catch((e) => { console.error("\nSchedule scrape failed:", e.message); process.exit(1); });
   } else {
-    console.error(`Unknown mode "${mode}". Use "schedule", "evaluations", or "rmp".`);
+    console.error(`Unknown mode "${mode}". Use "schedule", "evaluations", "rmp", or "campusmap".`);
     process.exit(1);
   }
 }

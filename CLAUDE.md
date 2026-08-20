@@ -14,7 +14,13 @@ or "your unmet requirements" feature: that entire step was cut rather than
 built (see Build order item 4), so course selection is a real search against
 every course actually offered this term, permanently, not a personalized
 list waiting on a future parser. The flow is four steps -- Courses,
-Availability, Instructors, Schedule -- not five.
+Availability, Instructors, Schedule -- not five, plus a Map tab (done
+2026-08-21) that isn't part of that numbered flow: real pins, from UTEP's
+own campus map platform, at whichever buildings a student's added
+sections actually meet in, an always-available utility view rather than
+a fifth step. See Data sources below for where the building coordinates
+come from and `prototype/js/page-map.js` for the (external-library-free)
+rendering.
 Rate My Professors is now scraped too (`scrapers/rmp.js`, done 2026-08-19),
 a deliberate exception to this project's otherwise legally-clean data
 sourcing, since RMP's own ToS prohibits it; see Data sources below for the
@@ -105,6 +111,7 @@ Rules that follow:
 | `goldmine9.utep.edu` (Banner 9 Self-Service) | What a student actually registers with: CRN, days, times, room, instructor, seats | **CAS login required** | Confirmed 2026-08-18: the entire app, including class search, redirects to `cas.utep.edu` SSO. No anonymous access at all. This supersedes the old Banner 8 OWA assumption below. |
 | `www.goldmine.utep.edu/prod/owa/bwckschd.p_get_crse_unsec` (legacy Banner 8, public HB 2504 view) | CRN, subject/course/section, days, times, room, instructor, credits, term, registration dates | none | Confirmed working 2026-08-18 for Fall 2026 (term code `202710`). See exact request shape below. **Does not include seats/capacity/enrollment counts anywhere** -- that's not on this view at all, only on the CAS-gated Banner 9 side. Everything else Phase 2 needs is here. |
 | Rate My Professors | Qualitative reviews, difficulty, would-take-again | none | **Scraped despite an explicit ToS prohibition** (Section 6, confirmed current as of this decision: bans "automated software, devices, scripts, robots... to access, scrape, crawl or spider any web pages or other services" on the site) -- a deliberate, informed call by the project owner, not an oversight. Researched first: no official API or partner program exists (confirmed 2026-08-19); the "undocumented GraphQL" below is the same endpoint third-party wrappers use, not a sanctioned alternative, since it's still "a service contained in the site" under that same clause. UTEP's RMP school ID is `4058` (`U2Nob29sLTQwNTg=` base64, found via the live school search). Professor list: `POST ratemyprofessors.com/graphql`, `TeacherSearchPaginationQuery`, `schoolID` variable, up to `count:100` per page accepted (~24 requests for ~2,400 UTEP professors) -- found by watching real browser network traffic with CDP, not copied from a wrapper. Professor detail pages need no GraphQL call at all for the aggregate numbers and rating distribution: server-rendered, with the Relay store embedded in `window.__RELAY_STORE__ = {...}`, a plain HTML fetch and a regex like every other scraper here. Reviews are a separate pull: the page itself only embeds the first 5, so `fetchAllRatings()` pages through the same `RatingsListQuery` connection the site's own "Load More Ratings" button calls (found the same CDP-network-capture way), `count:100` per page, confirmed live to return everything for a professor in one request. Revised 2026-08-20 from an earlier "bounded sample of ~5 reviews, never deeper pagination" policy, after Monika Akbar's real 21 reviews turned up as only 5 in this site's own data -- the bound that's kept is on *which professors* get scraped at all (`scrapers/run.js`'s `currentlyTeachingRmpMatches`: only instructors who also match someone actually teaching a real section this term, not the full campus list), not on how many of their reviews come back once they qualify. Be ready to drop `rmp_professors`/`rmp_reviews` entirely if it ever needs to go. |
+| Concept3D (`api.concept3d.com`) | Building and parking-lot names with exact lat/lng, for the Map page | none | UTEP's own campus map (`utep.edu/map/`) is an iframe of a third-party platform, Concept3D (`map.concept3d.com/?id=843`) -- confirmed 2026-08-21 via CDP network capture of the live page, same technique as RMP's GraphQL discovery. Its `/locations` API is public and unauthenticated: the `key` query parameter is embedded directly in UTEP's own page JS, visible to any browser that loads the map, not a credential obtained any other way -- but it's still Concept3D's platform, not UTEP's own published open data, so scraping it is the same kind of deliberate, informed call as Rate My Professors above, not an assumption that it's fine. Full reasoning and the matching algorithm (a scraped room string like "Texas Western Hall 203" to one of these points -- prefix match first, then a two-directional fuzzy token score, 219 of 261 real room strings on file resolve correctly with zero false positives) is in `scrapers/campusmap.js` and `server/lib/campusmap.js`. Runs every 120 days (buildings don't move); see the ingestion page. |
 
 **Schedule crawl path (`bwckschd.p_get_crse_unsec`):** one POST per subject,
 no cookies needed (this app is fully stateless -- confirmed 2026-08-19, the
@@ -190,7 +197,7 @@ the public `prototype/` site and a password-gated admin panel from one port.
   server refuses to start admin logins without it), not per-user accounts --
   this is a single-operator tool. Sessions are random tokens in the
   `admin_sessions` table, sent as an HttpOnly cookie, 12-hour expiry.
-- **Three independent scrapers**, deliberately not run together, each with
+- **Four independent scrapers**, deliberately not run together, each with
   its own cadence tracked in SQLite (not an in-memory timer, so a restart
   doesn't reset the countdown) and its own button on the ingestion page:
   - **Schedule** -- every subject (~149), every section, one term. Rooms/
@@ -210,6 +217,14 @@ the public `prototype/` site and a password-gated admin panel from one port.
     exists despite a ToS that says not to. Runs every 30 days; RMP reviews
     post anytime, not tied to a UTEP term, but frequent enough scraping
     isn't warranted and isn't worth the added ToS-risk footprint.
+  - **Campus map** -- every point on Concept3D's map of campus (~900,
+    filtered down from buildings/parking lots to a real, physical
+    location -- events and virtual-tour duplicates are dropped), one
+    request plus one for the category tree. Runs every 120 days; building
+    and parking-lot locations don't move on anything faster than a
+    semesters-not-days timescale. See Data sources for the Concept3D
+    sourcing question and `scrapers/campusmap.js`/`server/lib/campusmap.js`
+    for the scrape and the room-string matching that powers the Map page.
   - None auto-run on a fresh database with no prior run -- the first run of
     each, especially the evaluations backfill, is a deliberate action via
     the ingestion page's buttons, not something that fires the moment the

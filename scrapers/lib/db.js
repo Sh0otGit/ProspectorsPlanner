@@ -183,6 +183,28 @@ CREATE TABLE IF NOT EXISTS rmp_reviews (
   scraped_at        TEXT NOT NULL,
   PRIMARY KEY (legacy_id, review_id)
 );
+
+/* Building/parking-lot points for the Map page, sourced from Concept3D --
+   the third-party mapping platform that actually backs utep.edu/map (an
+   iframe of map.concept3d.com), not a UTEP-published open dataset. Its
+   locations API is public and unauthenticated (the "key" query param is
+   embedded in UTEP's own page JS, not a real credential), but it's still
+   someone else's platform, not UTEP's own data -- same category of call
+   as Rate My Professors above, made deliberately rather than assumed; see
+   CLAUDE.md's Data sources entry for this one. is_parking distinguishes
+   the two categories the Map page actually uses (everything else on
+   Concept3D's map -- events, 360 tours, dining menus -- is filtered out
+   at scrape time, see scrapers/campusmap.js). Term-independent: building
+   locations don't change per semester the way sections do, so this is
+   just re-fetched wholesale on its own cadence, not appended per term. */
+CREATE TABLE IF NOT EXISTS campus_locations (
+  id          INTEGER PRIMARY KEY,  -- Concept3D's own location id
+  name        TEXT NOT NULL,
+  lat         REAL NOT NULL,
+  lng         REAL NOT NULL,
+  is_parking  INTEGER NOT NULL DEFAULT 0,
+  scraped_at  TEXT NOT NULL
+);
 `);
 
 /* Migrations for scrape_runs columns added after the table already existed
@@ -198,6 +220,7 @@ ensureColumn("scrape_runs", "progress_current", `progress_current TEXT`);
 ensureColumn("scrape_runs", "progress_done", `progress_done INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "progress_total", `progress_total INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "rmp_count", `rmp_count INTEGER DEFAULT 0`);
+ensureColumn("scrape_runs", "campusmap_count", `campusmap_count INTEGER DEFAULT 0`);
 ensureColumn("rmp_professors", "dist_r1", `dist_r1 INTEGER`);
 ensureColumn("rmp_professors", "dist_r2", `dist_r2 INTEGER`);
 ensureColumn("rmp_professors", "dist_r3", `dist_r3 INTEGER`);

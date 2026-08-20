@@ -15,10 +15,12 @@ import { db } from "../scrapers/lib/db.js";
 import { checkPassword, createSession, verifySession, destroySession, parseCookies } from "./lib/auth.js";
 import { isRateLimited, clientIp } from "./lib/rate-limit.js";
 import { latestTerm, listCourses, getCourse } from "./lib/catalog.js";
+import { listParkingLocations } from "./lib/campusmap.js";
 import {
   triggerScheduleRun,
   triggerEvaluationsRun,
   triggerRmpRun,
+  triggerCampusMapRun,
   lastRun,
   nextAutoRunAt,
   isRunning,
@@ -26,6 +28,7 @@ import {
   SCHEDULE_INTERVAL_HOURS,
   EVALUATIONS_INTERVAL_DAYS,
   RMP_INTERVAL_DAYS,
+  CAMPUSMAP_INTERVAL_DAYS,
 } from "./lib/scheduler.js";
 
 const PORT = process.env.PORT || 8420;
@@ -286,6 +289,9 @@ const server = createServer(async (req, res) => {
         components: found?.components ?? [],
       });
     }
+    if (pathname === "/api/campus-locations" && req.method === "GET") {
+      return sendJson(res, 200, { parking: listParkingLocations() });
+    }
 
     // ---- public API: reviews submission (the "Rate this tool" card) ----
     if (pathname === "/api/reviews" && req.method === "POST") {
@@ -382,6 +388,12 @@ const server = createServer(async (req, res) => {
           nextAutoRunAt: nextAutoRunAt("rmp").toISOString(),
           autoIntervalDays: RMP_INTERVAL_DAYS,
         },
+        campusmap: {
+          running: isRunning("campusmap"),
+          lastRun: lastRun("campusmap"),
+          nextAutoRunAt: nextAutoRunAt("campusmap").toISOString(),
+          autoIntervalDays: CAMPUSMAP_INTERVAL_DAYS,
+        },
       });
     }
     if (pathname === "/admin/api/rescrape-schedule" && req.method === "POST") {
@@ -401,6 +413,12 @@ const server = createServer(async (req, res) => {
       if (isRunning("rmp")) return sendJson(res, 409, { error: "An RMP scrape is already running." });
       triggerRmpRun("manual").catch((e) => console.error("Manual RMP scrape failed:", e.message));
       return sendJson(res, 202, { ok: true, message: "RMP scrape started." });
+    }
+    if (pathname === "/admin/api/rescrape-campusmap" && req.method === "POST") {
+      if (!requireAuth(req, res)) return;
+      if (isRunning("campusmap")) return sendJson(res, 409, { error: "A campus map scrape is already running." });
+      triggerCampusMapRun("manual").catch((e) => console.error("Manual campus map scrape failed:", e.message));
+      return sendJson(res, 202, { ok: true, message: "Campus map scrape started." });
     }
     if (pathname === "/admin/api/scrape-runs" && req.method === "GET") {
       if (!requireAuth(req, res)) return;

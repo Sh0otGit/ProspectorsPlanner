@@ -2,8 +2,9 @@ const KINDS = {
   schedule: { prefix: "sched", btn: "rescrapeSchedBtn", msg: "rescrapeSchedMsg", label: "Rescrape schedule now", countField: "sections_count", countLabel: (n) => `${n} sections` },
   evaluations: { prefix: "eval", btn: "rescrapeEvalBtn", msg: "rescrapeEvalMsg", label: "Rescrape evaluations now", countField: "evaluations_count", countLabel: (n) => `${n} new evaluations` },
   rmp: { prefix: "rmp", btn: "rescrapeRmpBtn", msg: "rescrapeRmpMsg", label: "Rescrape RMP now", countField: "rmp_count", countLabel: (n) => `${n} reviews` },
+  campusmap: { prefix: "campusmap", btn: "rescrapeCampusmapBtn", msg: "rescrapeCampusmapMsg", label: "Rescrape campus map now", countField: "campusmap_count", countLabel: (n) => `${n} locations` },
 };
-const nextAutoRunAt = { schedule: null, evaluations: null, rmp: null };
+const nextAutoRunAt = { schedule: null, evaluations: null, rmp: null, campusmap: null };
 
 function fmtDate(iso) {
   if (!iso) return "Never";
@@ -69,7 +70,7 @@ async function loadRuns() {
   const { runs } = await res.json();
   const body = document.getElementById("runsBody");
   if (!runs.length) {
-    body.innerHTML = '<tr><td colspan="8" class="empty">No runs yet.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" class="empty">No runs yet.</td></tr>';
     return;
   }
   body.innerHTML = runs.map((r) => `
@@ -81,6 +82,7 @@ async function loadRuns() {
       <td>${r.sections_count ?? "N/A"}</td>
       <td>${r.evaluations_count ?? "N/A"}</td>
       <td>${r.rmp_count ?? "N/A"}</td>
+      <td>${r.campusmap_count ?? "N/A"}</td>
       <td style="max-width:280px">${r.summary ? escapeHtml(r.summary) : ""}</td>
     </tr>`).join("");
 }
@@ -109,6 +111,14 @@ document.getElementById("rescrapeEvalBtn").onclick = async () => {
 document.getElementById("rescrapeRmpBtn").onclick = async () => {
   const msg = document.getElementById("rescrapeRmpMsg");
   const res = await adminFetch("/admin/api/rescrape-rmp", { method: "POST" });
+  const body = await res.json().catch(() => ({}));
+  msg.textContent = res.status === 202 ? "Started." : (body.error || "Could not start.");
+  await refresh();
+};
+
+document.getElementById("rescrapeCampusmapBtn").onclick = async () => {
+  const msg = document.getElementById("rescrapeCampusmapMsg");
+  const res = await adminFetch("/admin/api/rescrape-campusmap", { method: "POST" });
   const body = await res.json().catch(() => ({}));
   msg.textContent = res.status === 202 ? "Started." : (body.error || "Could not start.");
   await refresh();

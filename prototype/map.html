@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="See where your added UTEP classes meet on a map of campus.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Campus map | Prospector's Planner">
+<meta property="og:description" content="See where your added UTEP classes meet on a map of campus.">
+<meta property="og:type" content="website">
+<title>Campus map | Prospector's Planner</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header id="siteHeader"></header>
+
+<nav class="sectionnav" id="sectionnav" aria-label="Progress"><div class="wrap" id="sectionnavInner"></div></nav>
+
+<main id="main">
+<div class="titleband">
+  <div class="wrap">
+    <div class="kicker">Campus map</div>
+    <h1>Where your classes are</h1>
+    <p>One point per building your added sections meet in. Building locations come from UTEP's own
+       campus map platform -- see <a href="methodology.html" style="color:#ffb257">Methodology</a>.</p>
+  </div>
+</div>
+
+<div class="body-area"><div class="wrap">
+  <div class="sched-grid">
+    <div>
+      <div class="mapwrap" id="mapWrap">
+        <svg id="campusMap" viewBox="0 0 800 600" role="img" aria-label="Map of UTEP campus with pins at your added classes' buildings"></svg>
+      </div>
+      <div class="legend" id="mapLegend"></div>
+      <div class="stepnav">
+        <button class="btn" id="backBtn">Back</button>
+        <label class="fchk" style="margin-left:auto">
+          <input type="checkbox" id="parkingToggle">
+          <span>Show parking lots</span>
+        </label>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <div class="phead">Your classes</div>
+        <div class="pad" id="mapCourseList"></div>
+      </div>
+    </div>
+  </div>
+</div></div></main>
+
+<footer class="sitefoot" id="siteFooter"></footer>
+
+<script>window.CURRENT_STEP = "map";</script>
+<script src="js/app.js"></script>
+<script src="js/page-map.js"></script>
+</body>
+</html>

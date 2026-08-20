@@ -91,12 +91,38 @@
     </div>
   </div>
 
+  <div class="panel" style="margin-bottom:20px">
+    <div class="phead">Campus map: every 120 days</div>
+    <div class="pad">
+      <div class="notice" style="margin-bottom:14px">
+        Building and parking-lot locations for the Map page, from
+        Concept3D -- the third-party platform that actually backs
+        utep.edu/map, not UTEP's own published data. Its API is public
+        and unauthenticated, but it's still someone else's platform; see
+        CLAUDE.md's Data sources entry and <code>scrapers/campusmap.js</code>
+        for the full reasoning. One request for every point on the map
+        (~900), plus one for the category tree.
+      </div>
+      <div class="statgrid">
+        <div><div class="lab">Status</div><div class="val" id="campusmapStatus">N/A</div></div>
+        <div><div class="lab">Last run</div><div class="val" id="campusmapLast">N/A</div><div class="sub" id="campusmapLastSub"></div></div>
+        <div><div class="lab">Next automatic run</div><div class="val" id="campusmapNext">N/A</div><div class="sub">Only while the server process stays running</div></div>
+      </div>
+      <div class="progress-live" id="campusmapProgress" hidden>
+        <div class="progress"><i id="campusmapProgressBar" style="width:0%"></i></div>
+        <div class="progress-label" id="campusmapProgressLabel"></div>
+      </div>
+      <button class="btn primary" id="rescrapeCampusmapBtn">Rescrape campus map now</button>
+      <span id="rescrapeCampusmapMsg" style="margin-left:12px;font-size:13px;color:var(--ink-muted)"></span>
+    </div>
+  </div>
+
   <div class="panel">
     <div class="phead">Recent runs</div>
     <div class="pad" style="overflow-x:auto">
       <table class="admin-table" id="runsTable">
-        <thead><tr><th>Kind</th><th>Trigger</th><th>Status</th><th>Started</th><th>Sections</th><th>New evals</th><th>RMP</th><th>Summary</th></tr></thead>
-        <tbody id="runsBody"><tr><td colspan="8" class="empty">Loading&hellip;</td></tr></tbody>
+        <thead><tr><th>Kind</th><th>Trigger</th><th>Status</th><th>Started</th><th>Sections</th><th>New evals</th><th>RMP</th><th>Map</th><th>Summary</th></tr></thead>
+        <tbody id="runsBody"><tr><td colspan="9" class="empty">Loading&hellip;</td></tr></tbody>
       </table>
     </div>
   </div>
