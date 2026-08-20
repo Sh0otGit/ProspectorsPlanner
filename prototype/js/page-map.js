@@ -11,7 +11,8 @@
    ===================================================================== */
 const MAP_W = 800, MAP_H = 600, PAD = 56;
 
-let parkingLocations = null; // fetched lazily, only once the toggle is actually used
+let parkingLocations = null; // both fetched together, once, from the same /api/campus-locations call
+let refBuildings = null;     // every non-parking campus point, drawn as small unlabeled dots so the map reads as real campus before any class is picked
 
 /* Every added section, tagged with where it stands: a real building match
    (the map's job), a real room this project's map data just doesn't
@@ -38,16 +39,31 @@ function collectPickedSections(){
   return { picks, byBuilding };
 }
 
-/* lat/lng -> {x,y} in the 800x600 viewBox, fit to whatever points are
-   actually being shown (building pins plus parking lots, when the
-   toggle is on) with padding, preserving real relative distances (one
-   shared scale for both axes, not stretched to fill the box) instead of
-   distorting campus's actual shape. Falls back to a small fixed span
-   for a single point, so one added class doesn't divide by zero. */
-function projector(points){
-  const lats = points.map(p=>p.lat), lngs = points.map(p=>p.lng);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+/* Main campus's own footprint, in plain lat/lng -- 818 of the 887 scraped
+   points (buildings and lots both) fall inside this box, the rest are
+   satellite/off-campus properties out past El Paso. This is the floor
+   the map always shows, so an empty schedule still renders real campus,
+   not a blank panel -- see the "always show the map" note below. */
+const DEFAULT_BOUNDS = { minLat: 31.7635, maxLat: 31.7835, minLng: -106.513, maxLng: -106.494 };
+
+/* Widens DEFAULT_BOUNDS to also fit any real points being plotted, so a
+   picked class at a building outside the usual core (a satellite site)
+   still lands on-screen instead of getting clipped to the default. */
+function unionBounds(points){
+  let { minLat, maxLat, minLng, maxLng } = DEFAULT_BOUNDS;
+  for(const p of points){
+    minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
+    minLng = Math.min(minLng, p.lng); maxLng = Math.max(maxLng, p.lng);
+  }
+  return { minLat, maxLat, minLng, maxLng };
+}
+
+/* lat/lng -> {x,y} in the 800x600 viewBox, fit to the given bounds with
+   padding, preserving real relative distances (one shared scale for both
+   axes, not stretched to fill the box) instead of distorting campus's
+   actual shape. */
+function projector(bounds){
+  const { minLat, maxLat, minLng, maxLng } = bounds;
   const midLat = (minLat+maxLat)/2;
   const lngScale = Math.cos(midLat * Math.PI/180);
   const latSpan = Math.max(maxLat-minLat, 0.0012);
@@ -94,60 +110,62 @@ function render(){
   const groups = [...byBuilding.values()];
   const showParking = $("#parkingToggle").checked;
 
-  if(!state.picked.size){
-    $("#mapWrap").innerHTML = '<div class="panel"><div class="empty">No courses selected yet. Add a class in Instructors first.</div></div>';
-    $("#mapLegend").innerHTML = "";
-    $("#mapCourseList").innerHTML = '<div class="empty">No courses selected yet.</div>';
-    return;
-  }
-  if(!groups.length && !(showParking && parkingLocations?.length)){
-    $("#mapWrap").innerHTML = '<div class="panel"><div class="empty">'
-      + (picks.length
-        ? "None of your added sections have a location on file yet -- either they're online/TBA, or this project's map data doesn't cover that room. See the list on the right."
-        : "Add a section in Instructors to see it here.")
-      + '</div></div>';
-  } else {
-    const points = groups.map(g=>g.building).concat(showParking && parkingLocations ? parkingLocations : []);
-    const project = projector(points.length ? points : [{lat:31.7735,lng:-106.5045}]); // UTEP's own campus centroid, only reached with zero points to show
+  /* The map itself always renders -- real campus, from DEFAULT_BOUNDS --
+     whether or not anything's been added yet. Picked sections just add
+     pins on top of that same base view instead of gating the map behind
+     having a schedule at all. */
+  const points = groups.map(g=>g.building).concat(showParking && parkingLocations ? parkingLocations : []);
+  const project = projector(unionBounds(points));
 
-    let svg = '<rect x="0" y="0" width="'+MAP_W+'" height="'+MAP_H+'" class="mapbg"></rect>';
+  let svg = '<rect x="0" y="0" width="'+MAP_W+'" height="'+MAP_H+'" class="mapbg"></rect>';
 
-    if(showParking && parkingLocations){
-      svg += parkingLocations.map(p=>{
-        const {x,y} = project(p.lat, p.lng);
-        return '<g class="parkpin" tabindex="0" data-tip="'+esc(p.name)+' &middot; Parking"><circle cx="'+x+'" cy="'+y+'" r="5"></circle></g>';
-      }).join("");
-    }
-
-    svg += groups.map(g=>{
-      const {x,y} = project(g.building.lat, g.building.lng);
-      const c = "var("+PALETTE[g.picks[0].colorIdx % PALETTE.length]+")";
-      const codes = [...new Set(g.picks.map(p=>p.code))];
-      return '<g class="bldgpin" tabindex="0" role="button" data-goto-code="'+esc(codes[0])+'" '
-        + 'data-tip="'+esc(pinPicksHTML(g.picks))+'" '
-        + 'aria-label="'+esc(g.building.name)+': '+esc(codes.join(", "))+'. Click to view in Instructors.">'
-        + '<circle cx="'+x+'" cy="'+y+'" r="10" style="--c:'+c+'"></circle>'
-        + (g.picks.length>1?'<text x="'+x+'" y="'+(y+4)+'" class="pinbadge">'+g.picks.length+'</text>':"")
-        + '<text x="'+x+'" y="'+(y-15)+'" class="pinlabel">'+esc(g.building.name)+'</text>'
-        + '</g>';
+  /* Plain reference dots for every building on file, drawn first (under
+     everything else) so the page reads as a real map of campus even
+     before any class is picked. A building already carrying a picked
+     section gets its own bigger, labeled, colored pin below instead of
+     also a plain dot underneath it. */
+  if(refBuildings){
+    svg += refBuildings.filter(b=>!byBuilding.has(b.id)).map(b=>{
+      const {x,y} = project(b.lat, b.lng);
+      return '<circle class="refpin" cx="'+x+'" cy="'+y+'" r="3"><title>'+esc(b.name)+'</title></circle>';
     }).join("");
-
-    $("#mapWrap").innerHTML = '<svg id="campusMap" viewBox="0 0 '+MAP_W+' '+MAP_H+'" role="img" '
-      + 'aria-label="Map of UTEP campus with pins at your added classes\' buildings">'+svg+'</svg>';
-
-    $$(".bldgpin,.parkpin", $("#mapWrap")).forEach(el=>{
-      el.onmouseenter = e => showTip(el.dataset.tip, e.pageX, e.pageY);
-      el.onmousemove = e => { if(mapTipEl && mapTipEl.style.display==="block"){ mapTipEl.style.left=(e.pageX+16)+"px"; mapTipEl.style.top=(e.pageY+16)+"px"; } };
-      el.onmouseleave = hideTip;
-      el.onfocus = () => { const r = el.getBoundingClientRect(); showTip(el.dataset.tip, r.left+window.scrollX, r.top+window.scrollY); };
-      el.onblur = hideTip;
-    });
-    $$("[data-goto-code]", $("#mapWrap")).forEach(el=>{
-      const go = () => { state.activeCourse = el.dataset.gotoCode; state.revOpen.clear(); saveState(); location.href = "instructors.html"; };
-      el.onclick = go;
-      el.onkeydown = e => { if(e.key==="Enter" || e.key===" "){ e.preventDefault(); go(); } };
-    });
   }
+
+  if(showParking && parkingLocations){
+    svg += parkingLocations.map(p=>{
+      const {x,y} = project(p.lat, p.lng);
+      return '<g class="parkpin" tabindex="0" data-tip="'+esc(p.name)+' &middot; Parking"><circle cx="'+x+'" cy="'+y+'" r="5"></circle></g>';
+    }).join("");
+  }
+
+  svg += groups.map(g=>{
+    const {x,y} = project(g.building.lat, g.building.lng);
+    const c = "var("+PALETTE[g.picks[0].colorIdx % PALETTE.length]+")";
+    const codes = [...new Set(g.picks.map(p=>p.code))];
+    return '<g class="bldgpin" tabindex="0" role="button" data-goto-code="'+esc(codes[0])+'" '
+      + 'data-tip="'+esc(pinPicksHTML(g.picks))+'" '
+      + 'aria-label="'+esc(g.building.name)+': '+esc(codes.join(", "))+'. Click to view in Instructors.">'
+      + '<circle cx="'+x+'" cy="'+y+'" r="10" style="--c:'+c+'"></circle>'
+      + (g.picks.length>1?'<text x="'+x+'" y="'+(y+4)+'" class="pinbadge">'+g.picks.length+'</text>':"")
+      + '<text x="'+x+'" y="'+(y-15)+'" class="pinlabel">'+esc(g.building.name)+'</text>'
+      + '</g>';
+  }).join("");
+
+  $("#mapWrap").innerHTML = '<svg id="campusMap" viewBox="0 0 '+MAP_W+' '+MAP_H+'" role="img" '
+    + 'aria-label="Map of UTEP campus with pins at your added classes\' buildings">'+svg+'</svg>';
+
+  $$(".bldgpin,.parkpin", $("#mapWrap")).forEach(el=>{
+    el.onmouseenter = e => showTip(el.dataset.tip, e.pageX, e.pageY);
+    el.onmousemove = e => { if(mapTipEl && mapTipEl.style.display==="block"){ mapTipEl.style.left=(e.pageX+16)+"px"; mapTipEl.style.top=(e.pageY+16)+"px"; } };
+    el.onmouseleave = hideTip;
+    el.onfocus = () => { const r = el.getBoundingClientRect(); showTip(el.dataset.tip, r.left+window.scrollX, r.top+window.scrollY); };
+    el.onblur = hideTip;
+  });
+  $$("[data-goto-code]", $("#mapWrap")).forEach(el=>{
+    const go = () => { state.activeCourse = el.dataset.gotoCode; state.revOpen.clear(); saveState(); location.href = "instructors.html"; };
+    el.onclick = go;
+    el.onkeydown = e => { if(e.key==="Enter" || e.key===" "){ e.preventDefault(); go(); } };
+  });
 
   $("#mapLegend").innerHTML = groups.map(g=>{
     const c = "var("+PALETTE[g.picks[0].colorIdx % PALETTE.length]+")";
@@ -162,22 +180,22 @@ function render(){
       + '<span class="crn-code">'+esc(shortType(p.scheduleType||""))+'</span>'
       + '<span class="crn-prof">'+esc(p.profName)+'</span></span>'
       + '<span class="crn-when" style="text-align:right">'+whereHTML(p)+'</span></div></div>'
-  ).join("") : '<div class="empty">No sections added yet.</div>';
+  ).join("") : '<div class="empty">'
+    + (state.picked.size ? "No sections added yet. Choose a professor and CRN in Instructors to see it here." : "No courses added yet. Add one in Courses to see it here.")
+    + '</div>';
 }
 
-$("#parkingToggle").onchange = async () => {
-  if($("#parkingToggle").checked && !parkingLocations){
-    try {
-      const r = await fetch("/api/campus-locations").then(r=>r.json());
-      parkingLocations = r.parking || [];
-    } catch(e) { parkingLocations = []; }
-  }
-  render();
-};
+$("#parkingToggle").onchange = render;
 
 (async () => {
+  render(); // draw the base map immediately, don't wait on any fetch
   try {
-    await ensureCatalog([...state.picked]);
+    const [locations] = await Promise.all([
+      fetch("/api/campus-locations").then(r=>r.json()),
+      ensureCatalog([...state.picked]),
+    ]);
+    refBuildings = locations.buildings || [];
+    parkingLocations = locations.parking || [];
   } catch(e) { /* render() still works with whatever loaded */ }
   render();
 })();

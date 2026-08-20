@@ -148,3 +148,11 @@ export function allLocations() {
 export function listParkingLocations() {
   return db.prepare(`SELECT id, name, lat, lng FROM campus_locations WHERE is_parking = 1`).all();
 }
+
+/* Every non-parking point, for the Map page's always-on base layer --
+   plain reference dots showing the shape of campus even before any class
+   is added, with the picked buildings drawn as the larger labeled pins
+   on top of these. */
+export function listBuildingLocations() {
+  return db.prepare(`SELECT id, name, lat, lng FROM campus_locations WHERE is_parking = 0`).all();
+}

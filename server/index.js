@@ -15,7 +15,7 @@ import { db } from "../scrapers/lib/db.js";
 import { checkPassword, createSession, verifySession, destroySession, parseCookies } from "./lib/auth.js";
 import { isRateLimited, clientIp } from "./lib/rate-limit.js";
 import { latestTerm, listCourses, getCourse } from "./lib/catalog.js";
-import { listParkingLocations } from "./lib/campusmap.js";
+import { listParkingLocations, listBuildingLocations } from "./lib/campusmap.js";
 import {
   triggerScheduleRun,
   triggerEvaluationsRun,
@@ -290,7 +290,7 @@ const server = createServer(async (req, res) => {
       });
     }
     if (pathname === "/api/campus-locations" && req.method === "GET") {
-      return sendJson(res, 200, { parking: listParkingLocations() });
+      return sendJson(res, 200, { buildings: listBuildingLocations(), parking: listParkingLocations() });
     }
 
     // ---- public API: reviews submission (the "Rate this tool" card) ----

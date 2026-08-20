@@ -396,6 +396,7 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .mapwrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface)}
 #campusMap{display:block;width:100%;height:auto}
 .mapbg{fill:var(--surface-2)}
+.refpin{fill:var(--surface-3);stroke:var(--rule);stroke-width:1}
 .bldgpin{cursor:pointer}
 .bldgpin circle{fill:color-mix(in srgb,var(--c) 25%,#fff);stroke:var(--c);stroke-width:2.5;transition:r .12s}
 .bldgpin:hover circle,.bldgpin:focus-visible circle{r:13}

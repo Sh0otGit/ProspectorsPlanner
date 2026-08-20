@@ -18,9 +18,14 @@ Availability, Instructors, Schedule -- not five, plus a Map tab (done
 2026-08-21) that isn't part of that numbered flow: real pins, from UTEP's
 own campus map platform, at whichever buildings a student's added
 sections actually meet in, an always-available utility view rather than
-a fifth step. See Data sources below for where the building coordinates
-come from and `prototype/js/page-map.js` for the (external-library-free)
-rendering.
+a fifth step. The map itself always renders -- every non-parking campus
+point on file drawn as a plain reference dot, fit to a fixed main-campus
+bounding box -- whether or not anything's been picked yet, so it reads as
+a real map of campus from the first visit; picked sections just add
+larger, labeled, colored pins on top of that same base layer instead of
+gating the whole page behind having a schedule. See Data sources below
+for where the building coordinates come from and
+`prototype/js/page-map.js` for the (external-library-free) rendering.
 Rate My Professors is now scraped too (`scrapers/rmp.js`, done 2026-08-19),
 a deliberate exception to this project's otherwise legally-clean data
 sourcing, since RMP's own ToS prohibits it; see Data sources below for the
