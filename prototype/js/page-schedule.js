@@ -4,20 +4,29 @@
 const PALETTE = ["--series-1","--series-2","--r4","--star","--r5"];
 
 function renderSchedule(){
-  /* [code, profName, section] for every added pick, resolved live from CATALOG */
-  const picks = [...state.chosen.keys()].map(code=>{
-    const c = state.chosen.get(code);
-    return {code, profName:c.profName, section:getChosenSection(code)};
-  }).filter(p=>p.section);
+  /* {code, profName, section, scheduleType} for every added pick, resolved
+     live from CATALOG. A course can now contribute more than one pick
+     (a lecture and its own seminar, e.g. PHYS 2320 -- see
+     server/lib/catalog.js's components field and app.js's
+     allChosenSections()), each with its own CRN and time, so the
+     calendar keys everything below off the *pick* (its CRN), never off
+     the course code alone -- two picks sharing a code are still two
+     separate calendar entries with two separate times. */
+  const picks = allChosenSections().map(({code, entry, sec}) =>
+    ({code, profName:entry.profName, scheduleType:entry.scheduleType, section:sec}));
 
-  /* slot key -> list of classes occupying it */
+  /* slot key -> list of picks occupying it, identified by CRN */
   const map=new Map();
   picks.forEach((pk,i)=>sectionSlots(pk.section).forEach(k=>{
     if(!map.has(k)) map.set(k,[]);
-    map.get(k).push({code:pk.code,i});
+    map.get(k).push({code:pk.code, crn:pk.section.crn, i});
   }));
 
-  /* conflicting course pairs, for the note text below the grid */
+  /* conflicting course pairs, for the note text below the grid -- two
+     picks under the *same* code (a course's own lecture and seminar
+     genuinely overlapping) still show as e.g. "PHYS 2320 and PHYS 2320",
+     which reads a little redundant but is not wrong: it is that course's
+     own two parts colliding. */
   const pairs=new Set();
   map.forEach(v=>{
     if(v.length>1) for(let a=0;a<v.length;a++) for(let b=a+1;b<v.length;b++)
@@ -38,9 +47,10 @@ function renderSchedule(){
       const prevOverlap = (map.get(d+"-"+(i-1))||[]).length>1;
       const nextOverlap = (map.get(d+"-"+(i+1))||[]).length>1;
       const codes = [...new Set(evs.map(e=>e.code))];
+      const crns = [...new Set(evs.map(e=>e.crn))];
       const cls = "hasclass overlap"+(prevOverlap?" contTop":"")+(nextOverlap?" contBottom":"");
       return '<td class="'+cls+'">'
-        + '<div class="ovblock" role="button" tabindex="0" data-goto-code="'+esc(codes[0])+'" data-codes="'+esc(codes.join(","))+'" '
+        + '<div class="ovblock" role="button" tabindex="0" data-goto-code="'+esc(codes[0])+'" data-crns="'+esc(crns.join(","))+'" '
         + 'aria-label="Conflict between '+codes.map(esc).join(" and ")+'. Click to fix in Instructors.">'
         + (!prevOverlap?'<span class="lbl">'+codes.map(esc).join(" / ")+'</span>':"")
         + '</div></td>';
@@ -49,8 +59,8 @@ function renderSchedule(){
     const prev = map.get(d+"-"+(i-1)) || [];
     const next = map.get(d+"-"+(i+1)) || [];
     const blocks = evs.map(ev=>{
-      const first = !prev.some(x=>x.code===ev.code);
-      const last  = !next.some(x=>x.code===ev.code);
+      const first = !prev.some(x=>x.crn===ev.crn);
+      const last  = !next.some(x=>x.crn===ev.crn);
       const c = "var("+PALETTE[ev.i%5]+")";
       // --c carries this block's own palette color as a custom property so
       // the .hoverblk rule below can mix a deeper shade of the *same*
@@ -59,8 +69,12 @@ function renderSchedule(){
       // own contTop/contBottom-style continuity flags -- a class spanning
       // several half-hour slots hovers as one unbroken box, not a stack of
       // individually outlined cells, the same fix already applied to the
-      // conflict/overlap outline.
-      return '<span class="blk'+(first?" first":"")+(last?" last":"")+'" data-code="'+esc(ev.code)+'" '
+      // conflict/overlap outline. data-crn (not code) is the hover/highlight
+      // identity -- a lecture and its own seminar share a code but must not
+      // cross-highlight each other, they're different sections at different
+      // times. data-goto-code stays a plain course code since either one
+      // should land on the same Instructors tab.
+      return '<span class="blk'+(first?" first":"")+(last?" last":"")+'" data-crn="'+esc(ev.crn)+'" '
         + 'role="button" tabindex="0" data-goto-code="'+esc(ev.code)+'" '
         + 'aria-label="'+esc(ev.code)+'. Click to view or edit in Instructors." style="'
         + '--c:'+c+';background:color-mix(in srgb,'+c+' 20%,#fff);border-color:'+c+'">'
@@ -94,7 +108,8 @@ function renderSchedule(){
     : "";
 
   $("#schedLegend").innerHTML = picks.map((pk,i)=>
-    '<span><i class="swatch" style="background:color-mix(in srgb,var('+PALETTE[i%5]+') 20%,#fff);border-color:var('+PALETTE[i%5]+')"></i>'+esc(pk.code)+'</span>').join("")
+    '<span><i class="swatch" style="background:color-mix(in srgb,var('+PALETTE[i%5]+') 20%,#fff);border-color:var('+PALETTE[i%5]+')"></i>'+esc(pk.code)
+      + (pk.scheduleType?' <span style="color:var(--ink-muted)">('+esc(shortType(pk.scheduleType))+')</span>':"")+'</span>').join("")
     + '<span><i class="swatch" style="background:repeating-linear-gradient(45deg,#f2d7d5,#f2d7d5 4px,#e8c4c1 4px,#e8c4c1 8px)"></i>Blocked</span>'
     + (pairs.size?'<span><i class="swatch" style="background:var(--critical)"></i>Overlap</span>':"");
 
@@ -104,7 +119,7 @@ function renderSchedule(){
         return '<div class="crnrow"><div class="crntop">'
           + '<span class="crn-info"><b>CRN '+esc(pk.section.crn)+'</b>'
           + (title?'<span class="crn-title">'+esc(title)+'</span>':"")
-          + '<span class="crn-code">'+esc(pk.code)+'</span>'
+          + '<span class="crn-code">'+esc(pk.code)+(pk.scheduleType?" &middot; "+esc(shortType(pk.scheduleType)):"")+'</span>'
           + '<span class="crn-prof">'+esc(pk.profName)+'</span></span>'
           + '<span class="crn-when">'
           + (pk.section.days.length?pk.section.days.join("")+"<br>"+fmt(pk.section.start):"Online")+'</span></div>'
@@ -130,32 +145,36 @@ function renderSchedule(){
    each time. */
 let calTipEl = null;
 function wireCalHover(picks){
-  const byCode = new Map(picks.map(pk=>[pk.code,pk]));
+  // Keyed by CRN, not course code -- a course can now have two picks (a
+  // lecture and its seminar) sharing one code, and they must not
+  // cross-highlight or share a tooltip row just because they're the
+  // same course; they're different sections at different times.
+  const byCrn = new Map(picks.map(pk=>[pk.section.crn,pk]));
   if(!calTipEl){
     calTipEl = document.createElement("div");
     calTipEl.className = "calTip";
     document.body.appendChild(calTipEl);
   }
 
-  function rowHTML(code){
-    const pk = byCode.get(code);
+  function rowHTML(crn){
+    const pk = byCrn.get(crn);
     if(!pk) return "";
-    const title = CATALOG_TITLE[code];
+    const title = CATALOG_TITLE[pk.code];
     const s = pk.section;
     const when = s.days.length ? s.days.join("")+" &middot; "+fmt(s.start)+" to "+fmt(s.end) : "Asynchronous";
-    return '<div class="calTipRow"><b>'+esc(code)+'</b>'+(title?" &middot; "+esc(title):"")+'<br>'
+    return '<div class="calTipRow"><b>'+esc(pk.code)+'</b>'+(title?" &middot; "+esc(title):"")+(pk.scheduleType?" &middot; "+esc(shortType(pk.scheduleType)):"")+'<br>'
       + 'CRN '+esc(s.crn)+' &middot; '+esc(pk.profName)+'<br>'
       + when + (s.room?' &middot; '+esc(s.room):"")+'</div>';
   }
 
   const cal = $("#schedCal");
   cal.onmouseover = e => {
-    const el = e.target.closest("[data-code],[data-codes]");
+    const el = e.target.closest("[data-crn],[data-crns]");
     if(!el) return;
-    const codes = el.dataset.code ? [el.dataset.code] : el.dataset.codes.split(",");
-    $$("[data-code]",cal).forEach(x=>x.classList.toggle("hoverblk", codes.includes(x.dataset.code)));
-    $$("[data-codes]",cal).forEach(x=>x.classList.toggle("hoverblk", x.dataset.codes.split(",").some(c=>codes.includes(c))));
-    calTipEl.innerHTML = codes.map(rowHTML).join("");
+    const crns = el.dataset.crn ? [el.dataset.crn] : el.dataset.crns.split(",");
+    $$("[data-crn]",cal).forEach(x=>x.classList.toggle("hoverblk", crns.includes(x.dataset.crn)));
+    $$("[data-crns]",cal).forEach(x=>x.classList.toggle("hoverblk", x.dataset.crns.split(",").some(c=>crns.includes(c))));
+    calTipEl.innerHTML = crns.map(rowHTML).join("");
     calTipEl.style.display = "block";
   };
   cal.onmousemove = e => {
@@ -164,7 +183,7 @@ function wireCalHover(picks){
     calTipEl.style.top = (e.pageY+16)+"px";
   };
   cal.onmouseleave = () => {
-    $$("[data-code],[data-codes]",cal).forEach(x=>x.classList.remove("hoverblk"));
+    $$("[data-crn],[data-crns]",cal).forEach(x=>x.classList.remove("hoverblk"));
     calTipEl.style.display = "none";
   };
 }
@@ -230,7 +249,7 @@ $("#submitReview").onclick = async () => {
 (async () => {
   try {
     await ensureCatalog([...state.chosen.keys()]);
-  } catch(e) { /* renderSchedule() still works with whatever loaded; getChosenSection just returns null for the rest */ }
+  } catch(e) { /* renderSchedule() still works with whatever loaded; allChosenSections() just skips the rest */ }
   if(TERM_LABEL) $("#schedHeading").textContent = TERM_LABEL+" schedule";
   renderSchedule();
 })();

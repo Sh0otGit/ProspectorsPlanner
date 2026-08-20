@@ -27,16 +27,18 @@ async function init(){
   scrollToChosenSection();
 }
 
-/* Jumps the page to the professor card teaching the section already added
-   for the active course (the one .sect the render below marks "added" --
-   there's only ever one at a time for a given course, so no need to look
-   up by name/CRN), and scrolls that card's own section list so the added
-   section is visible inside it too. Called on tab switches, the initial
-   load, and after arriving from a class clicked on the Schedule page
-   (see data-goto-code in page-schedule.js) -- not from every re-render,
-   so paging through reviews or clicking Add doesn't yank the page around
-   while the student is already looking at the right spot. No-ops
-   harmlessly when the active course has no added section yet. */
+/* Jumps the page to the professor card teaching a section already added
+   for the active course (the first .sect the render below marks "added" --
+   a course can now have two, a lecture and its seminar, but they're
+   almost always taught by the same instructor, so landing on either
+   one's card is the useful outcome), and scrolls that card's own section
+   list so the added section is visible inside it too. Called on tab
+   switches, the initial load, and after arriving from a class clicked on
+   the Schedule page (see data-goto-code in page-schedule.js) -- not from
+   every re-render, so paging through reviews or clicking Add doesn't
+   yank the page around while the student is already looking at the right
+   spot. No-ops harmlessly when the active course has no added section
+   yet. */
 function scrollToChosenSection(){
   const sectEl = $(".sect.added");
   if(!sectEl) return;
@@ -80,25 +82,52 @@ function syncSectionListHeights(){
   });
 }
 
+/* Both disclaimers come from server/lib/catalog.js's per-course
+   requiresLab/components fields (see CATALOG_META in app.js) -- neither
+   is a guess rendered client-side, both are derived from real scraped
+   data (a lab section's own title naming its parent course; a course's
+   own set of distinct schedule_type values). Neither can name the exact
+   CRN pairing Banner enforces at registration (that lives behind
+   Banner 9 SSB's CAS login, confirmed not publicly accessible), so both
+   say so plainly and point to an advisor/professor instead of pretending
+   to know. */
+function companionNoticesHTML(code){
+  const meta = CATALOG_META[code];
+  if(!meta) return "";
+  let html = "";
+  if(meta.requiresLab){
+    const lab = meta.requiresLab;
+    const labCode = esc(lab.subject+" "+lab.courseNumber);
+    html += '<div class="notice">This class has a required lab, <b>'+labCode+'</b>'
+      + (lab.title ? " ("+esc(lab.title)+")" : "") + '. Search for it separately and add a section. '
+      + "If you're unsure which "+labCode+" section is correct for your lecture, ask your advisor or professor.</div>";
+  }
+  if(meta.components && meta.components.length>1){
+    const kinds = meta.components.map(shortType);
+    html += '<div class="notice">This class has more than one required part: <b>'+kinds.map(esc).join("</b> and <b>")+'</b>. '
+      + "You can add one section of each below -- they'll show up as separate classes on your schedule. "
+      + "If you're unsure which sections go together, ask your advisor or professor.</div>";
+  }
+  return html;
+}
+
 function renderResults(){
   const codes = activeCodes();
   if(!state.activeCourse || !codes.includes(state.activeCourse)) state.activeCourse = codes[0];
 
   $("#courseTabs").innerHTML = codes.map(code=>{
     const title = CATALOG_TITLE[code];
-    const pick = state.chosen.get(code);
+    const entries = chosenEntries(code);
     const profs = CATALOG[code] || [];
-    /* Both kinds of problem a picked section can have -- clashing with
-       another added course, and sitting on a blocked hour -- count toward
-       this badge, not just the course-vs-course kind. A section that does
-       both showed "Conflict (1)" before, hiding the blocked-hour half. */
-    const pickSec = pick ? getChosenSection(code) : null;
-    const issues = pickSec ? conflictCount(code) + (hitsBlocked(pickSec)?1:0) : 0;
-    return '<button class="ctab'+(code===state.activeCourse?" on":"")+(pick?" added":"")+'" data-tab="'+esc(code)+'">'
+    // conflictCount() already sums conflicts/blocked-hours across every
+    // section chosen for this course (there can be more than one now --
+    // a lecture and its seminar).
+    const issues = conflictCount(code);
+    return '<button class="ctab'+(code===state.activeCourse?" on":"")+(entries.length?" added":"")+'" data-tab="'+esc(code)+'">'
       + '<span class="c">'+esc(code)+'</span>'
       + '<span class="t">'+(title?esc(title):"")+'</span>'
       + '<span class="s">'
-      + (pick ? "CRN "+esc(pick.crn)+" added" : num(profs.length)+" instructor"+(profs.length===1?"":"s"))
+      + (entries.length ? entries.map(e=>"CRN "+esc(e.crn)).join(", ")+" added" : num(profs.length)+" instructor"+(profs.length===1?"":"s"))
       + '</span>'
       + (issues ? '<span class="tabconflict">Conflict ('+issues+')</span>' : "")
       + '</button>';
@@ -122,15 +151,16 @@ function renderResults(){
     if(sa==null) return 1; if(sb==null) return -1;
     return sb-sa;
   });
-  const pick = state.chosen.get(code);
+  const entries = chosenEntries(code);
   const rows = profs.map(p=>profHTML(code,p)).join("");
 
   $("#resultsList").innerHTML =
     '<section class="coursepanel"><header>'
     + '<span class="code">'+esc(code)+'</span><span class="ttl">'+(title?esc(title):"")+'</span>'
-    + (pick ? '<span class="badge on">CRN '+esc(pick.crn)+' added</span>'
+    + (entries.length ? '<span class="badge on">'+entries.map(e=>"CRN "+esc(e.crn)).join(", ")+' added</span>'
             : '<span class="badge">'+num(profs.length)+' instructor'+(profs.length===1?"":"s")+'</span>')
     + '</header>'
+    + companionNoticesHTML(code)
     + (rows || '<div class="empty">No instructors listed for this course this term.</div>')
     + '</section>';
 
@@ -172,10 +202,20 @@ function renderResults(){
 
   $$("[data-add]").forEach(b=>{
     b.onclick = () => {
-      const c=b.dataset.code, prof=b.dataset.prof, crn=b.dataset.crn;
-      const cur = state.chosen.get(c);
-      if(cur && cur.crn===crn) state.chosen.delete(c);
-      else state.chosen.set(c,{profName:prof,crn:crn});
+      const c=b.dataset.code, prof=b.dataset.prof, crn=b.dataset.crn, type=b.dataset.type;
+      // One active pick per distinct schedule_type, not one per course --
+      // adding a section only replaces a previous pick of that *same*
+      // type (e.g. swapping which Lecture section you added), leaving a
+      // different type's pick (e.g. a already-added Seminar) untouched.
+      let byType = state.chosen.get(c);
+      const cur = byType ? byType.get(type) : null;
+      if(cur && cur.crn===crn){
+        byType.delete(type);
+        if(byType.size===0) state.chosen.delete(c);
+      } else {
+        if(!byType){ byType = new Map(); state.chosen.set(c, byType); }
+        byType.set(type, {profName:prof, crn:crn});
+      }
       saveState();
       renderResults(); renderChrome();
     };
@@ -283,7 +323,7 @@ function distRowHTML(label, dist, n, unit){
 
 function profHTML(code,p){
   const score = combined(p);
-  const pick  = state.chosen.get(code);
+  const entries = chosenEntries(code);
   const secs = p.sections.slice();
   if(!secs.length) return "";
 
@@ -323,9 +363,10 @@ function profHTML(code,p){
    + '<div class="sectlist">'
    + secs.map(s=>{
       const blocked = hitsBlocked(s);
-      const clashWith = conflictingCodes(s,code);
+      const myEntry = entries.find(e=>e.crn===s.crn);
+      const added   = !!myEntry;
+      const clashWith = conflictingCodes(s,code,s.scheduleType);
       const clash = clashWith.length>0;
-      const added   = pick && pick.crn===s.crn;
       const when    = s.days.length ? s.days.join("")+" &middot; "+fmt(s.start)+" to "+fmt(s.end) : "Asynchronous";
       return '<div class="sect '+(added?"added":"")+' '+((blocked||clash)&&!added?"conflict":"")+'">'
         + '<div style="display:flex;justify-content:space-between;gap:8px">'
@@ -336,7 +377,7 @@ function profHTML(code,p){
         + (blocked?'<div class="warnline">Overlaps a blocked hour</div>':"")
         + (clash?'<div class="warnline">Conflicts with '+clashWith.map(esc).join(", ")+'</div>':"")
         + '<button class="btn sm '+(added?"":"blue")+'" style="margin-top:9px;width:100%" data-add '
-          + 'data-code="'+esc(code)+'" data-prof="'+esc(p.name)+'" data-crn="'+esc(s.crn)+'">'
+          + 'data-code="'+esc(code)+'" data-prof="'+esc(p.name)+'" data-crn="'+esc(s.crn)+'" data-type="'+esc(s.scheduleType||"")+'">'
           + (added?"Remove":"Add to schedule")+'</button>'
         + '</div>';
      }).join("")

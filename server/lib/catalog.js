@@ -112,6 +112,44 @@ export function listCourses(termCode) {
     .map((r) => ({ code: `${r.subject} ${r.course_number}`, title: r.title }));
 }
 
+/* Some sections are a required companion to another course rather than a
+   real standalone choice -- a lab in its own course number (PHYS 2120,
+   "Laboratory for PHYS 2320") or a same-numbered seminar/recitation
+   alongside a lecture (PHYS 2320-009, Seminar). UTEP's own registration
+   system (Banner 9 Self-Service, CAS-gated) resolves the exact CRN
+   pairing via a "Linked Sections" list we have no access to -- confirmed
+   2026-08-20, that data doesn't exist anywhere public. What's derivable
+   from data already scraped: lab sections almost always spell their
+   parent course out in their own title ("Laboratory for X ####" /
+   "Lab for X ####"), always within the lab's own subject (confirmed
+   against every such title on file, no exceptions) -- no new scraping
+   needed, just a regex over sections.title. A same-course-number
+   seminar/recitation needs no lookup at all: getCourse() already groups
+   every schedule_type for a course number together, so the seminar
+   sections are already sitting right there in the same response. */
+const LAB_TITLE_RE = /\bfor\s+.*?(\d{3,4})\s*$/i;
+
+// Rebuilt per call, same tradeoff as instructorIndex()/rmpIndex() above --
+// this scans every distinct (subject, course_number, title), a few
+// thousand rows, cheap next to a scrape's own cadence.
+function labParentIndex() {
+  const rows = db.prepare(`SELECT DISTINCT subject, course_number, title FROM sections WHERE title IS NOT NULL`).all();
+  const index = new Map(); // "SUBJECT NUMBER" (the parent/lecture course) -> {subject, courseNumber}
+  for (const r of rows) {
+    const m = LAB_TITLE_RE.exec(r.title || "");
+    if (!m) continue;
+    index.set(`${r.subject} ${m[1]}`, { subject: r.subject, courseNumber: r.course_number });
+  }
+  return index;
+}
+
+function courseTitle(termCode, subject, courseNumber) {
+  const row = db
+    .prepare(`SELECT MIN(title) AS title FROM sections WHERE term_code = ? AND subject = ? AND course_number = ?`)
+    .get(termCode, subject, courseNumber);
+  return row?.title ?? null;
+}
+
 /* One course's real sections, grouped by matched (or best-effort
    unmatched) instructor, each with an aggregated HB 2504 rating and,
    where a Banner name matches an rmp_professors row (same word-set
@@ -137,6 +175,17 @@ export function getCourse(termCode, subject, courseNumber) {
     .prepare(`SELECT * FROM sections WHERE term_code = ? AND subject = ? AND course_number = ? ORDER BY section ASC`)
     .all(termCode, subject, courseNumber);
   if (!sections.length) return null;
+
+  const labMatch = labParentIndex().get(`${subject} ${courseNumber}`) || null;
+  const requiresLab = labMatch
+    ? { subject: labMatch.subject, courseNumber: labMatch.courseNumber, title: courseTitle(termCode, labMatch.subject, labMatch.courseNumber) }
+    : null;
+  // Every distinct schedule_type under this one course number -- a plain
+  // Lecture-only course has exactly one and needs no disclaimer. More
+  // than one means a student can genuinely add more than one section at
+  // once for this course (a lecture *and* its seminar), which
+  // getChosenSection-era app.js used to structurally forbid.
+  const components = [...new Set(sections.map((s) => s.schedule_type))];
 
   const idx = instructorIndex();
   const rmpIdx = rmpIndex();
@@ -227,5 +276,5 @@ export function getCourse(termCode, subject, courseNumber) {
     };
   });
 
-  return { title: sections[0].title, professors };
+  return { title: sections[0].title, professors, requiresLab, components };
 }

@@ -282,6 +282,8 @@ const server = createServer(async (req, res) => {
         title: found?.title ?? null,
         term: term.term_label,
         professors: found?.professors ?? [],
+        requiresLab: found?.requiresLab ?? null,
+        components: found?.components ?? [],
       });
     }
 

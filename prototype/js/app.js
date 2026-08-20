@@ -35,14 +35,26 @@ function esc(s){
   }[c]));
 }
 
-/* ---------- state ---------- */
+/* ---------- state ----------
+   state.chosen: Map<courseCode, Map<scheduleType, {profName, crn}>>.
+   A course can have more than one required, separately-timed component
+   (a lecture plus its own seminar/recitation under the same course
+   number, e.g. PHYS 2320's Lecture and Seminar sections) -- one active
+   pick per distinct schedule_type, not one pick per course, is what
+   actually matches how UTEP structures those courses. See
+   server/lib/catalog.js's `components` field, which is what tells the
+   UI a course has more than one such slot to fill. */
 function loadState(){
   let d = {};
   try { d = JSON.parse(sessionStorage.getItem(SS_KEY)) || {}; } catch(e){}
+  const chosen = new Map();
+  for(const [code, byType] of Object.entries(d.chosen || {})){
+    if(byType && typeof byType === "object") chosen.set(code, new Map(Object.entries(byType)));
+  }
   return {
     picked: new Set(d.picked || []),
     blocked: new Set(d.blocked || []),
-    chosen: new Map(Object.entries(d.chosen || {})),
+    chosen,
     activeCourse: d.activeCourse || null,
     visited: new Set(d.visited && d.visited.length ? d.visited : [0]),
     revOpen: new Set(d.revOpen || []),
@@ -50,10 +62,12 @@ function loadState(){
   };
 }
 function saveState(){
+  const chosen = {};
+  for(const [code, byType] of state.chosen) chosen[code] = Object.fromEntries(byType);
   sessionStorage.setItem(SS_KEY, JSON.stringify({
     picked: [...state.picked],
     blocked: [...state.blocked],
-    chosen: Object.fromEntries(state.chosen),
+    chosen,
     activeCourse: state.activeCourse,
     visited: [...state.visited],
     revOpen: [...state.revOpen],
@@ -86,18 +100,22 @@ const state = loadState();
 const CATALOG_CACHE_KEY = "prospectors_planner_catalog_v1";
 const CATALOG = {};
 const CATALOG_TITLE = {};
+// code -> {requiresLab: {subject,courseNumber,title}|null, components: string[]}
+// See server/lib/catalog.js for how these are derived.
+const CATALOG_META = {};
 let TERM_LABEL = null;
 (function loadCatalogCache(){
   try {
     const d = JSON.parse(sessionStorage.getItem(CATALOG_CACHE_KEY)) || {};
     Object.assign(CATALOG, d.courses || {});
     Object.assign(CATALOG_TITLE, d.titles || {});
+    Object.assign(CATALOG_META, d.meta || {});
     if(d.term) TERM_LABEL = d.term;
   } catch(e){}
 })();
 function saveCatalogCache(){
   sessionStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({
-    courses: CATALOG, titles: CATALOG_TITLE, term: TERM_LABEL
+    courses: CATALOG, titles: CATALOG_TITLE, meta: CATALOG_META, term: TERM_LABEL
   }));
 }
 async function ensureCatalog(codes){
@@ -109,6 +127,7 @@ async function ensureCatalog(codes){
   missing.forEach((c,i)=>{
     CATALOG[c] = results[i].professors;
     CATALOG_TITLE[c] = results[i].title;
+    CATALOG_META[c] = { requiresLab: results[i].requiresLab || null, components: results[i].components || [] };
     if(results[i].term) TERM_LABEL = results[i].term;
   });
   saveCatalogCache();
@@ -122,16 +141,49 @@ async function ensureTerm(){
   return TERM_LABEL;
 }
 
-/* chosen course -> {profName, crn}. Resolve the live section object from
-   CATALOG rather than storing it, so the fetched data stays the single
-   source. Returns null (not a throw) if that course hasn't been fetched
-   into CATALOG yet on this page -- callers that need it are expected to
-   await ensureCatalog() first. */
+/* Every {scheduleType, profName, crn} currently chosen for one course --
+   usually zero or one, occasionally two (a lecture and its seminar). */
+function chosenEntries(code){
+  const byType = state.chosen.get(code);
+  if(!byType) return [];
+  return [...byType].map(([scheduleType,v])=>({scheduleType, profName:v.profName, crn:v.crn}));
+}
+
+/* Resolves one chosen entry's live section object from CATALOG rather
+   than storing it, so the fetched data stays the single source. Returns
+   null (not a throw) if that course hasn't been fetched into CATALOG yet
+   on this page -- callers that need it are expected to await
+   ensureCatalog() first. */
+function resolveSection(code, entry){
+  const p = (CATALOG[code]||[]).find(x=>x.name===entry.profName);
+  return p ? p.sections.find(s=>s.crn===entry.crn) : null;
+}
+
+/* Back-compat convenience for the common case (a course with only one
+   chosen component) -- the first resolved section, or null. Schedule/
+   calendar code that needs *every* chosen section (a course can have
+   more than one now) uses allChosenSections() below instead. */
 function getChosenSection(code){
-  const c = state.chosen.get(code);
-  if(!c) return null;
-  const p = (CATALOG[code]||[]).find(x=>x.name===c.profName);
-  return p ? p.sections.find(s=>s.crn===c.crn) : null;
+  for(const entry of chosenEntries(code)){
+    const sec = resolveSection(code, entry);
+    if(sec) return sec;
+  }
+  return null;
+}
+
+/* Every {code, entry, sec} currently chosen, across every picked course --
+   flattened because a single course can now contribute more than one
+   section (a lecture and its seminar are two separate calendar entries,
+   two separate CRNs), so "one pick per course" no longer holds. */
+function allChosenSections(){
+  const out = [];
+  for(const code of state.picked){
+    for(const entry of chosenEntries(code)){
+      const sec = resolveSection(code, entry);
+      if(sec) out.push({code, entry, sec});
+    }
+  }
+  return out;
 }
 
 /* Start, Courses and Availability are always reachable. Instructors and
@@ -157,6 +209,13 @@ const fmt = t => {
   return (m==="00" ? String(h) : h+":"+m) + " " + ap;
 };
 
+// "Lecture (LECT)" -> "Lecture" -- Banner's own schedule-type code in
+// parentheses isn't something a student needs to see in plain-English
+// UI text (a companion-section disclaimer, a calendar legend entry).
+function shortType(scheduleType){
+  return (scheduleType||"").replace(/\s*\([^)]*\)\s*$/,"").trim();
+}
+
 /* Style guide: spell out one through nine, numerals for 10 and up. */
 const NUMWORD=["zero","one","two","three","four","five","six","seven","eight","nine"];
 const num    = n => n<10 ? NUMWORD[n] : String(n);
@@ -172,23 +231,37 @@ function sectionSlots(sec){
 }
 const hitsBlocked = sec => sectionSlots(sec).some(k=>state.blocked.has(k));
 
-/* Codes of other added courses whose section overlaps this one's -- lets
-   the UI name which course conflicts, not just whether one does. */
-function conflictingCodes(sec, exceptCode){
+/* Codes of other added sections whose time overlaps this one's -- lets
+   the UI name which course conflicts, not just whether one does.
+   exceptScheduleType excludes this exact chosen entry (not just its
+   course) from matching itself, since a course can now have more than
+   one chosen section -- without it, checking a course's own already-
+   added lecture against its own already-added seminar would always
+   "conflict with itself" the moment both were picked. A real overlap
+   between a course's own lecture and its own seminar is still reported
+   (it'll just name that same course code), which is correct: they do
+   conflict, the UI just can't tell you "with itself" more specifically
+   than that. */
+function conflictingCodes(sec, exceptCode, exceptScheduleType){
   const mine = new Set(sectionSlots(sec));
   const out = [];
-  for(const other of state.chosen.keys()){
-    if(other===exceptCode) continue;
-    const otherSec = getChosenSection(other);
-    if(otherSec && sectionSlots(otherSec).some(k=>mine.has(k))) out.push(other);
+  for(const {code, entry, sec:otherSec} of allChosenSections()){
+    if(code===exceptCode && entry.scheduleType===exceptScheduleType) continue;
+    if(sectionSlots(otherSec).some(k=>mine.has(k))) out.push(code);
   }
   return out;
 }
 
-/* Number of other added courses whose section overlaps this one's. */
+/* Total conflict/blocked-hour issues across every section chosen for
+   this course (not just one, now that a course can have several). */
 function conflictCount(code){
-  const sec = getChosenSection(code);
-  return sec ? conflictingCodes(sec, code).length : 0;
+  let n = 0;
+  for(const entry of chosenEntries(code)){
+    const sec = resolveSection(code, entry);
+    if(!sec) continue;
+    n += conflictingCodes(sec, code, entry.scheduleType).length + (hitsBlocked(sec)?1:0);
+  }
+  return n;
 }
 
 function combined(p){
