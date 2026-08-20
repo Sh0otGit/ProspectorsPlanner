@@ -194,7 +194,7 @@ const qColor = q => "var(--r"+Math.max(1,Math.min(5,q))+")";
    labeled first row would poke that nudge past the table's top border). */
 const LABEL_FROM_H = 7;
 function calSkeleton(id, cellFn){
-  let h = "<thead><tr><th></th>" + DAYS.map(d=>'<th data-day="'+d+'">'+DAY_NAMES[d]+"</th>").join("") + "</tr></thead><tbody>";
+  let h = "<thead><tr><th><span class=\"sr-only\">Time</span></th>" + DAYS.map(d=>'<th data-day="'+d+'">'+DAY_NAMES[d]+"</th>").join("") + "</tr></thead><tbody>";
   SLOTS.forEach((m,i)=>{
     const label = (m%60===0 && m>=LABEL_FROM_H*60) ? fmt(String(Math.floor(m/60)).padStart(2,"0")+":00") : "";
     h += '<tr><td class="t">'+label+"</td>" + DAYS.map(d=>cellFn(d,i)).join("") + "</tr>";
@@ -274,6 +274,7 @@ function renderChrome(){
    outer <nav> shell stayed static markup because it's the same
    zero-flash pattern already proven out in this codebase. */
 const SITE_HEADER_HTML = `
+<a class="skiplink" href="#main">Skip to content</a>
 <div class="utility">
   <div class="wrap">
     <span class="unaff">Not affiliated with or endorsed by The University of Texas at El Paso</span>
@@ -302,7 +303,7 @@ const SITE_FOOTER_HTML = `
   <div class="wrap">
     <div class="footcols">
       <div>
-        <h4>Prospector's Planner</h4>
+        <h2>Prospector's Planner</h2>
         <ul>
           <li>An independent student project</li>
           <li>El Paso, Texas</li>
@@ -310,7 +311,7 @@ const SITE_FOOTER_HTML = `
         </ul>
       </div>
       <div>
-        <h4>UTEP links</h4>
+        <h2>UTEP links</h2>
         <ul>
           <li><a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a></li>
           <li><a href="#" onclick="return false">Registration dates</a></li>
@@ -319,7 +320,7 @@ const SITE_FOOTER_HTML = `
         </ul>
       </div>
       <div>
-        <h4>Data sources</h4>
+        <h2>Data sources</h2>
         <ul>
           <li><a href="#" onclick="return false">HB 2504 faculty profiles</a></li>
           <li><a href="#" onclick="return false">Class schedule search</a></li>
@@ -327,7 +328,7 @@ const SITE_FOOTER_HTML = `
         </ul>
       </div>
       <div>
-        <h4>About Prospector's Planner</h4>
+        <h2>About Prospector's Planner</h2>
         <ul>
           <li><a href="methodology.html">Methodology</a></li>
           <li><a href="privacy.html">Privacy</a></li>

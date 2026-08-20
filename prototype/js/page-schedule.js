@@ -40,7 +40,7 @@ function renderSchedule(){
       const codes = [...new Set(evs.map(e=>e.code))];
       const cls = "hasclass overlap"+(prevOverlap?" contTop":"")+(nextOverlap?" contBottom":"");
       return '<td class="'+cls+'">'
-        + '<div class="ovblock" data-goto-code="'+esc(codes[0])+'" data-codes="'+esc(codes.join(","))+'" '
+        + '<div class="ovblock" role="button" tabindex="0" data-goto-code="'+esc(codes[0])+'" data-codes="'+esc(codes.join(","))+'" '
         + 'aria-label="Conflict between '+codes.map(esc).join(" and ")+'. Click to fix in Instructors.">'
         + (!prevOverlap?'<span class="lbl">'+codes.map(esc).join(" / ")+'</span>':"")
         + '</div></td>';
@@ -69,10 +69,16 @@ function renderSchedule(){
   });
 
   $$("[data-goto-code]").forEach(el=>{
-    el.onclick = () => {
+    const go = () => {
       state.activeCourse = el.dataset.gotoCode;
       saveState();
       location.href = "instructors.html";
+    };
+    el.onclick = go;
+    // role="button" on a div doesn't get native Enter/Space activation the
+    // way a real <button> would -- has to be wired by hand.
+    el.onkeydown = e => {
+      if(e.key==="Enter" || e.key===" "){ e.preventDefault(); go(); }
     };
   });
 

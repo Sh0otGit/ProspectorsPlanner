@@ -140,7 +140,7 @@ function reviewsHTML(p){
     + slice.map(r=>
         '<div class="rev" style="border-left-color:'+qColor(Math.round(r.q))+'">'
         + '<div class="rev-top">'
-          + '<span class="rev-q" style="background:'+qColor(Math.round(r.q))+'">'+r.q.toFixed(1)+'</span>'
+          + '<span class="rev-q'+([3,4].includes(Math.round(r.q))?" darktext":"")+'" style="background:'+qColor(Math.round(r.q))+'">'+r.q.toFixed(1)+'</span>'
           + '<span class="rev-course">'+esc(r.course)+'</span>'
           + '<span>'+esc(r.date)+'</span>'
           + (r.d!=null?'<span>Difficulty '+r.d.toFixed(1)+'</span>':"")
@@ -216,7 +216,7 @@ function profHTML(code,p,hideConflict){
    + '</div>'
    + reviewsHTML(p)
    + '</div>'
-   + '<div class="prof-side"><h5>Sections, '+esc(TERM_LABEL||"this term")+'</h5>'
+   + '<div class="prof-side"><h2>Sections, '+esc(TERM_LABEL||"this term")+'</h2>'
    + '<div class="sectlist">'
    + secs.map(s=>{
       const blocked = hitsBlocked(s);
