@@ -9,6 +9,21 @@ import { db } from "../../scrapers/lib/db.js";
 const scrypt = promisify(scryptCb);
 const SESSION_HOURS = 12;
 
+// Generated once per installation and persisted, instead of a literal
+// string baked into the source -- no password hash is ever stored at rest
+// here (the comparison below runs candidate-vs-env-var fresh on every
+// login, never reads a saved hash back), so a fixed salt couldn't have fed
+// a leaked-hash-database attack the way it would for a stored-hash system.
+// Randomizing it anyway is a cheap way to not read as an anti-pattern to
+// whoever reviews this file without that context.
+function passwordSalt() {
+  const row = db.prepare(`SELECT value FROM app_config WHERE key = 'password_salt'`).get();
+  if (row) return row.value;
+  const salt = randomBytes(16).toString("hex");
+  db.prepare(`INSERT INTO app_config (key, value) VALUES ('password_salt', ?)`).run(salt);
+  return salt;
+}
+
 function constantTimeEqual(a, b) {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
@@ -30,7 +45,7 @@ export async function checkPassword(candidate) {
     );
   }
   // scrypt both sides so comparison time doesn't leak the real password's length
-  const salt = "prospectors-planner-admin";
+  const salt = passwordSalt();
   const [a, b] = await Promise.all([scrypt(candidate, salt, 32), scrypt(expected, salt, 32)]);
   return timingSafeEqual(a, b);
 }

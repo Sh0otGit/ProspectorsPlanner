@@ -16,7 +16,7 @@
   <nav class="admin-nav" id="adminNav"></nav>
 
   <div class="panel" style="margin-bottom:20px">
-    <div class="phead">Class schedule &mdash; daily</div>
+    <div class="phead">Class schedule: daily</div>
     <div class="pad">
       <div class="note" style="margin-bottom:14px">
         Every subject, every section, for Fall 2026 (public, no login;
@@ -25,9 +25,9 @@
         automatically. This button runs it immediately instead of waiting.
       </div>
       <div class="statgrid">
-        <div><div class="lab">Status</div><div class="val" id="schedStatus">&mdash;</div></div>
-        <div><div class="lab">Last run</div><div class="val" id="schedLast">&mdash;</div><div class="sub" id="schedLastSub"></div></div>
-        <div><div class="lab">Next automatic run</div><div class="val" id="schedNext">&mdash;</div><div class="sub">Only while the server process stays running</div></div>
+        <div><div class="lab">Status</div><div class="val" id="schedStatus">N/A</div></div>
+        <div><div class="lab">Last run</div><div class="val" id="schedLast">N/A</div><div class="sub" id="schedLastSub"></div></div>
+        <div><div class="lab">Next automatic run</div><div class="val" id="schedNext">N/A</div><div class="sub">Only while the server process stays running</div></div>
       </div>
       <div class="progress-live" id="schedProgress" hidden>
         <div class="progress"><i id="schedProgressBar" style="width:0%"></i></div>
@@ -39,20 +39,20 @@
   </div>
 
   <div class="panel" style="margin-bottom:20px">
-    <div class="phead">HB 2504 evaluations &mdash; once a semester</div>
+    <div class="phead">HB 2504 evaluations: once a semester</div>
     <div class="pad">
       <div class="note" style="margin-bottom:14px">
         Every instructor in the HB 2504 directory campus-wide (~1965
         people), fetching only evaluation pages not already cached. The
-        first run is a real backfill &mdash; tens of thousands of requests,
+        first run is a real backfill: tens of thousands of requests,
         several hours. Repeat runs are fast since almost everything is
         already cached. Meant to run about every 120 days; eval scores only
         change when a new term's ratings post.
       </div>
       <div class="statgrid">
-        <div><div class="lab">Status</div><div class="val" id="evalStatus">&mdash;</div></div>
-        <div><div class="lab">Last run</div><div class="val" id="evalLast">&mdash;</div><div class="sub" id="evalLastSub"></div></div>
-        <div><div class="lab">Next automatic run</div><div class="val" id="evalNext">&mdash;</div><div class="sub">Only while the server process stays running</div></div>
+        <div><div class="lab">Status</div><div class="val" id="evalStatus">N/A</div></div>
+        <div><div class="lab">Last run</div><div class="val" id="evalLast">N/A</div><div class="sub" id="evalLastSub"></div></div>
+        <div><div class="lab">Next automatic run</div><div class="val" id="evalNext">N/A</div><div class="sub">Only while the server process stays running</div></div>
       </div>
       <div class="progress-live" id="evalProgress" hidden>
         <div class="progress"><i id="evalProgressBar" style="width:0%"></i></div>
@@ -64,22 +64,22 @@
   </div>
 
   <div class="panel" style="margin-bottom:20px">
-    <div class="phead">Rate My Professors &mdash; every 30 days</div>
+    <div class="phead">Rate My Professors: every 30 days</div>
     <div class="pad">
       <div class="notice danger" style="margin-bottom:14px">
         <b>RMP's own Terms of Service prohibit automated access.</b> Scraped
-        anyway, a deliberate decision &mdash; see CLAUDE.md's Data sources
+        anyway, a deliberate decision. See CLAUDE.md's Data sources
         entry and <code>scrapers/rmp.js</code> for the full reasoning. Two
         steps: the full campus professor list (~2,400 people, aggregate
-        numbers only, ~24 requests), then a bounded review pull &mdash; only
+        numbers only, ~24 requests), then a bounded review pull, only
         for instructors who also match someone actually teaching a real
         section this term, and only the handful of reviews RMP's own
         professor page shows, never a deeper pull.
       </div>
       <div class="statgrid">
-        <div><div class="lab">Status</div><div class="val" id="rmpStatus">&mdash;</div></div>
-        <div><div class="lab">Last run</div><div class="val" id="rmpLast">&mdash;</div><div class="sub" id="rmpLastSub"></div></div>
-        <div><div class="lab">Next automatic run</div><div class="val" id="rmpNext">&mdash;</div><div class="sub">Only while the server process stays running</div></div>
+        <div><div class="lab">Status</div><div class="val" id="rmpStatus">N/A</div></div>
+        <div><div class="lab">Last run</div><div class="val" id="rmpLast">N/A</div><div class="sub" id="rmpLastSub"></div></div>
+        <div><div class="lab">Next automatic run</div><div class="val" id="rmpNext">N/A</div><div class="sub">Only while the server process stays running</div></div>
       </div>
       <div class="progress-live" id="rmpProgress" hidden>
         <div class="progress"><i id="rmpProgressBar" style="width:0%"></i></div>

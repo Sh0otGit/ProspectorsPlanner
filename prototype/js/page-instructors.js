@@ -30,9 +30,6 @@ function renderResults(){
   const codes = activeCodes();
   if(!state.activeCourse || !codes.includes(state.activeCourse)) state.activeCourse = codes[0];
 
-  const hideConflict = $("#fHideConflict").checked;
-  const onlyData     = $("#fOnlyData").checked;
-
   $("#courseTabs").innerHTML = codes.map(code=>{
     const title = CATALOG_TITLE[code];
     const pick = state.chosen.get(code);
@@ -57,14 +54,13 @@ function renderResults(){
   const code = state.activeCourse;
   const title = CATALOG_TITLE[code];
   let profs = (CATALOG[code] || []).slice();
-  if(onlyData) profs = profs.filter(p=>p.evalN>0);
   profs.sort((a,b)=>{
     const sa=combined(a), sb=combined(b);
     if(sa==null) return 1; if(sb==null) return -1;
     return sb-sa;
   });
   const pick = state.chosen.get(code);
-  const rows = profs.map(p=>profHTML(code,p,hideConflict)).join("");
+  const rows = profs.map(p=>profHTML(code,p)).join("");
 
   $("#resultsList").innerHTML =
     '<section class="coursepanel"><header>'
@@ -72,7 +68,7 @@ function renderResults(){
     + (pick ? '<span class="badge on">CRN '+esc(pick.crn)+' added</span>'
             : '<span class="badge">'+num(profs.length)+' instructor'+(profs.length===1?"":"s")+'</span>')
     + '</header>'
-    + (rows || '<div class="empty">No instructors match the active filters.</div>')
+    + (rows || '<div class="empty">No instructors listed for this course this term.</div>')
     + '</section>';
 
   $$("[data-add]").forEach(b=>{
@@ -177,11 +173,10 @@ function distRowHTML(label, dist, n, unit){
     + '</div>';
 }
 
-function profHTML(code,p,hideConflict){
+function profHTML(code,p){
   const score = combined(p);
   const pick  = state.chosen.get(code);
-  let secs = p.sections.slice();
-  if(hideConflict) secs = secs.filter(s=>!hitsBlocked(s));
+  const secs = p.sections.slice();
   if(!secs.length) return "";
 
   const rmpDist = p.rmp && p.rmp.dist;
@@ -240,6 +235,5 @@ function profHTML(code,p,hideConflict){
    + '</div></div></div>';
 }
 
-["fHideConflict","fOnlyData"].forEach(id=>$("#"+id).onchange=renderResults);
 
 init();

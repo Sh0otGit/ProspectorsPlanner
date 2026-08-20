@@ -10,7 +10,7 @@ async function load() {
   document.getElementById("statCount").textContent = reviews.length;
   document.getElementById("statAvg").textContent = reviews.length
     ? (reviews.reduce((a, r) => a + r.rating, 0) / reviews.length).toFixed(2)
-    : "—";
+    : "N/A";
   document.getElementById("statWithText").textContent = reviews.filter((r) => r.text && r.text.trim()).length;
 
   if (!reviews.length) {

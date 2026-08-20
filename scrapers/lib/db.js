@@ -124,6 +124,15 @@ CREATE TABLE IF NOT EXISTS admin_sessions (
   expires_at  TEXT NOT NULL
 );
 
+/* Small key/value store for values that need to persist across restarts but
+   don't belong in an env var -- currently just the random salt the admin
+   password comparison scrypts against (see server/lib/auth.js), generated
+   once on first use instead of a literal string baked into the source. */
+CREATE TABLE IF NOT EXISTS app_config (
+  key    TEXT PRIMARY KEY,
+  value  TEXT NOT NULL
+);
+
 /* "Report a problem" submissions from the footer link -- same idea as
    reviews (public POST, admin-only read), kept in its own table since a
    bug report and a star rating aren't the same shape of data. */

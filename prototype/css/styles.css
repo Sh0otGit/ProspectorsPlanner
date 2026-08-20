@@ -99,6 +99,14 @@ a{color:var(--link)}
 }
 .skiplink:focus{transform:translateY(0)}
 
+/* Dismissed permanently via localStorage -- see renderCookieBanner() in
+   app.js -- so this only ever shows a first-time visitor. */
+.cookiebanner{position:fixed;bottom:0;left:0;right:0;z-index:90;background:var(--utep-blue);padding:14px 0;box-shadow:0 -2px 10px rgba(0,0,0,.18)}
+.cookiebanner .wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.cookiebanner p{margin:0;font-size:13px;line-height:1.5;flex:1;min-width:240px;color:#dbe4f0}
+.cookiebanner a{color:#ffb257}
+.cookiebanner .btn{flex:none}
+
 /* Visually hidden but still reachable by assistive tech -- the standard
    clip-based pattern (display:none removes it from the accessibility
    tree entirely, which defeats the point). */

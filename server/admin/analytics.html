@@ -51,17 +51,17 @@
     tool's own users treat as competitive.</p>
     <div class="needs"><b>Needs:</b> lightweight anonymous event logging on
     the "Add to schedule" action (course + CRN + timestamp, no student
-    identity) &mdash; doesn't exist yet, and is its own privacy decision to make
-    deliberately, not bolt on quietly.</div>
+    identity). Does not exist yet; requires a deliberate privacy decision
+    first, not a quiet addition.</div>
   </div>
 
   <div class="idea-card">
     <h3>Campus time-of-day density</h3>
     <p>With real meeting times/rooms for every scraped section (even without
     seat counts), we can show which time blocks and buildings are most
-    saturated with sections campus-wide &mdash; a rough proxy for "everything
+    saturated with sections campus-wide: a rough proxy for "everything
     is competing for a 10 a.m. slot" that doesn't need enrollment data at all.</p>
-    <div class="needs"><b>Needs:</b> nothing new &mdash; the <code>sections</code>
+    <div class="needs"><b>Needs:</b> nothing new. The <code>sections</code>
     table already has this once more than one department is scraped.</div>
   </div>
 
@@ -71,7 +71,7 @@
     scraped sections actually have a published evaluation, broken down by
     department. Tells us where the ranking is trustworthy and where it's
     mostly "no data" placeholders, and where to point the scraper next.</p>
-    <div class="needs"><b>Needs:</b> nothing new &mdash; a straight join between
+    <div class="needs"><b>Needs:</b> nothing new. A straight join between
     <code>sections</code> and <code>evaluations</code> once more departments
     are scraped.</div>
   </div>
@@ -79,7 +79,7 @@
   <div class="idea-card">
     <h3>Tool feedback vs. what people actually did</h3>
     <p>Cross-reference submitted "Rate this tool" feedback with what that
-    session did before leaving it &mdash; how many courses picked, whether they
+    session did before leaving it: how many courses picked, whether they
     hit a schedule conflict, whether they reached the CRN list. Distinguishes
     "this is annoying to use" from "the ranking wasn't helpful" from "no
     real complaint, just anonymous noise."</p>

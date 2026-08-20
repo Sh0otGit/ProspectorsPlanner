@@ -16,10 +16,21 @@ export function isRateLimited(ip) {
 }
 
 export function clientIp(req) {
-  // Render (and most hosts) sit behind a proxy -- the real client address
-  // is the first entry in X-Forwarded-For, not the socket's remote address.
+  // Render (and most hosts) sit behind a proxy, so the socket's own remote
+  // address is just that proxy, not the real visitor. X-Forwarded-For is
+  // still attacker-controlled input, though: a client can set it directly on
+  // its own request, and a reverse proxy conventionally *appends* its own
+  // observed peer address as the last entry rather than replacing whatever
+  // the client already sent -- confirmed the naive fix (trusting the first
+  // entry) is spoofable: sending a different fake value on every request let
+  // every single test request through the limiter below instead of only 5.
+  // The last entry is the one the proxy itself added, which a client can't
+  // control from outside it.
   const fwd = req.headers["x-forwarded-for"];
-  if (fwd) return fwd.split(",")[0].trim();
+  if (fwd) {
+    const hops = fwd.split(",").map((s) => s.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1];
+  }
   return req.socket.remoteAddress || "unknown";
 }
 

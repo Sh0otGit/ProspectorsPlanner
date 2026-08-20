@@ -17,7 +17,7 @@ function courseRow(code, title, selected){
 function renderStats(){
   $("#statbar").style.gridTemplateColumns = "repeat(3,1fr)"; // this page has 3 stats, not the usual 4
   $("#statbar").innerHTML =
-    '<div><div class="lab">Term</div><div class="val" style="font-size:18px">'+esc(TERM_LABEL||"—")+'</div></div>'
+    '<div><div class="lab">Term</div><div class="val" style="font-size:18px">'+esc(TERM_LABEL||"N/A")+'</div></div>'
   + '<div><div class="lab">Courses offered</div><div class="val">'+ALL_COURSES.length+'</div><div class="sub">this term</div></div>'
   + '<div><div class="lab">Selected</div><div class="val">'+state.picked.size+'</div><div class="sub">course'+(state.picked.size===1?"":"s")+'</div></div>';
 }

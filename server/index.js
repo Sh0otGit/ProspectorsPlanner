@@ -10,6 +10,7 @@ import { readFile, stat } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomBytes } from "node:crypto";
 import { db } from "../scrapers/lib/db.js";
 import { checkPassword, createSession, verifySession, destroySession, parseCookies } from "./lib/auth.js";
 import { isRateLimited, clientIp } from "./lib/rate-limit.js";
@@ -60,29 +61,36 @@ const COMPRESSIBLE = new Set([
   "application/xml; charset=utf-8",
 ]);
 
-// A same-origin CSP that still allows what this site actually uses: the
-// small inline <script> blocks a few pages carry (index.html's sample-data
-// button, report.html's submit handler) -- a nonce-based CSP would be
-// tighter but isn't worth the added complexity for a single-operator
-// prototype. Fonts used to need fonts.googleapis.com/fonts.gstatic.com
-// here too; both are self-hosted from /fonts now (see styles.css), so
-// neither host needs an allowance anymore.
+// Headers that don't depend on anything per-request.
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-  "Content-Security-Policy": [
+};
+
+// A same-origin CSP with a real per-request nonce for script-src instead of
+// 'unsafe-inline' -- the handful of inline <script> blocks this site carries
+// (the window.CURRENT_STEP setter on each step page, report.html's submit
+// handler) get that nonce injected into their tag by serveStatic() below.
+// style-src keeps 'unsafe-inline': this codebase's JS templates set inline
+// style="" attributes throughout, which nonces can't cover at all (that's
+// a CSP spec limitation, not an oversight) -- closing that gap would mean
+// moving every one of those to a real CSS class, not a security fix on its
+// own. Fonts are self-hosted from /fonts (see styles.css), so no font CDN
+// needs an allowance here.
+function buildCsp(nonce) {
+  return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'nonce-${nonce}'`,
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
     "img-src 'self' data:",
     "connect-src 'self'",
     "base-uri 'none'",
     "frame-ancestors 'none'",
-  ].join("; "),
-};
+  ].join("; ");
+}
 
 // Sends `body` with gzip applied when the client says it accepts it and
 // compression is actually worth it (skips tiny bodies and already-
@@ -99,11 +107,16 @@ function sendBody(req, res, status, headers, body) {
   res.end(buf);
 }
 
+// Matches a bare <script> tag (no src=) so the CSP nonce can be injected
+// into it -- <script src="..."> tags are already covered by script-src
+// 'self' and don't need one.
+const INLINE_SCRIPT_RE = /<script(?![^>]*\bsrc=)>/g;
+
 // notFoundPage/errorPage: when set, a missing file or thrown error for an
 // HTML-navigation request (empty or .html extension -- not a missing CSS/
 // JS/image asset, which should stay a plain 404) serves that styled page
 // instead of bare text, without changing the status code a caller sees.
-async function serveStatic(req, res, rootDir, urlPath, { notFoundPage } = {}) {
+async function serveStatic(req, res, rootDir, urlPath, { notFoundPage, nonce } = {}) {
   const safePath = normalize(urlPath).replace(/^(\.\.[/\\])+/, "");
   const filePath = join(rootDir, safePath === "/" ? "index.html" : safePath);
   if (!filePath.startsWith(rootDir)) {
@@ -117,32 +130,44 @@ async function serveStatic(req, res, rootDir, urlPath, { notFoundPage } = {}) {
       finalPath = join(finalPath, "index.html");
       s = await stat(finalPath);
     }
-    // No build step means no cache-busting hashed filenames -- a file can
-    // change without its URL changing, so a blind max-age was the wrong
-    // tool: "public, max-age=3600" (the first version of this) meant
-    // anyone who loaded the site in the hour around a deploy kept getting
-    // served their browser's own stale copy for up to an hour after the
-    // server had already moved on -- confirmed for real, not theoretical,
-    // when real instructor data shipped and a browser that had visited
-    // shortly before kept showing the fabricated data it had cached.
-    // "no-cache" (despite the name) still lets the browser keep the file --
-    // it just has to send If-Modified-Since and get a real answer first,
-    // so an unchanged file is still a cheap 304 instead of a full re-fetch,
-    // but a changed one is never silently stale.
-    const lastModified = s.mtime.toUTCString();
-    const ifModifiedSince = req.headers["if-modified-since"];
-    if (ifModifiedSince && Math.floor(new Date(ifModifiedSince).getTime() / 1000) >= Math.floor(s.mtimeMs / 1000)) {
-      res.writeHead(304, { "Cache-Control": "no-cache", "Last-Modified": lastModified });
-      return res.end();
-    }
-    const body = await readFile(finalPath);
     const contentType = MIME[extname(finalPath)] || "application/octet-stream";
-    return sendBody(req, res, 200, { "Content-Type": contentType, "Cache-Control": "no-cache", "Last-Modified": lastModified }, body);
+    // HTML carries the per-request CSP nonce baked into its inline <script>
+    // tags, so it can't be served from a 304 -- a cached body's nonce would
+    // no longer match the fresh nonce this same request's CSP header just
+    // got, and every inline script on the page would silently stop running.
+    // Every other asset (css/js/images) keeps the full If-Modified-Since
+    // caching below exactly as before.
+    if (contentType !== "text/html; charset=utf-8") {
+      // No build step means no cache-busting hashed filenames -- a file can
+      // change without its URL changing, so a blind max-age was the wrong
+      // tool: "public, max-age=3600" (the first version of this) meant
+      // anyone who loaded the site in the hour around a deploy kept getting
+      // served their browser's own stale copy for up to an hour after the
+      // server had already moved on -- confirmed for real, not theoretical,
+      // when real instructor data shipped and a browser that had visited
+      // shortly before kept showing the fabricated data it had cached.
+      // "no-cache" (despite the name) still lets the browser keep the file --
+      // it just has to send If-Modified-Since and get a real answer first,
+      // so an unchanged file is still a cheap 304 instead of a full re-fetch,
+      // but a changed one is never silently stale.
+      const lastModified = s.mtime.toUTCString();
+      const ifModifiedSince = req.headers["if-modified-since"];
+      if (ifModifiedSince && Math.floor(new Date(ifModifiedSince).getTime() / 1000) >= Math.floor(s.mtimeMs / 1000)) {
+        res.writeHead(304, { "Cache-Control": "no-cache", "Last-Modified": lastModified });
+        return res.end();
+      }
+      const body = await readFile(finalPath);
+      return sendBody(req, res, 200, { "Content-Type": contentType, "Cache-Control": "no-cache", "Last-Modified": lastModified }, body);
+    }
+    let body = await readFile(finalPath, "utf8");
+    if (nonce) body = body.replace(INLINE_SCRIPT_RE, `<script nonce="${nonce}">`);
+    return sendBody(req, res, 200, { "Content-Type": contentType, "Cache-Control": "no-cache" }, body);
   } catch {
     const ext = extname(urlPath);
     if (notFoundPage && (ext === "" || ext === ".html")) {
       try {
-        const body = await readFile(notFoundPage);
+        let body = await readFile(notFoundPage, "utf8");
+        if (nonce) body = body.replace(INLINE_SCRIPT_RE, `<script nonce="${nonce}">`);
         return sendBody(req, res, 404, { "Content-Type": "text/html; charset=utf-8" }, body);
       } catch {
         /* fall through to the plain-text 404 below if the page itself is missing */
@@ -152,10 +177,25 @@ async function serveStatic(req, res, rootDir, urlPath, { notFoundPage } = {}) {
   }
 }
 
+// 32KB comfortably covers every field this server actually accepts (a
+// password, or review/report text already capped at 4000 characters once
+// parsed) -- without a cap, req.on("data") had no limit at all, so a large
+// POST body would sit in memory in full before JSON.parse or the field-
+// length truncation downstream ever got a chance to run.
+const MAX_BODY_BYTES = 32 * 1024;
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let data = "";
-    req.on("data", (chunk) => (data += chunk));
+    let bytes = 0;
+    req.on("data", (chunk) => {
+      bytes += chunk.length;
+      if (bytes > MAX_BODY_BYTES) {
+        req.destroy();
+        reject(new Error("Request body too large"));
+        return;
+      }
+      data += chunk;
+    });
     req.on("end", () => {
       if (!data) return resolve({});
       try {
@@ -193,8 +233,10 @@ function requireAuth(req, res) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const { pathname } = url;
+  const nonce = randomBytes(16).toString("base64");
 
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(name, value);
+  res.setHeader("Content-Security-Policy", buildCsp(nonce));
 
   // Cheap, DB-free liveness check for a host's uptime monitor -- answers
   // even while MAINTENANCE_MODE is on, since that's about the app, not
@@ -282,24 +324,30 @@ const server = createServer(async (req, res) => {
 
     // ---- admin auth ----
     if (pathname === "/admin/api/login" && req.method === "POST") {
+      // Only real friction in front of the single shared admin password --
+      // scrypt's own ~77ms cost is not a substitute for this, it slows one
+      // thread, not a distributed or patient attempt. Same limiter already
+      // used for the public review/report endpoints below.
+      if (isRateLimited(clientIp(req))) return sendJson(res, 429, { error: "Too many attempts, try again shortly." });
       const body = await readJsonBody(req);
       let ok;
       try {
         ok = await checkPassword(String(body.password || ""));
       } catch (e) {
-        return sendJson(res, 500, { error: e.message });
+        console.error("Login check failed:", e.message);
+        return sendJson(res, 500, { error: "Internal error" });
       }
       if (!ok) return sendJson(res, 401, { error: "Wrong password" });
       const { token, expiresAt } = createSession();
       res.setHeader(
         "Set-Cookie",
-        `admin_session=${token}; HttpOnly; Path=/; SameSite=Strict; Expires=${expiresAt.toUTCString()}`
+        `admin_session=${token}; HttpOnly; Secure; Path=/; SameSite=Strict; Expires=${expiresAt.toUTCString()}`
       );
       return sendJson(res, 200, { ok: true });
     }
     if (pathname === "/admin/api/logout" && req.method === "POST") {
       destroySession(getSessionToken(req));
-      res.setHeader("Set-Cookie", "admin_session=; HttpOnly; Path=/; Max-Age=0");
+      res.setHeader("Set-Cookie", "admin_session=; HttpOnly; Secure; Path=/; Max-Age=0");
       return sendJson(res, 200, { ok: true });
     }
 
@@ -408,18 +456,22 @@ const server = createServer(async (req, res) => {
       // login.html itself, and the browser tried (and refused) to apply
       // that HTML response as CSS. Assets carry no admin data themselves;
       // only the HTML pages and the /admin/api/* routes above need auth.
-      const isAsset = extname(pathname) !== "" && extname(pathname) !== ".html";
-      if (!isLoginPage && !isAsset && !verifySession(getSessionToken(req))) {
+      // Allowlisted by directory, not "any non-.html extension" -- the
+      // latter meant a future file dropped anywhere under /admin/ that
+      // wasn't itself an .html page would silently inherit unauthenticated
+      // access, whatever it was.
+      const isPublicAsset = pathname.startsWith("/admin/css/") || pathname.startsWith("/admin/js/");
+      if (!isLoginPage && !isPublicAsset && !verifySession(getSessionToken(req))) {
         res.writeHead(302, { Location: "/admin/login.html" });
         return res.end();
       }
       let sub = pathname.slice("/admin".length) || "/login.html";
       if (sub === "/") sub = "/login.html";
-      return serveStatic(req, res, ADMIN_DIR, sub);
+      return serveStatic(req, res, ADMIN_DIR, sub, { nonce });
     }
 
     // ---- everything else: the public prototype site ----
-    return serveStatic(req, res, PROTOTYPE_DIR, pathname, { notFoundPage: NOT_FOUND_PAGE });
+    return serveStatic(req, res, PROTOTYPE_DIR, pathname, { notFoundPage: NOT_FOUND_PAGE, nonce });
   } catch (err) {
     console.error(err);
     // API callers need a real error status to react to; a page navigation

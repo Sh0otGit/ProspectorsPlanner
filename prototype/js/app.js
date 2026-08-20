@@ -4,9 +4,7 @@
 
    State lives in sessionStorage, not localStorage: it is scoped to
    the tab and clears on close. Only the student's own choices (picked
-   courses, blocked hours, added sections) are stored here, never the
-   degree evaluation file or its parsed text. See CLAUDE.md, "The
-   degree evaluation must be parsed client-side."
+   courses, blocked hours, added sections) are stored here.
    ===================================================================== */
 
 /* Scoring config -- see CLAUDE.md, "Scoring." The shrinkage constants
@@ -17,8 +15,8 @@ const W_EVAL = 0.5, W_RMP = 0.5;
 const DIST_KEYS = ["Excellent","Good","Satisfactory","Poor","Very Poor"];
 const REVIEWS_PER_PAGE = 3;
 
-const SCREENS = ["index.html","upload.html","courses.html","availability.html","instructors.html","schedule.html"];
-const STEP_LABELS = ["Start","Evaluation","Courses","Availability","Instructors","Schedule"];
+const SCREENS = ["index.html","courses.html","availability.html","instructors.html","schedule.html"];
+const STEP_LABELS = ["Start","Courses","Availability","Instructors","Schedule"];
 const DAYS = ["M","T","W","R","F","S"];
 const DAY_NAMES = {M:"Mon",T:"Tue",W:"Wed",R:"Thu",F:"Fri",S:"Sat"};
 const START_H = 6, END_H = 21, SLOT_MIN = 30;
@@ -42,7 +40,6 @@ function loadState(){
   let d = {};
   try { d = JSON.parse(sessionStorage.getItem(SS_KEY)) || {}; } catch(e){}
   return {
-    parsed: !!d.parsed,
     picked: new Set(d.picked || []),
     blocked: new Set(d.blocked || []),
     chosen: new Map(Object.entries(d.chosen || {})),
@@ -54,7 +51,6 @@ function loadState(){
 }
 function saveState(){
   sessionStorage.setItem(SS_KEY, JSON.stringify({
-    parsed: state.parsed,
     picked: [...state.picked],
     blocked: [...state.blocked],
     chosen: Object.fromEntries(state.chosen),
@@ -111,14 +107,11 @@ function getChosenSection(code){
   return p ? p.sections.find(s=>s.crn===c.crn) : null;
 }
 
-/* Steps 2 to 5 are freely navigable once the evaluation step is behind
-   you. Instructors and Schedule additionally need at least one selected
-   course. */
+/* Start, Courses and Availability are always reachable. Instructors and
+   Schedule additionally need at least one selected course. */
 function activeCodes(){ return [...state.picked]; }
 function stepReachable(i){
-  if(i<=1) return true;
-  if(!state.parsed) return false;
-  if(i<=3) return true;
+  if(i<=2) return true;
   return activeCodes().length>0;
 }
 
@@ -218,49 +211,44 @@ function renderChrome(){
     else if(!stepReachable(i))    cls = "item locked";
     else if(state.visited.has(i)) cls = "item done";
     else                          cls = "item avail";
-    /* Start (i===0) isn't part of the numbered 1-5 sequence used in the
-       "Step X of 5" copy on each page, so its badge stays blank. */
+    /* Start (i===0) isn't part of the numbered 1-4 sequence used in the
+       "Step X of 4" copy on each page, so its badge stays blank. */
     const mark = i===0 ? "" : i;
     return '<button class="'+cls+'" data-step="'+i+'"'+(cls==="item locked"?" disabled":"")
          + '><span class="n">'+mark+'</span>'+l+'</button>';
   }).join("");
   $$(".item.done,.item.avail").forEach(el=>el.onclick=()=>{ location.href = SCREENS[+el.dataset.step]; });
 
-  /* No more fixed bottom bar -- each page places its own Back/Skip/
-     Continue inline wherever makes sense for that page's layout (courses
-     and availability under their main panel, instructors under the Your
-     Courses tab, schedule under the calendar, none of the three on step
-     1 since it already has its own Continue inside the result panel). So
-     every lookup here is optional: a page that doesn't have a given
-     control just skips wiring it instead of erroring on a missing element. */
+  /* No fixed bottom bar -- each page places its own Back/Skip/Continue
+     inline wherever makes sense for that page's layout (courses and
+     availability under their main panel, instructors under the Your
+     Courses tab, schedule under the calendar). Every lookup here is
+     optional: a page that doesn't have a given control just skips
+     wiring it instead of erroring on a missing element. */
   const back=$("#backBtn"), skip=$("#skipBtn"), next=$("#nextBtn"), hint=$("#navHint");
 
   if(back){
-    back.style.visibility = n<=1 ? "hidden" : "visible";
+    back.style.visibility = n<=0 ? "hidden" : "visible";
     back.onclick = ()=>{ location.href = SCREENS[n-1]; };
   }
   if(skip){
-    skip.style.display = n===3 ? "" : "none";
-    skip.onclick = ()=>{ location.href = SCREENS[4]; };
+    skip.style.display = n===2 ? "" : "none";
+    skip.onclick = ()=>{ location.href = SCREENS[3]; };
   }
   if(next){
-    next.style.display = (n===1 || n===5) ? "none" : "";
     next.onclick = ()=>{ location.href = SCREENS[n+1]; };
   }
 
-  if(n===2){
+  if(n===1){
     const c=state.picked.size;
     if(next){ next.disabled=c===0; next.textContent="Continue"; }
     if(hint) hint.textContent = c ? numCap(c)+" course"+(c>1?"s":"")+" selected" : "Select at least one course";
-  } else if(n===3){
+  } else if(n===2){
     if(next){ next.disabled=false; next.textContent="Continue"; }
     if(hint) hint.textContent = state.blocked.size ? numCap(state.blocked.size)+" half-hour blocks marked" : "No hours blocked";
-  } else if(n===4){
-    const c=state.chosen.size, t=activeCodes().length;
+  } else if(n===3){
+    const c=state.chosen.size;
     if(next){ next.disabled=c===0; next.textContent="View schedule"; }
-    if(hint) hint.textContent = numCap(c)+" of "+num(t)+" courses scheduled";
-  } else if(n===5){
-    if(hint) hint.textContent = "Copy your CRNs into Goldmine when your registration window opens.";
   } else if(hint){
     hint.textContent = "";
   }
@@ -314,17 +302,17 @@ const SITE_FOOTER_HTML = `
         <h2>UTEP links</h2>
         <ul>
           <li><a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a></li>
-          <li><a href="#" onclick="return false">Registration dates</a></li>
-          <li><a href="#" onclick="return false">Add and drop</a></li>
-          <li><a href="#" onclick="return false">Academic calendar</a></li>
+          <li><a href="#" class="stublink">Registration dates</a></li>
+          <li><a href="#" class="stublink">Add and drop</a></li>
+          <li><a href="#" class="stublink">Academic calendar</a></li>
         </ul>
       </div>
       <div>
         <h2>Data sources</h2>
         <ul>
-          <li><a href="#" onclick="return false">HB 2504 faculty profiles</a></li>
-          <li><a href="#" onclick="return false">Class schedule search</a></li>
-          <li><a href="#" onclick="return false">Course catalog</a></li>
+          <li><a href="#" class="stublink">HB 2504 faculty profiles</a></li>
+          <li><a href="#" class="stublink">Class schedule search</a></li>
+          <li><a href="#" class="stublink">Course catalog</a></li>
         </ul>
       </div>
       <div>
@@ -350,8 +338,43 @@ const SITE_FOOTER_HTML = `
 function renderSiteChrome(){
   const h = $("#siteHeader"), f = $("#siteFooter");
   if(h) h.innerHTML = SITE_HEADER_HTML;
-  if(f) f.innerHTML = SITE_FOOTER_HTML;
+  if(f){
+    f.innerHTML = SITE_FOOTER_HTML;
+    // Footer links for data sources this project describes but doesn't yet
+    // link out to individually. Bound here instead of inline onclick=""
+    // attributes so the CSP's script-src doesn't need 'unsafe-inline'.
+    $$(".stublink",f).forEach(a=>a.onclick=e=>e.preventDefault());
+  }
 }
 renderSiteChrome();
+
+/* ---------- cookie / storage notice ----------
+   Not built to satisfy an ad-tech consent framework -- there are no
+   tracking or advertising cookies here to consent to. It exists so a
+   first-time visitor isn't left guessing what "session data" on the
+   Privacy page actually means: this site's own session storage, plus the
+   one HttpOnly cookie the admin panel sets for the operator, never for a
+   student using the planner. Dismissal is remembered in localStorage
+   (not sessionStorage) so it doesn't reappear every time a returning
+   visitor opens a new tab. */
+const COOKIE_ACK_KEY = "prospectors_planner_cookie_ack";
+function renderCookieBanner(){
+  if(localStorage.getItem(COOKIE_ACK_KEY)) return;
+  const el = document.createElement("div");
+  el.className = "cookiebanner";
+  el.innerHTML =
+    '<div class="wrap">'
+    + '<p>This site stores your in-progress picks in your browser\'s session storage, cleared when '
+    + 'you close the tab. No tracking or advertising cookies. The admin panel sets one cookie for '
+    + 'the site operator only. See <a href="privacy.html">Privacy</a>.</p>'
+    + '<button class="btn sm primary" id="cookieAckBtn">Got it</button>'
+    + '</div>';
+  document.body.appendChild(el);
+  $("#cookieAckBtn").onclick = () => {
+    localStorage.setItem(COOKIE_ACK_KEY, "1");
+    el.remove();
+  };
+}
+renderCookieBanner();
 
 renderChrome();

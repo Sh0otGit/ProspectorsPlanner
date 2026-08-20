@@ -53,7 +53,7 @@ async function loadStatus() {
       document.getElementById(`${k}ProgressBar`).style.width = pct + "%";
       const countLabel = cfg.countLabel(info.lastRun[cfg.countField] ?? 0);
       document.getElementById(`${k}ProgressLabel`).textContent =
-        `${progress_done} / ${progress_total} — ${progress_current || ""} — ${countLabel} so far`;
+        `${progress_done} / ${progress_total} · ${progress_current || ""} · ${countLabel} so far`;
     } else {
       progressWrap.hidden = true;
     }
@@ -74,9 +74,9 @@ async function loadRuns() {
       <td>${r.trigger}</td>
       <td><span class="pill ${r.status}">${r.status}</span></td>
       <td>${fmtDate(r.started_at)}</td>
-      <td>${r.sections_count ?? "—"}</td>
-      <td>${r.evaluations_count ?? "—"}</td>
-      <td>${r.rmp_count ?? "—"}</td>
+      <td>${r.sections_count ?? "N/A"}</td>
+      <td>${r.evaluations_count ?? "N/A"}</td>
+      <td>${r.rmp_count ?? "N/A"}</td>
       <td style="max-width:280px">${r.summary ? escapeHtml(r.summary) : ""}</td>
     </tr>`).join("");
 }

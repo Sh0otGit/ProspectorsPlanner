@@ -133,7 +133,7 @@ function renderClassTree(q) {
           </tr>`
           )
           .join("");
-        const label = `${escapeHtml(subject)} ${highlight(courseNum, q)} &mdash; ${highlight(title, q)}`;
+        const label = `${escapeHtml(subject)} ${highlight(courseNum, q)} &middot; ${highlight(title, q)}`;
         const count = `${sections.length} section${sections.length === 1 ? "" : "s"}`;
         courseHtml += `
           <details class="course-group"${open}>
@@ -230,7 +230,7 @@ function ratingBreakdownHTML(e, prefix) {
     '<div class="ratingbreak">' +
     RATING_BUCKETS.map(([key, label, colorVar]) => {
       const v = e[`${prefix}_${key}`];
-      return `<div><span class="swatch" style="background:var(${colorVar})"></span>${label}<b>${v ?? "—"}</b></div>`;
+      return `<div><span class="swatch" style="background:var(${colorVar})"></span>${label}<b>${v ?? "N/A"}</b></div>`;
     }).join("") +
     "</div>"
   );
@@ -244,8 +244,8 @@ function evalRowHTML(e) {
         <span class="term">${escapeHtml(e.term_label || "")} &middot; CRN ${escapeHtml(e.crn || "")}</span>
       </div>
       <div class="avgs">
-        <span>Instructor avg <b>${e.instructor_avg ?? "—"}</b> (n=${e.instructor_n ?? "—"})</span>
-        <span>Course avg <b>${e.course_avg ?? "—"}</b></span>
+        <span>Instructor avg <b>${e.instructor_avg ?? "N/A"}</b> (n=${e.instructor_n ?? "N/A"})</span>
+        <span>Course avg <b>${e.course_avg ?? "N/A"}</b></span>
       </div>
       <div class="ratingtoggles">
         <details><summary>Instructor ratings</summary>${ratingBreakdownHTML(e, "instructor")}</details>
