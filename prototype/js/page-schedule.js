@@ -111,7 +111,7 @@ function renderSchedule(){
       // cross-highlight each other, they're different sections at different
       // times. data-goto-code stays a plain course code since either one
       // should land on the same Instructors tab.
-      return '<span class="blk'+(first?" first":"")+(last?" last":"")+(blocked?" blockconflict":"")+(blocked&&!prevBlocked?" contTop":"")+(blocked&&!nextBlocked?" contBottom":"")+'" data-crn="'+esc(ev.crn)+'" '
+      return '<span class="blk'+(first?" first":"")+(last?" last":"")+(blocked?" blockconflict":"")+(blocked&&prevBlocked?" contTop":"")+(blocked&&nextBlocked?" contBottom":"")+'" data-crn="'+esc(ev.crn)+'" '
         + 'role="button" tabindex="0" data-goto-code="'+esc(ev.code)+'" '
         + 'aria-label="'+esc(ev.code)+(blocked?". Overlaps an hour you marked unavailable.":"")+' Click to view or edit in Instructors." style="'
         + '--c:'+c+';background:color-mix(in srgb,'+c+' 20%,#fff);border-color:'+c+'">'
@@ -138,11 +138,23 @@ function renderSchedule(){
 
   wireCalHover(picks);
 
-  $("#conflictNote").innerHTML = pairs.size
-    ? '<div class="conflictnote"><b>Time conflict.</b> '
-      + [...pairs].map(esc).join("; ")+' overlap. The overlapping time is outlined in red. '
-      + 'Click it to fix the conflict in Instructors. Goldmine will reject these CRNs together.</div>'
-    : "";
+  // Codes with at least one section sitting on an hour marked
+  // unavailable -- same hitsBlocked() the calendar outline and the Copy
+  // CRN confirm dialog already use, not a separate check that could
+  // drift out of sync with what's actually outlined red above.
+  const blockedCodes = [...new Set(picks.filter(pk=>hitsBlocked(pk.section)).map(pk=>pk.code))];
+
+  $("#conflictNote").innerHTML =
+    (pairs.size
+      ? '<div class="conflictnote"><b>Time conflict.</b> '
+        + [...pairs].map(esc).join("; ")+' overlap. The overlapping time is outlined in red. '
+        + 'Click it to fix the conflict in Instructors. Goldmine will reject these CRNs together.</div>'
+      : "")
+    + (blockedCodes.length
+      ? '<div class="conflictnote"><b>Unavailable hours.</b> '
+        + blockedCodes.map(esc).join(", ")+(blockedCodes.length>1?" overlap":" overlaps")+' an hour marked unavailable in Availability. '
+        + 'The overlapping time is outlined in red.</div>'
+      : "");
 
   $("#schedLegend").innerHTML = picks.map((pk,i)=>
     '<span><i class="swatch" style="background:color-mix(in srgb,var('+PALETTE[i%PALETTE.length]+') 20%,#fff);border-color:var('+PALETTE[i%PALETTE.length]+')"></i>'+esc(pk.code)
