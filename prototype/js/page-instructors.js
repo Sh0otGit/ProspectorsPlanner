@@ -186,6 +186,15 @@ function renderResults(){
       const nm = d.dataset.rev;
       if(d.open) state.revOpen.add(nm); else state.revOpen.delete(nm);
       saveState();
+      // Opening/closing this <details> is a native browser toggle, not a
+      // renderResults() re-render -- it changes .prof-main's height (a
+      // lot, once the review list shows) without going through the pass
+      // above that keeps .prof-side matched to it. Confirmed against
+      // Jesse Adam Kapenga's card: expanding his 55 reviews left the
+      // section sidebar's background and border exactly where they were
+      // when the card was still short, well short of the now much taller
+      // card's bottom edge.
+      syncSectionListHeights();
     };
   });
   $$("[data-revpage]").forEach(b=>{
