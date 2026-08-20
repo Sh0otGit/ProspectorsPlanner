@@ -355,6 +355,13 @@ const server = createServer(async (req, res) => {
     if (pathname === "/admin/api/status" && req.method === "GET") {
       if (!requireAuth(req, res)) return;
       return sendJson(res, 200, {
+        // Render injects this automatically on every deploy (no action
+        // needed to set it) -- surfaced here so "did the deploy actually
+        // pick up the latest commit" is answerable from the admin UI
+        // itself instead of trusting the dashboard's own deploy log or
+        // assuming a push+redeploy did what it looked like it did. Null
+        // locally, where there's no such env var.
+        deployedCommit: process.env.RENDER_GIT_COMMIT || null,
         schedule: {
           running: isRunning("schedule"),
           lastRun: lastRun("schedule"),

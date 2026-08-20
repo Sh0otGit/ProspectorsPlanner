@@ -145,6 +145,42 @@ Lecture Schedule Type<br>
   assert.equal(s.room, "Texas Western Hall 207");
 });
 
+test("regression: an <ABBR>-wrapped room doesn't leave raw tag text in room", () => {
+  // Real, observed markup: a room-unassigned section's Where cell is the
+  // same <ABBR title="To Be Announced">TBA</ABBR> markup as the Time
+  // column, not plain text. The old room extraction split on <br> to drop
+  // a trailing "ADA Accessible" line but never stripped any other tag, so
+  // a cell with no <br> at all (this one) passed straight through with
+  // the raw "<ABBR...>TBA</ABBR>" string stored as the room. Confirmed
+  // against real data: CS 5391 CRN 15540 (Monika Akbar), and 3,546
+  // sections campus-wide the same way.
+  const chunk = `
+<a href="/prod/owa/bwckschd.p_disp_detail_sched?term_in=202710&amp;crn_in=15540">Individual Studies - 15540 - CS 5391 - 001</a>
+Associated Term: </SPAN>Fall 2026<br>
+Registration Dates: </SPAN>Mar 09, 2026 to Aug 28, 2026<br>
+
+Main Campus<br>
+Independent Study Schedule Type<br>
+3.000 Credits
+<table>
+<tr>
+<td CLASS="dddefault">Class</td>
+<td CLASS="dddefault"><ABBR title = "To Be Announced">TBA</ABBR></td>
+<td CLASS="dddefault">&nbsp;</td>
+<td CLASS="dddefault"><ABBR title = "To Be Announced">TBA</ABBR></td>
+<td CLASS="dddefault">Aug 24, 2026 - Dec 03, 2026</td>
+<td CLASS="dddefault">Independent Study (INDS)</td>
+<td CLASS="dddefault">Monika   Akbar (<ABBR title= "Primary">P</ABBR>)<a href="mailto:makbar@utep.edu" target="x"><img src="/wtlgifs/email.gif"></a></td>
+<td CLASS="dddefault">Individual Studies</td>
+</tr>
+</table>`;
+  const s = parseSectionChunk(chunk);
+  assert.equal(s.instructorName, "Monika Akbar (P)");
+  assert.equal(s.room, "TBA");
+  assert.equal(s.days, null);
+  assert.equal(s.startTime, null);
+});
+
 test("parseSubjects reads option values, drops the wildcard", () => {
   const html = `<select name="sel_subj" multiple>
     <option value="%">All</option>

@@ -122,7 +122,11 @@ export function triggerRmpRun(trigger) {
     "rmp",
     trigger,
     (onProgress) => scrapeRmp(onProgress),
-    (r) => `${r.professorCount} RMP professors, ${r.instructorsMatched} matched to real sections, ${r.reviewCount} reviews`,
+    (r) =>
+      `${r.professorCount} RMP professors, ${r.instructorsMatched} matched to real sections, ${r.reviewCount} reviews` +
+      (r.suspectedTruncation > 0
+        ? ` -- WARNING: ${r.suspectedTruncation} instructor(s) got fewer reviews back than RMP's own aggregate count claims, RMP may be truncating pagination for this server`
+        : ""),
     "rmp"
   );
 }

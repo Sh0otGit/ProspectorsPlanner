@@ -26,6 +26,10 @@ async function loadStatus() {
   const res = await adminFetch("/admin/api/status");
   const data = await res.json();
 
+  document.getElementById("deployedCommit").textContent = data.deployedCommit
+    ? data.deployedCommit.slice(0, 12)
+    : "N/A (not on Render, or var unset)";
+
   for (const [kind, cfg] of Object.entries(KINDS)) {
     const k = cfg.prefix;
     const info = data[kind];

@@ -97,7 +97,15 @@ export function parseSectionChunk(chunk) {
       startTime = to24h(timeParts[0]);
       endTime = to24h(timeParts[1]);
     }
-    room = decodeEntities(where.split(/<br/i)[0].trim()) || null;
+    // Split on <br> first to drop a trailing "ADA Accessible" line the way
+    // a real room cell carries it, then strip whatever tags are left --
+    // a genuinely room-unassigned section's cell is the same
+    // <ABBR title="To Be Announced">TBA</ABBR> markup as the Time column,
+    // with no <br> in it at all, so the split alone left the raw tag text
+    // in the stored room value. Confirmed against real data: 3,546
+    // sections campus-wide had a literal "<ABBR...>TBA</ABBR>" string
+    // where the room should be.
+    room = decodeEntities(where.split(/<br/i)[0].replace(/<[^>]+>/g, "").trim()) || null;
     instructorName = decodeEntities(instr.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()) || null;
   }
 

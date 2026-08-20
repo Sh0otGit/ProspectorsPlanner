@@ -302,9 +302,24 @@ function currentlyTeachingRmpMatches() {
 export async function scrapeRmpReviews(onProgress) {
   const targets = currentlyTeachingRmpMatches();
   let reviewCount = 0;
+  let suspectedTruncation = 0;
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
     const detail = await fetchProfessorDetail(t.legacy_id);
+    // fetchAllRatings() pages until RMP itself reports no more pages --
+    // if it ever comes back short of the professor's own aggregate count,
+    // that's RMP truncating the response for this request/origin, not a
+    // bug in the pagination loop (which has no way to detect that on its
+    // own; hasNextPage: false is taken as truthful). Logged so a run from
+    // an environment RMP treats more suspiciously (a datacenter IP, for
+    // instance) is visible in the run summary instead of silently
+    // reading as "these professors just have few reviews."
+    if (detail.numRatings > 0 && detail.reviews.length < detail.numRatings) {
+      suspectedTruncation++;
+      console.error(
+        `scrapeRmpReviews: ${detail.firstName} ${detail.lastName} (${t.legacy_id}) -- got ${detail.reviews.length} reviews but aggregate numRatings is ${detail.numRatings}`
+      );
+    }
     const scrapedAt = new Date().toISOString();
     db.exec("BEGIN");
     try {
@@ -348,15 +363,15 @@ export async function scrapeRmpReviews(onProgress) {
     }
     onProgress?.(i + 1, targets.length, `${detail.firstName} ${detail.lastName}`.trim(), reviewCount);
   }
-  return { instructorsMatched: targets.length, reviewCount };
+  return { instructorsMatched: targets.length, reviewCount, suspectedTruncation };
 }
 
 /* The whole RMP scrape: campus list, then bounded reviews for whoever's
    actually teaching right now. One admin button, two steps. */
 export async function scrapeRmp(onProgress) {
   const professorCount = await scrapeAllRmpProfessors(onProgress);
-  const { instructorsMatched, reviewCount } = await scrapeRmpReviews(onProgress);
-  return { professorCount, instructorsMatched, reviewCount };
+  const { instructorsMatched, reviewCount, suspectedTruncation } = await scrapeRmpReviews(onProgress);
+  return { professorCount, instructorsMatched, reviewCount, suspectedTruncation };
 }
 
 /* =====================================================================
