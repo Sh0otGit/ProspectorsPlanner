@@ -98,13 +98,13 @@ function companionNoticesHTML(code){
   if(meta.requiresLab){
     const lab = meta.requiresLab;
     const labCode = esc(lab.subject+" "+lab.courseNumber);
-    html += '<div class="notice">This class has a required lab, <b>'+labCode+'</b>'
+    html += '<div class="companion-notice">This class has a required lab, <b>'+labCode+'</b>'
       + (lab.title ? " ("+esc(lab.title)+")" : "") + '. Search for it separately and add a section. '
       + "If you're unsure which "+labCode+" section is correct for your lecture, ask your advisor or professor.</div>";
   }
   if(meta.components && meta.components.length>1){
     const kinds = meta.components.map(shortType);
-    html += '<div class="notice">This class has more than one required part: <b>'+kinds.map(esc).join("</b> and <b>")+'</b>. '
+    html += '<div class="companion-notice">This class has more than one required part: <b>'+kinds.map(esc).join("</b> and <b>")+'</b>. '
       + "You can add one section of each below -- they'll show up as separate classes on your schedule. "
       + "If you're unsure which sections go together, ask your advisor or professor.</div>";
   }
@@ -155,12 +155,12 @@ function renderResults(){
   const rows = profs.map(p=>profHTML(code,p)).join("");
 
   $("#resultsList").innerHTML =
-    '<section class="coursepanel"><header>'
+    companionNoticesHTML(code)
+    + '<section class="coursepanel"><header>'
     + '<span class="code">'+esc(code)+'</span><span class="ttl">'+(title?esc(title):"")+'</span>'
     + (entries.length ? '<span class="badge on">'+entries.map(e=>"CRN "+esc(e.crn)).join(", ")+' added</span>'
             : '<span class="badge">'+num(profs.length)+' instructor'+(profs.length===1?"":"s")+'</span>')
     + '</header>'
-    + companionNoticesHTML(code)
     + (rows || '<div class="empty">No instructors listed for this course this term.</div>')
     + '</section>';
 

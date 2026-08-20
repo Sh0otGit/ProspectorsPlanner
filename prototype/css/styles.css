@@ -201,6 +201,17 @@ a{color:var(--link)}
 .notice b{color:var(--ink)}
 .notice.danger{border-left-color:var(--critical)}
 
+/* Required-lab / multiple-required-parts disclaimers on the instructors
+   page -- rendered above .coursepanel entirely (not inside its header),
+   its own separated red-flagged box rather than blending into the
+   course card the way .notice's blue accent does, since this is a
+   "you may be missing something" warning, not a routine note. Same red
+   tint as .conflictnote's real-time-conflict warning below, reused
+   deliberately so both read as the same severity of "pay attention
+   here" across the site. */
+.companion-notice{border:1px solid var(--critical);border-left:4px solid var(--critical);background:#fdf1f0;padding:12px 16px;font-size:13.5px;color:var(--ink-2);margin-bottom:14px}
+.companion-notice b{color:var(--critical)}
+
 /* ============ UPLOAD ============ */
 .drop{border:2px dashed var(--rule-strong);padding:40px 24px;text-align:center;background:var(--surface-2);cursor:pointer}
 .drop:hover,.drop.hot{border-color:var(--utep-orange);background:var(--surface-3)}
