@@ -52,26 +52,31 @@ function scrollToChosenSection(){
 }
 
 /* .prof-main and .prof-side size to their own natural content
-   (see .prof's align-items:start in styles.css), so .sectlist itself
-   has to be capped in JS to whatever height .prof-main ends up being --
-   the whole point being the section list scales with the professor
-   card, not the other way around, while staying scrollable for an
-   instructor with far more sections than the card is tall. "chrome"
-   below is .prof-side's own padding/heading height (everything in that
-   column besides the list itself), measured live rather than hard-coded
-   so it stays correct if that markup ever changes. Skipped once .prof
-   stacks to a single column under the mobile breakpoint (styles.css),
-   where .prof-main and .prof-side are no longer side by side and
-   nothing needs matching. */
+   (see .prof's align-items:start in styles.css), so matching them up
+   is a two-way job: .sectlist gets capped (and stays scrollable) so a
+   long section list can't push .prof-side taller than the card, and
+   .prof-side itself gets a min-height so its grey background still
+   reaches the card's bottom edge when the section list is *shorter*
+   than the card -- a single-section professor otherwise left the grey
+   panel stopping well short of .prof-main's own height, with a plain
+   white gap (and no border) below it. "chrome" below is .prof-side's
+   own padding/heading height (everything in that column besides the
+   list itself), measured live rather than hard-coded so it stays
+   correct if that markup ever changes. Skipped once .prof stacks to a
+   single column under the mobile breakpoint (styles.css), where
+   .prof-main and .prof-side are no longer side by side and nothing
+   needs matching. */
 function syncSectionListHeights(){
   $$(".prof").forEach(p=>{
     const main = p.querySelector(".prof-main"), side = p.querySelector(".prof-side"), list = p.querySelector(".sectlist");
     if(!main || !side || !list) return;
-    const mainRect = main.getBoundingClientRect(), sideRect = side.getBoundingClientRect();
-    if(Math.abs(mainRect.top - sideRect.top) > 2){ list.style.maxHeight = ""; return; }
+    side.style.minHeight = "";
     list.style.maxHeight = "";
+    const mainRect = main.getBoundingClientRect(), sideRect = side.getBoundingClientRect();
+    if(Math.abs(mainRect.top - sideRect.top) > 2) return;
     const chrome = sideRect.height - list.getBoundingClientRect().height;
     list.style.maxHeight = Math.max(140, mainRect.height - chrome) + "px";
+    side.style.minHeight = mainRect.height + "px";
   });
 }
 
