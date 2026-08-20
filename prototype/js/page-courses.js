@@ -61,7 +61,7 @@ function courseSearchRank(c, q, qNoSpace){
 function renderResults(q){
   const box = $("#courseResults");
   q = (q||"").trim().toLowerCase();
-  if(!q || resultsCollapsed){ box.innerHTML = ""; return; }
+  if(!q){ box.innerHTML = ""; return; }
   const qNoSpace = q.replace(/\s+/g,"");
   const matches = ALL_COURSES
     .map(c => ({ c, rank: courseSearchRank(c, q, qNoSpace) }))
@@ -75,60 +75,25 @@ function renderResults(q){
   wireToggles();
 }
 
-/* Collapsed after "Add" from the search results specifically -- not on
-   Remove, and not when toggling from the Selected-courses panel -- so
-   picking a course drops straight into "Selected courses" to confirm
-   it landed, instead of staying buried under a still-open results list
-   the student has to scroll past. The typed query stays in the input;
-   only #courseResults itself is emptied, and focusing the search box
-   again (a click, or tabbing back in) reopens it. */
-let resultsCollapsed = false;
-
 function wireToggles(){
   $$("[data-toggle]").forEach(b=>{
     b.onclick = () => {
       const c = b.dataset.toggle;
-      const wasSelected = state.picked.has(c);
-      const fromSearchResults = !!b.closest("#courseResults");
-      if(wasSelected){
+      if(state.picked.has(c)){
         state.picked.delete(c); state.chosen.delete(c);
         if(state.activeCourse===c) state.activeCourse=null;
-      } else {
-        state.picked.add(c);
-      }
+      } else state.picked.add(c);
       saveState();
-      renderStats(); renderSelected(); renderChrome();
-      if(!wasSelected && fromSearchResults){
-        resultsCollapsed = true;
-        $("#courseResults").innerHTML = "";
-      } else {
-        renderResults($("#courseSearch").value);
-      }
+      renderStats(); renderSelected(); renderResults($("#courseSearch").value); renderChrome();
     };
   });
 }
 
 let searchTimer;
 $("#courseSearch").addEventListener("input", e=>{
-  resultsCollapsed = false;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(()=>renderResults(e.target.value), 120);
 });
-// Both events, not just one: a click on the Add button doesn't reliably
-// blur the search input first (confirmed varies by how the click is
-// delivered), so a plain click back into an *already-focused* input
-// wouldn't fire a new "focus" event on its own -- "click" fires
-// regardless of prior focus state and directly matches what was asked
-// for ("click the search bar again"). "focus" stays too, for tabbing
-// back in with the keyboard instead of a mouse.
-function reopenResultsIfCollapsed(){
-  if(resultsCollapsed){
-    resultsCollapsed = false;
-    renderResults($("#courseSearch").value);
-  }
-}
-$("#courseSearch").addEventListener("focus", reopenResultsIfCollapsed);
-$("#courseSearch").addEventListener("click", reopenResultsIfCollapsed);
 
 (async ()=>{
   const hint = $("#courseHint");
