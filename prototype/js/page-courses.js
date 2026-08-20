@@ -38,36 +38,97 @@ function renderSelected(){
   wireToggles();
 }
 
+/* Code matches outrank title matches -- typing "cs" used to surface every
+   course whose TITLE happens to contain that substring (Economics,
+   Physics, Forensics...) ahead of actual CS courses, since the old
+   filter matched "code + title" as one blob with no ranking at all and
+   subjects alphabetically before "CS" (ACCT, ANTH, ART, BIOL...) came
+   first in ALL_COURSES' own subject-sorted order. Ranked low to high:
+   code starts with the query (typing "cs" or "cs 14"), code contains it
+   (a bare course number like "1401"), title starts with it, title
+   contains it. Array.sort is stable, so within each rank the original
+   subject/course-number order survives untouched. */
+function courseSearchRank(c, q, qNoSpace){
+  const codeNoSpace = c.code.toLowerCase().replace(/\s+/g,"");
+  const title = (c.title||"").toLowerCase();
+  if(codeNoSpace.startsWith(qNoSpace)) return 0;
+  if(codeNoSpace.includes(qNoSpace)) return 1;
+  if(title.startsWith(q)) return 2;
+  if(title.includes(q)) return 3;
+  return -1;
+}
+
 function renderResults(q){
   const box = $("#courseResults");
   q = (q||"").trim().toLowerCase();
-  if(!q){ box.innerHTML = ""; return; }
-  const matches = ALL_COURSES.filter(c => (c.code+" "+c.title).toLowerCase().includes(q)).slice(0,40);
+  if(!q || resultsCollapsed){ box.innerHTML = ""; return; }
+  const qNoSpace = q.replace(/\s+/g,"");
+  const matches = ALL_COURSES
+    .map(c => ({ c, rank: courseSearchRank(c, q, qNoSpace) }))
+    .filter(x => x.rank !== -1)
+    .sort((a,b) => a.rank-b.rank)
+    .slice(0,40)
+    .map(x => x.c);
   box.innerHTML = matches.length
     ? matches.map(c=>courseRow(c.code, c.title, state.picked.has(c.code))).join("")
     : '<div class="empty">No courses match that search.</div>';
   wireToggles();
 }
 
+/* Collapsed after "Add" from the search results specifically -- not on
+   Remove, and not when toggling from the Selected-courses panel -- so
+   picking a course drops straight into "Selected courses" to confirm
+   it landed, instead of staying buried under a still-open results list
+   the student has to scroll past. The typed query stays in the input;
+   only #courseResults itself is emptied, and focusing the search box
+   again (a click, or tabbing back in) reopens it. */
+let resultsCollapsed = false;
+
 function wireToggles(){
   $$("[data-toggle]").forEach(b=>{
     b.onclick = () => {
       const c = b.dataset.toggle;
-      if(state.picked.has(c)){
+      const wasSelected = state.picked.has(c);
+      const fromSearchResults = !!b.closest("#courseResults");
+      if(wasSelected){
         state.picked.delete(c); state.chosen.delete(c);
         if(state.activeCourse===c) state.activeCourse=null;
-      } else state.picked.add(c);
+      } else {
+        state.picked.add(c);
+      }
       saveState();
-      renderStats(); renderSelected(); renderResults($("#courseSearch").value); renderChrome();
+      renderStats(); renderSelected(); renderChrome();
+      if(!wasSelected && fromSearchResults){
+        resultsCollapsed = true;
+        $("#courseResults").innerHTML = "";
+      } else {
+        renderResults($("#courseSearch").value);
+      }
     };
   });
 }
 
 let searchTimer;
 $("#courseSearch").addEventListener("input", e=>{
+  resultsCollapsed = false;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(()=>renderResults(e.target.value), 120);
 });
+// Both events, not just one: a click on the Add button doesn't reliably
+// blur the search input first (confirmed varies by how the click is
+// delivered), so a plain click back into an *already-focused* input
+// wouldn't fire a new "focus" event on its own -- "click" fires
+// regardless of prior focus state and directly matches what was asked
+// for ("click the search bar again"). "focus" stays too, for tabbing
+// back in with the keyboard instead of a mouse.
+function reopenResultsIfCollapsed(){
+  if(resultsCollapsed){
+    resultsCollapsed = false;
+    renderResults($("#courseSearch").value);
+  }
+}
+$("#courseSearch").addEventListener("focus", reopenResultsIfCollapsed);
+$("#courseSearch").addEventListener("click", reopenResultsIfCollapsed);
 
 (async ()=>{
   const hint = $("#courseHint");

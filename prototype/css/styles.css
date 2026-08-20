@@ -242,6 +242,12 @@ table.cal th.clickable-day:hover{background:var(--surface-3);color:var(--ink)}
 table.cal td{border-bottom:1px solid var(--rule);border-left:1px solid var(--rule);height:26px;padding:0}
 table.cal td.t{border-left:none;color:var(--ink-muted);font-size:11px;text-align:right;padding-right:9px;width:78px;vertical-align:top;transform:translateY(-7px);border-bottom-color:transparent}
 td.blocked{background:repeating-linear-gradient(45deg,#f2d7d5,#f2d7d5 4px,#e8c4c1 4px,#e8c4c1 8px)}
+/* Hover hint for each half-hour cell on the availability grid, scoped to
+   #blockCal so it doesn't touch other table.cal calendars (the read-only
+   schedule grid has its own hover treatment). :not(.blocked) so hovering
+   an already-blocked cell doesn't paint a flat red over its diagonal
+   stripe pattern. */
+#blockCal td[data-k]:not(.blocked):hover{background:#f2d7d5;cursor:pointer}
 .legend{display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin-top:12px;align-items:center}
 .swatch{width:13px;height:13px;display:inline-block;vertical-align:-2px;margin-right:6px;border:1px solid var(--rule-strong)}
 
