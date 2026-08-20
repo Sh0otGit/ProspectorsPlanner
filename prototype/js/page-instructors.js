@@ -24,6 +24,31 @@ async function init(){
     return;
   }
   renderResults();
+  scrollToChosenSection();
+}
+
+/* Jumps the page to the professor card teaching the section already added
+   for the active course (the one .sect the render below marks "added" --
+   there's only ever one at a time for a given course, so no need to look
+   up by name/CRN), and scrolls that card's own section list so the added
+   section is visible inside it too. Called on tab switches, the initial
+   load, and after arriving from a class clicked on the Schedule page
+   (see data-goto-code in page-schedule.js) -- not from every re-render,
+   so paging through reviews or clicking Add doesn't yank the page around
+   while the student is already looking at the right spot. No-ops
+   harmlessly when the active course has no added section yet. */
+function scrollToChosenSection(){
+  const sectEl = $(".sect.added");
+  if(!sectEl) return;
+  const profEl = sectEl.closest(".prof");
+  if(!profEl) return;
+  const list = sectEl.closest(".sectlist");
+  if(list){
+    const listRect = list.getBoundingClientRect();
+    const sectRect = sectEl.getBoundingClientRect();
+    list.scrollTo({ top: list.scrollTop + (sectRect.top - listRect.top) - 12, behavior: "smooth" });
+  }
+  profEl.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderResults(){
@@ -49,7 +74,7 @@ function renderResults(){
       + (issues ? '<span class="tabconflict">Conflict ('+issues+')</span>' : "")
       + '</button>';
   }).join("");
-  $$("[data-tab]").forEach(b=>b.onclick=()=>{ state.activeCourse=b.dataset.tab; saveState(); renderResults(); });
+  $$("[data-tab]").forEach(b=>b.onclick=()=>{ state.activeCourse=b.dataset.tab; saveState(); renderResults(); scrollToChosenSection(); });
 
   const code = state.activeCourse;
   const title = CATALOG_TITLE[code];

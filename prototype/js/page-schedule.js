@@ -60,7 +60,9 @@ function renderSchedule(){
       // several half-hour slots hovers as one unbroken box, not a stack of
       // individually outlined cells, the same fix already applied to the
       // conflict/overlap outline.
-      return '<span class="blk'+(first?" first":"")+(last?" last":"")+'" data-code="'+esc(ev.code)+'" style="'
+      return '<span class="blk'+(first?" first":"")+(last?" last":"")+'" data-code="'+esc(ev.code)+'" '
+        + 'role="button" tabindex="0" data-goto-code="'+esc(ev.code)+'" '
+        + 'aria-label="'+esc(ev.code)+'. Click to view or edit in Instructors." style="'
         + '--c:'+c+';background:color-mix(in srgb,'+c+' 20%,#fff);border-color:'+c+'">'
         + (first?'<span class="lbl">'+esc(ev.code)+'</span>':"")
         + '</span>';
