@@ -369,8 +369,17 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
    pixel max-height is what actually caps it; scrolling this element
    (not the page) reveals the rest. Left uncapped at the mobile
    breakpoint below, where the whole page already scrolls and a second,
-   nested scroll region would just fight the first. */
-.sectlist{max-height:480px;overflow-y:auto}
+   nested scroll region would just fight the first.
+
+   260px = roughly two .sect cards (measured at ~126px + 8px margin
+   each). A taller cap left a lot of dead space under .prof-main for a
+   professor with few or no reviews shown, since .prof-side's height
+   was setting the whole card's height even when .prof-main didn't need
+   it -- capping near the shorter side's natural content keeps both
+   columns closer to the same height without hiding anything (still
+   scrollable, and the added section highlight/auto-scroll from
+   scrollToChosenSection() still finds it inside this shorter box). */
+.sectlist{max-height:260px;overflow-y:auto}
 
 .prof-id{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .prof-id .nm{font-weight:700;font-size:16px}
@@ -430,6 +439,8 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .rev-q.darktext{color:#2b2000}
 .rev-course{font-weight:700;color:var(--ink);font-size:12.5px}
 .rev-text{font-size:13px;margin-top:7px;color:var(--ink-2);line-height:1.5}
+.revmore{display:block;margin-top:5px;padding:0;background:none;border:0;color:var(--link);font-size:12.5px;font-weight:700;cursor:pointer}
+.revmore:hover{text-decoration:underline}
 .rev-tags{margin-top:8px;display:flex;gap:5px;flex-wrap:wrap}
 .rev-tag{font-family:var(--font-display);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;background:var(--surface-3);border:1px solid var(--rule);padding:2px 6px;color:var(--ink-2)}
 .revnav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--rule);padding-top:11px;margin-top:4px}

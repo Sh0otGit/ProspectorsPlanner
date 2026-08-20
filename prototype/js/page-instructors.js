@@ -74,7 +74,17 @@ function renderResults(){
       + (issues ? '<span class="tabconflict">Conflict ('+issues+')</span>' : "")
       + '</button>';
   }).join("");
-  $$("[data-tab]").forEach(b=>b.onclick=()=>{ state.activeCourse=b.dataset.tab; saveState(); renderResults(); scrollToChosenSection(); });
+  $$("[data-tab]").forEach(b=>b.onclick=()=>{
+    state.activeCourse=b.dataset.tab;
+    // A review left open for one course's instructor reads as stale (or,
+    // if the same person also teaches the new course, misleadingly
+    // pre-expanded) once you've switched to a different course entirely.
+    state.revOpen.clear();
+    state.revExpanded.clear();
+    saveState();
+    renderResults();
+    scrollToChosenSection();
+  });
 
   const code = state.activeCourse;
   const title = CATALOG_TITLE[code];
@@ -95,6 +105,40 @@ function renderResults(){
     + '</header>'
     + (rows || '<div class="empty">No instructors listed for this course this term.</div>')
     + '</section>';
+
+  /* .res-side (the "Your courses" panel) is position:sticky, which only
+     has room to stay pinned to the viewport for as long as its own grid
+     row is taller than the sidebar itself -- normally true, since the
+     professor list is the long side. A course with only one or two
+     professors flips that: the sidebar (course tabs + Scoring panel)
+     becomes the taller column, the row's height collapses to match it
+     exactly, and sticky has zero slack left to work with, so instead of
+     staying pinned it scrolls away with the page the moment you scroll
+     past it -- confirmed against POLS 3300 (2 professors): switching to
+     its tab left "Your courses" ~360px above the viewport instead of
+     pinned at the top.
+
+     A flat pixel buffer isn't enough: scrollToChosenSection() can ask
+     the page to scroll as far as the results column's own natural
+     height (bringing a professor near its very bottom up to the
+     viewport's top), and sticky only keeps its pin through a scroll
+     that large if the row has at least that much extra room *beyond*
+     the sidebar's own height. So the added room has to scale with the
+     results column's natural height too, not just the sidebar's --
+     confirmed by measuring the actual break point against POLS 3300
+     rather than guessing a bigger constant. Reset to "" first so this
+     reads the column's real natural height, not a min-height left over
+     from a previous render. */
+  const side = $(".res-side"), results = $("#resultsList");
+  results.style.minHeight = "";
+  // .res-side drops to position:static under the mobile breakpoint (see
+  // styles.css), where this workaround is both unnecessary (nothing to
+  // keep pinned) and actively unwanted (it'd just add blank space below
+  // a short course's cards on a phone).
+  if(side && results && getComputedStyle(side).position === "sticky"){
+    const naturalResults = results.scrollHeight;
+    results.style.minHeight = (naturalResults + side.scrollHeight + 40) + "px";
+  }
 
   $$("[data-add]").forEach(b=>{
     b.onclick = () => {
@@ -118,6 +162,15 @@ function renderResults(){
     b.onclick = e => {
       e.preventDefault(); e.stopPropagation();
       state.revPage[b.dataset.revprof] = +b.dataset.revpage;
+      saveState();
+      renderResults();
+    };
+  });
+  $$("[data-revmore]").forEach(b=>{
+    b.onclick = e => {
+      e.preventDefault(); e.stopPropagation();
+      const key = b.dataset.revmore;
+      if(state.revExpanded.has(key)) state.revExpanded.delete(key); else state.revExpanded.add(key);
       saveState();
       renderResults();
     };
@@ -158,8 +211,13 @@ function reviewsHTML(p){
       + (p.rmp && p.rmp.wta!=null ? ' <span class="wta">&middot; '+Math.round(p.rmp.wta)+'% would take again</span>' : "")
     + '</summary>'
     + '<div class="revlist">'
-    + slice.map(r=>
-        '<div class="rev" style="border-left-color:'+qColor(Math.round(r.q))+'">'
+    + slice.map((r,i)=>{
+        const idx = page*REVIEWS_PER_PAGE + i;
+        const key = nm+"|"+idx;
+        const long = r.text && r.text.length > REVIEW_TRUNCATE_AT;
+        const expanded = state.revExpanded.has(key);
+        const shown = long && !expanded ? r.text.slice(0, REVIEW_TRUNCATE_AT).trimEnd()+"…" : r.text;
+        return '<div class="rev" style="border-left-color:'+qColor(Math.round(r.q))+'">'
         + '<div class="rev-top">'
           + '<span class="rev-q'+([3,4].includes(Math.round(r.q))?" darktext":"")+'" style="background:'+qColor(Math.round(r.q))+'">'+r.q.toFixed(1)+'</span>'
           + '<span class="rev-course">'+esc(r.course)+'</span>'
@@ -168,9 +226,11 @@ function reviewsHTML(p){
           + (r.grade?'<span>Grade '+esc(r.grade)+'</span>':"")
           + (r.wta!=null?'<span>'+(r.wta?"Would take again":"Would not take again")+'</span>':"")
         + '</div>'
-        + '<div class="rev-text">'+esc(r.text)+'</div>'
+        + '<div class="rev-text">'+esc(shown)+'</div>'
+        + (long ? '<button class="revmore" data-revmore="'+esc(key)+'">'+(expanded?"Show less":"Show more")+'</button>' : "")
         + (r.tags&&r.tags.length?'<div class="rev-tags">'+r.tags.map(t=>'<span class="rev-tag">'+esc(t)+'</span>').join("")+'</div>':"")
-        + '</div>').join("")
+        + '</div>';
+      }).join("")
     + '</div>'
     + '<div class="revnav">'
       + '<span class="pg">Page '+(page+1)+' of '+pages+'</span>'

@@ -73,6 +73,8 @@ function renderSchedule(){
   $$("[data-goto-code]").forEach(el=>{
     const go = () => {
       state.activeCourse = el.dataset.gotoCode;
+      state.revOpen.clear();
+      state.revExpanded.clear();
       saveState();
       location.href = "instructors.html";
     };
