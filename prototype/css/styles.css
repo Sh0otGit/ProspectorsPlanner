@@ -65,6 +65,19 @@
   --good:#0f7a24;
   --critical:#b3261e;
   --link:#1a5fa8;
+
+  /* Schedule calendar's per-class palette (see PALETTE in
+     page-schedule.js) -- ten distinct colors so a student with several
+     overlapping classes doesn't see two unrelated classes reused in the
+     same color. Deliberately none of these are red: --critical and the
+     rating scale's --r1/--r2 above are red specifically because that
+     already means "conflict" on this same calendar (td.overlap), and a
+     class swatch in that color would read as a warning it isn't. */
+  --series-3:#7c3aed;
+  --series-4:#0891b2;
+  --series-5:#4338ca;
+  --series-6:#78350f;
+  --series-7:#be185d;
 }
 
 *{box-sizing:border-box}
@@ -490,12 +503,15 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .crnrow:last-child{border-bottom:0}
 .crnrow .crntop{display:flex;justify-content:space-between;gap:10px}
 .crnrow b{font-family:"Courier New",Courier,monospace;font-size:15px}
-.crnrow [data-copy-crn]{margin-top:7px}
 .crn-info{display:flex;flex-direction:column;gap:1px}
 .crn-title{font-size:13px;font-weight:700;color:var(--ink);margin-top:3px}
 .crn-code{font-size:11.5px;color:var(--ink-2)}
 .crn-prof{font-size:11.5px;color:var(--ink-muted)}
-.crn-when{text-align:right;font-size:11.5px;color:var(--ink-muted);white-space:nowrap}
+/* The Copy CRN button lives here now, stacked under the day/time instead
+   of full-width below the whole row -- shorter rows, and the button
+   sits right where the day/time already draws the eye instead of
+   needing its own separate line. */
+.crn-when{display:flex;flex-direction:column;align-items:flex-end;gap:6px;text-align:right;font-size:11.5px;color:var(--ink-muted);white-space:nowrap}
 
 /* ---------- feedback card ---------- */
 .starinput{display:flex;gap:4px}

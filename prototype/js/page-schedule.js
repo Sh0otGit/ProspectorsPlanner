@@ -1,7 +1,13 @@
 /* =====================================================================
    STEP 5: rendered schedule grid and CRN worksheet.
    ===================================================================== */
-const PALETTE = ["--series-1","--series-2","--r4","--star","--r5"];
+// Ten distinct colors, not five -- a student can have more picks than
+// that once a course with a required lab/seminar counts as two (see
+// server/lib/catalog.js's components), and reusing a color after five
+// made two genuinely unrelated classes look like the same one at a
+// glance. None of these are red; see the --series-3.. definitions in
+// styles.css for why.
+const PALETTE = ["--series-1","--series-2","--r4","--star","--r5","--series-3","--series-4","--series-5","--series-6","--series-7"];
 
 function renderSchedule(){
   /* {code, profName, section, scheduleType} for every added pick, resolved
@@ -61,7 +67,7 @@ function renderSchedule(){
     const blocks = evs.map(ev=>{
       const first = !prev.some(x=>x.crn===ev.crn);
       const last  = !next.some(x=>x.crn===ev.crn);
-      const c = "var("+PALETTE[ev.i%5]+")";
+      const c = "var("+PALETTE[ev.i%PALETTE.length]+")";
       // --c carries this block's own palette color as a custom property so
       // the .hoverblk rule below can mix a deeper shade of the *same*
       // color rather than a foreign hover color. first/last (already
@@ -108,7 +114,7 @@ function renderSchedule(){
     : "";
 
   $("#schedLegend").innerHTML = picks.map((pk,i)=>
-    '<span><i class="swatch" style="background:color-mix(in srgb,var('+PALETTE[i%5]+') 20%,#fff);border-color:var('+PALETTE[i%5]+')"></i>'+esc(pk.code)
+    '<span><i class="swatch" style="background:color-mix(in srgb,var('+PALETTE[i%PALETTE.length]+') 20%,#fff);border-color:var('+PALETTE[i%PALETTE.length]+')"></i>'+esc(pk.code)
       + (pk.scheduleType?' <span style="color:var(--ink-muted)">('+esc(shortType(pk.scheduleType))+')</span>':"")+'</span>').join("")
     + '<span><i class="swatch" style="background:repeating-linear-gradient(45deg,#f2d7d5,#f2d7d5 4px,#e8c4c1 4px,#e8c4c1 8px)"></i>Blocked</span>'
     + (pairs.size?'<span><i class="swatch" style="background:var(--critical)"></i>Overlap</span>':"");
@@ -122,8 +128,9 @@ function renderSchedule(){
           + '<span class="crn-code">'+esc(pk.code)+(pk.scheduleType?" &middot; "+esc(shortType(pk.scheduleType)):"")+'</span>'
           + '<span class="crn-prof">'+esc(pk.profName)+'</span></span>'
           + '<span class="crn-when">'
-          + (pk.section.days.length?pk.section.days.join("")+"<br>"+fmt(pk.section.start):"Online")+'</span></div>'
-          + '<button class="btn xs" data-copy-crn="'+esc(pk.section.crn)+'">Copy CRN</button></div>';
+          + (pk.section.days.length?pk.section.days.join("")+"<br>"+fmt(pk.section.start):"Online")
+          + '<button class="btn xs" data-copy-crn="'+esc(pk.section.crn)+'">Copy CRN</button>'
+          + '</span></div></div>';
       }).join("")
     : '<div style="color:var(--ink-muted);font-size:13.5px">No sections added.</div>';
 
