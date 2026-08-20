@@ -106,6 +106,19 @@ const state = loadState();
    lifetime -- and it clears on tab close exactly like the rest of
    `state`, so a returning visitor still gets fresh data. */
 const CATALOG_CACHE_KEY = "prospectors_planner_catalog_v1";
+/* Bumped whenever /api/course's response shape changes (a new field a
+   page now depends on, not just a content update -- those are already
+   handled fine by the session-only lifetime above). Confirmed missing
+   the hard way: a student who'd visited Instructors before the deploy
+   that added `building` to each section kept serving their
+   already-cached, building-less CATALOG entries to the new Map page for
+   the rest of that browser tab's session -- the real API and the
+   matching algorithm were both already correct, sessionStorage was just
+   holding an older shape than the code now expects. A mismatched (or
+   missing) version wipes the cache instead of trying to partially
+   reuse it, same "don't guess, just refetch" instinct as everywhere
+   else in this file. */
+const CATALOG_CACHE_VERSION = 2;
 const CATALOG = {};
 const CATALOG_TITLE = {};
 // code -> {requiresLab: {subject,courseNumber,title}|null, components: string[]}
@@ -115,6 +128,7 @@ let TERM_LABEL = null;
 (function loadCatalogCache(){
   try {
     const d = JSON.parse(sessionStorage.getItem(CATALOG_CACHE_KEY)) || {};
+    if(d.version !== CATALOG_CACHE_VERSION) return;
     Object.assign(CATALOG, d.courses || {});
     Object.assign(CATALOG_TITLE, d.titles || {});
     Object.assign(CATALOG_META, d.meta || {});
@@ -123,7 +137,7 @@ let TERM_LABEL = null;
 })();
 function saveCatalogCache(){
   sessionStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({
-    courses: CATALOG, titles: CATALOG_TITLE, meta: CATALOG_META, term: TERM_LABEL
+    version: CATALOG_CACHE_VERSION, courses: CATALOG, titles: CATALOG_TITLE, meta: CATALOG_META, term: TERM_LABEL
   }));
 }
 async function ensureCatalog(codes){
@@ -325,12 +339,11 @@ function renderChrome(){
     return '<button class="'+cls+'" data-step="'+i+'"'+(cls==="item locked"?" disabled":"")
          + '><span class="n">'+mark+'</span>'+l+'</button>';
   }).join("")
-  // Map isn't part of the numbered 1-4 flow (see CLAUDE.md -- that count
-  // is settled elsewhere in this file's own step logic) -- it's an
-  // always-reachable utility view, same idea as Start, just appended
-  // after Schedule instead of before Courses. No lock state: it renders
-  // its own empty state fine with nothing picked yet.
-  + '<button class="item '+(n==="map"?"active":"avail")+'" data-map-link><span class="n"></span>Map</button>';
+  // Map isn't part of the "Step X of 4" copy on each page (see CLAUDE.md)
+  // -- it's an always-reachable utility view, no lock state, appended
+  // after Schedule instead of before Courses -- but still gets its own
+  // number badge in the nav strip, same visual treatment as 1-4.
+  + '<button class="item '+(n==="map"?"active":"avail")+'" data-map-link><span class="n">5</span>Map</button>';
   $$(".item.done[data-step],.item.avail[data-step]").forEach(el=>el.onclick=()=>{ location.href = SCREENS[+el.dataset.step]; });
   const mapLink = $("[data-map-link]");
   if(mapLink) mapLink.onclick = () => { location.href = "map.html"; };
