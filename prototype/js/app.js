@@ -72,8 +72,34 @@ const state = loadState();
    chrome/nav rendering that activeCodes() feeds runs on every page load,
    before any fetch could have resolved -- gating it on CATALOG would have
    made every step indicator flicker "locked" until the network caught up. */
+/* Persisted to sessionStorage (same tab-scoped lifetime as `state` above)
+   so switching between step pages -- each a full navigation, not a SPA
+   route -- doesn't refetch a course's professors/sections from
+   /api/course every time. Without this, instructors.html and
+   schedule.html each re-fetch every picked course from scratch on every
+   visit, which is the network-bound "reload" a student sees clicking
+   back and forth between those two tabs. Data only changes on a scrape
+   (daily at the very fastest, see CLAUDE.md), far slower than a single
+   browsing session, so there's no staleness concern within one tab's
+   lifetime -- and it clears on tab close exactly like the rest of
+   `state`, so a returning visitor still gets fresh data. */
+const CATALOG_CACHE_KEY = "prospectors_planner_catalog_v1";
 const CATALOG = {};
 const CATALOG_TITLE = {};
+let TERM_LABEL = null;
+(function loadCatalogCache(){
+  try {
+    const d = JSON.parse(sessionStorage.getItem(CATALOG_CACHE_KEY)) || {};
+    Object.assign(CATALOG, d.courses || {});
+    Object.assign(CATALOG_TITLE, d.titles || {});
+    if(d.term) TERM_LABEL = d.term;
+  } catch(e){}
+})();
+function saveCatalogCache(){
+  sessionStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({
+    courses: CATALOG, titles: CATALOG_TITLE, term: TERM_LABEL
+  }));
+}
 async function ensureCatalog(codes){
   const missing = [...new Set(codes)].filter(c=>!CATALOG[c]);
   if(!missing.length) return;
@@ -85,13 +111,14 @@ async function ensureCatalog(codes){
     CATALOG_TITLE[c] = results[i].title;
     if(results[i].term) TERM_LABEL = results[i].term;
   });
+  saveCatalogCache();
 }
 
-let TERM_LABEL = null;
 async function ensureTerm(){
   if(TERM_LABEL) return TERM_LABEL;
   const r = await fetch("/api/term").then(r=>r.json());
   TERM_LABEL = r.termLabel || "the current term";
+  saveCatalogCache();
   return TERM_LABEL;
 }
 
