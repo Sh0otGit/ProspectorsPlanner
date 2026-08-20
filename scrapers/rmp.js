@@ -6,19 +6,25 @@
    anyway -- a deliberate, informed decision by the project owner after
    confirming no official API or partner program exists, not an oversight
    or a loophole. Kept to CLAUDE.md's own stated plan for this source:
-   cache lightly, show aggregates plus a *bounded* sample, link back to the
-   source, be ready to drop this file and its two tables entirely if it
-   ever needs to go.
+   cache lightly, link back to the source, be ready to drop this file and
+   its two tables entirely if it ever needs to go. Originally bounded to
+   the ~5 reviews the professor page embeds server-side; revised 2026-08-20
+   to pull every review for a matched instructor (see fetchAllRatings)
+   after Monika Akbar's real 21 reviews turned up as only 5 in this site's
+   own data -- see CLAUDE.md's Data sources entry for the full reasoning.
 
    No documented API exists. This talks to the same undocumented GraphQL
    endpoint (ratemyprofessors.com/graphql) the site's own frontend calls --
    found by watching real browser network traffic against the live site
    with CDP, not copied from a third-party wrapper's possibly-stale
-   schema. The professor detail page turned out not to need GraphQL at
-   all: it's server-rendered, with the whole Relay client store (professor
-   aggregate + up to 5 reviews) embedded directly in a
+   schema. The professor detail page itself doesn't need GraphQL: it's
+   server-rendered, with the whole Relay client store (professor aggregate,
+   rating distribution, and the first 5 reviews) embedded directly in a
    `window.__RELAY_STORE__ = {...}` script tag -- a plain HTML fetch and a
-   regex, the same shape every other scraper in this project already uses. */
+   regex, the same shape every other scraper in this project already uses.
+   The rest of a professor's reviews come from the same `RatingsListQuery`
+   the page's own "Load More Ratings" button calls, found the same way
+   (CDP network capture, clicking that button on a live professor page). */
 import { politeFetch } from "./lib/fetch.js";
 
 const GRAPHQL_URL = "https://www.ratemyprofessors.com/graphql";
@@ -79,11 +85,80 @@ export async function fetchAllProfessors(onProgress) {
 
 const RELAY_STORE_RE = /window\.__RELAY_STORE__\s*=\s*(\{[\s\S]*?\});/;
 
-/* One professor's detail page: re-fetches the same aggregate numbers the
-   list gives (kept in sync) plus whatever reviews the page embeds
-   server-side -- 5, not configurable from here, which is exactly the
-   "bounded sample" CLAUDE.md calls for rather than a deeper pull via the
-   ratings-pagination query that would also exist. */
+// Trimmed to the fields this project actually stores -- the real query
+// captured off the "Load More Ratings" button carries dozens of fragments
+// (thumbs, professor notes, flag status) this project has no use for.
+const RATINGS_QUERY = `query RatingsListQuery($count: Int!, $id: ID!, $cursor: String) {
+  node(id: $id) {
+    ... on Teacher {
+      ratings(first: $count, after: $cursor) {
+        edges { node { legacyId class date clarityRating difficultyRating wouldTakeAgain grade ratingTags comment } }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`;
+
+function teacherGlobalId(legacyId) {
+  return Buffer.from(`Teacher-${legacyId}`).toString("base64");
+}
+
+function mapRating(r) {
+  return {
+    reviewId: r.legacyId,
+    courseCode: r.class || null,
+    date: r.date || null,
+    quality: r.clarityRating ?? null,
+    difficulty: r.difficultyRating ?? null,
+    wouldTakeAgain: r.wouldTakeAgain, // 1 yes, 0 no, -1 not answered
+    grade: r.grade || null,
+    // "--" separates tags, but not always with a leading space -- confirmed
+    // against real data, e.g. "Amazing lectures --Beware of pop
+    // quizzes--Caring" mixes both, and a literal " --" split leaves the
+    // second pair stuck together as one tag.
+    tags: r.ratingTags ? r.ratingTags.split(/\s*--\s*/).map((t) => t.trim()).filter(Boolean) : [],
+    comment: r.comment || null,
+  };
+}
+
+/* Every review RMP has on file for one professor, not just the 5 the page
+   embeds server-side -- pages through the same GraphQL connection the
+   site's own "Load More Ratings" button calls. 100 per page confirmed
+   live to return everything in one request for a professor with 22
+   reviews (RMP's own frontend asks for 5 at a time via repeated clicks,
+   but nothing about the query caps it there, the same finding as the
+   professor-list query in fetchAllProfessors above); the loop below still
+   follows pageInfo.hasNextPage for the rare professor with more than 100. */
+export async function fetchAllRatings(legacyId) {
+  const id = teacherGlobalId(legacyId);
+  const all = [];
+  let cursor = null;
+  let hasNextPage = true;
+  while (hasNextPage) {
+    const body = JSON.stringify({
+      query: RATINGS_QUERY,
+      operationName: "RatingsListQuery",
+      variables: { count: 100, id, cursor },
+    });
+    const text = await politeFetch(GRAPHQL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
+    const json = JSON.parse(text);
+    const ratings = json?.data?.node?.ratings;
+    if (!ratings) throw new Error(`fetchAllRatings(${legacyId}): unexpected response shape -- ${text.slice(0, 300)}`);
+    for (const edge of ratings.edges) all.push(mapRating(edge.node));
+    hasNextPage = ratings.pageInfo.hasNextPage;
+    cursor = ratings.pageInfo.endCursor;
+  }
+  return all;
+}
+
+/* One professor's detail page: the aggregate numbers and rating
+   distribution the list doesn't carry, plus every review via
+   fetchAllRatings above (not the 5 the page itself embeds -- those come
+   back through the same query anyway, just as page 1). */
 export async function fetchProfessorDetail(legacyId) {
   const html = await politeFetch(`https://www.ratemyprofessors.com/professor/${legacyId}`);
   const m = RELAY_STORE_RE.exec(html);
@@ -106,19 +181,7 @@ export async function fetchProfessorDetail(legacyId) {
     ? { r1: distNode.r1 ?? 0, r2: distNode.r2 ?? 0, r3: distNode.r3 ?? 0, r4: distNode.r4 ?? 0, r5: distNode.r5 ?? 0 }
     : null;
 
-  const reviews = Object.values(store)
-    .filter((v) => v && v.__typename === "Rating")
-    .map((r) => ({
-      reviewId: r.legacyId,
-      courseCode: r.class || null,
-      date: r.date || null,
-      quality: r.clarityRating ?? null,
-      difficulty: r.difficultyRating ?? null,
-      wouldTakeAgain: r.wouldTakeAgain, // 1 yes, 0 no, -1 not answered
-      grade: r.grade || null,
-      tags: r.ratingTags ? r.ratingTags.split(" --").filter(Boolean) : [],
-      comment: r.comment || null,
-    }));
+  const reviews = teacher.numRatings > 0 ? await fetchAllRatings(legacyId) : [];
 
   return {
     legacyId,

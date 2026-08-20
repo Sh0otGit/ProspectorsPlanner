@@ -192,11 +192,12 @@ export async function scrapeAllEvaluations(onProgress) {
    RATE MY PROFESSORS -- see rmp.js's header for why this exists despite
    RMP's ToS, and CLAUDE.md's Data sources entry for the same. Two steps:
    the full campus professor list (aggregate numbers, cheap), then a
-   *bounded* review pull -- but only for professors who also match someone
+   review pull for every review of every professor who matches someone
    actually teaching a real UTEP section this term, not the full ~2,400.
-   Scraping detail pages for professors nobody's actively comparing on
-   this site would be exactly the unbounded pull CLAUDE.md's plan says
-   not to do.
+   The bound is on *which professors* get a detail fetch at all, not on
+   how many of their reviews come back once they qualify -- scraping
+   detail pages for professors nobody's actively comparing on this site
+   would be exactly the unbounded pull CLAUDE.md's plan says not to do.
    ===================================================================== */
 const upsertRmpProfessor = db.prepare(`
   INSERT INTO rmp_professors (legacy_id, first_name, last_name, department,
@@ -292,11 +293,12 @@ function currentlyTeachingRmpMatches() {
   return [...matches.values()];
 }
 
-/* The bounded part: one detail-page fetch per currently-teaching matched
-   professor, storing whatever reviews that page embeds (see rmp.js).
-   Replaces that professor's whole review set each time rather than
-   accumulating forever, since RMP doesn't expose a stable "since last
-   scrape" cursor for reviews the way HB 2504's evaluations do. */
+/* The bounded part: one detail-page fetch plus a full review pull (see
+   fetchAllRatings in rmp.js) per currently-teaching matched professor, not
+   every professor RMP has on file. Replaces that professor's whole review
+   set each time rather than accumulating forever, since RMP doesn't
+   expose a stable "since last scrape" cursor for reviews the way HB
+   2504's evaluations do. */
 export async function scrapeRmpReviews(onProgress) {
   const targets = currentlyTeachingRmpMatches();
   let reviewCount = 0;

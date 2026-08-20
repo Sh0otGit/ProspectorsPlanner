@@ -149,10 +149,9 @@ CREATE TABLE IF NOT EXISTS problem_reports (
    automated access -- see CLAUDE.md, Data sources, and scrapers/rmp.js's
    header comment for the full reasoning. Two tables, matching the two
    scrape steps: the full campus professor list (aggregate numbers only,
-   cheap, ~2,400 rows) and a *bounded* review sample (only for instructors
-   who also match someone actually teaching a real UTEP course right now
-   -- see scrapers/run.js -- and only the handful of reviews RMP's own
-   professor page embeds server-side, never a deeper pull). */
+   cheap, ~2,400 rows) and every review for the *bounded set* of
+   instructors who also match someone actually teaching a real UTEP
+   course right now -- see scrapers/run.js -- not the full campus list. */
 CREATE TABLE IF NOT EXISTS rmp_professors (
   legacy_id             INTEGER PRIMARY KEY,
   first_name            TEXT,

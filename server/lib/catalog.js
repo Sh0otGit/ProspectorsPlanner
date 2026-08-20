@@ -116,12 +116,13 @@ export function listCourses(termCode) {
    unmatched) instructor, each with an aggregated HB 2504 rating and,
    where a Banner name matches an rmp_professors row (same word-set
    matching as the HB 2504 side, see name-match.js), a real RMP aggregate
-   and a bounded review sample (scrapers/rmp.js only ever stores the
-   handful of reviews RMP's own professor page embeds server-side, not a
-   deeper pull). Unmatched on either side is "no data," the same state
-   already shown for a brand new hire, not an error. Every section omits
-   seats/capacity, since that data doesn't exist in any public UTEP
-   source at all, not just one this project hasn't gotten to yet. */
+   and every review RMP has on file for them (scrapers/rmp.js pages
+   through the full ratings connection, not just the handful the
+   professor page itself embeds). Unmatched on either side is "no data,"
+   the same state already shown for a brand new hire, not an error. Every
+   section omits seats/capacity, since that data doesn't exist in any
+   public UTEP source at all, not just one this project hasn't gotten to
+   yet. */
 // "Apr 2026", matching the granularity the old fabricated reviews used --
 // RMP's own timestamp is a full "2026-08-17 16:31:40 +0000 UTC" string,
 // more precision than a review date needs here.
