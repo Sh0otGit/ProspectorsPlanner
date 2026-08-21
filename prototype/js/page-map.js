@@ -572,4 +572,5 @@ mapWrapEl.addEventListener("dragstart", e => e.preventDefault());
     parkingLocations = locations.parking || [];
   } catch(e) { /* render() still works with whatever loaded */ }
   render();
+  hidePageLoading();
 })();

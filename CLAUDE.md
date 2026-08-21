@@ -485,3 +485,14 @@ is the accessibility relief instead.
   than eyeballing it.
 - All instructor names, ratings, reviews, CRNs and sections in the prototype
   are invented. No real UTEP faculty member is represented.
+- The four pages whose first render depends on a fetch (courses, instructors,
+  schedule, map) start with a `.pageloading` overlay already in their raw
+  HTML (not injected by JS, so there's nothing to flash), removed by
+  app.js's `hidePageLoading()` once that page's own script finishes its
+  first real render -- success or error alike, never left spinning. Added
+  2026-08-22 after a report that the brief "Loading..." skeleton text
+  those pages used to show while `ensureCatalog()` was in flight read as a
+  visible flash/jump rather than a clean load. A new fetch-dependent page
+  should follow the same pattern: the overlay div as the first child of
+  `<body>`, and a `hidePageLoading()` call on every exit path of its
+  init flow.

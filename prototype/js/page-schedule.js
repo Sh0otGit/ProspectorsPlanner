@@ -274,4 +274,5 @@ $("#submitReview").onclick = async () => {
   } catch(e) { /* renderSchedule() still works with whatever loaded; allChosenSections() just skips the rest */ }
   if(TERM_LABEL) $("#schedHeading").textContent = TERM_LABEL+" schedule";
   renderSchedule();
+  hidePageLoading();
 })();

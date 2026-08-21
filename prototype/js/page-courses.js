@@ -108,4 +108,5 @@ $("#courseSearch").addEventListener("input", e=>{
   } catch(e){
     hint.textContent = "Couldn't load course data.";
   }
+  hidePageLoading();
 })();

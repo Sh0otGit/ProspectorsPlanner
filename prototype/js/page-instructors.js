@@ -14,6 +14,7 @@ async function init(){
   if(!codes.length){
     $("#courseTabs").innerHTML = '<div class="empty">No courses selected.</div>';
     $("#resultsList").innerHTML = '<div class="panel"><div class="empty">Go back and search for the courses you need first.</div></div>';
+    hidePageLoading();
     return;
   }
   $("#resultsList").innerHTML = '<div class="panel"><div class="empty">Loading real course and instructor data&hellip;</div></div>';
@@ -21,10 +22,12 @@ async function init(){
     await ensureCatalog(codes);
   } catch(e){
     $("#resultsList").innerHTML = '<div class="panel"><div class="empty">Couldn\'t load course data. Try reloading.</div></div>';
+    hidePageLoading();
     return;
   }
   renderResults();
   scrollToChosenSection();
+  hidePageLoading();
 }
 
 /* Jumps the page to the professor card teaching a section already added

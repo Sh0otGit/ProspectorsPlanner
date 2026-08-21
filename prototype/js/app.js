@@ -527,6 +527,21 @@ function renderSiteChrome(){
 }
 renderSiteChrome();
 
+/* Removes the full-page loading overlay that courses.html, instructors.html,
+   schedule.html and map.html each start with in their raw HTML (see
+   .pageloading in styles.css) -- present before any JS runs, so there's
+   nothing to flash. Each of those pages' own script calls this once its
+   first real render is done, success or failure alike (an error state
+   is still a "loaded" page, not an overlay stuck spinning forever). A
+   no-op on pages that never had the overlay (index.html, availability.html,
+   the static pages), so it's safe to leave unconditional. */
+function hidePageLoading(){
+  const el = document.getElementById("pageLoading");
+  if(!el) return;
+  el.classList.add("hide");
+  setTimeout(()=>el.remove(), 200);
+}
+
 /* ---------- cookie / storage notice ----------
    Not built to satisfy an ad-tech consent framework -- there are no
    tracking or advertising cookies here to consent to. It exists so a
