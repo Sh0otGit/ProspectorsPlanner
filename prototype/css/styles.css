@@ -408,6 +408,19 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .parkpin circle{fill:var(--surface-3);stroke:var(--ink-muted);stroke-width:1.5}
 .parkpin:hover circle,.parkpin:focus-visible circle{r:7}
 .parkpin:focus-visible{outline:none}
+.routeline{fill:none;stroke:var(--utep-blue);stroke-width:3;stroke-dasharray:2 7;stroke-linecap:round}
+
+/* ---------- Your classes / Routes tabs (Map page's side panel) ---------- */
+.paneltabs{display:flex;background:var(--surface-2);border-bottom:1px solid var(--rule)}
+.paneltabs .ptab{flex:1;background:transparent;border:0;padding:11px 10px;font-family:var(--font-display);font-weight:700;font-size:13px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-muted);cursor:pointer}
+.paneltabs .ptab:hover{color:var(--ink-2)}
+.paneltabs .ptab.on{background:var(--surface);color:var(--ink);box-shadow:inset 0 -3px 0 var(--utep-orange)}
+.routedays{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.btn.xs.on{background:var(--utep-blue);color:#fff;border-color:var(--utep-blue)}
+.routetable{width:100%;border-collapse:collapse;font-size:12.5px}
+.routetable th{text-align:left;padding:6px 8px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-muted);border-bottom:1px solid var(--rule-strong)}
+.routetable td{padding:7px 8px;border-bottom:1px solid var(--rule);vertical-align:top}
+.routetable tr:last-child td{border-bottom:0}
 
 /* ============ RESULTS ============ */
 .res-layout{display:grid;grid-template-columns:250px 1fr;gap:22px;align-items:start}
@@ -560,6 +573,7 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .crn-title{font-size:13px;font-weight:700;color:var(--ink);margin-top:3px}
 .crn-code{font-size:11.5px;color:var(--ink-2)}
 .crn-prof{font-size:11.5px;color:var(--ink-muted)}
+.crn-where{font-size:11.5px;color:var(--ink-muted);margin-top:1px}
 /* The Copy CRN button lives here now, stacked under the day/time instead
    of full-width below the whole row -- shorter rows, and the button
    sits right where the day/time already draws the eye instead of

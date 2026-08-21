@@ -1,26 +1,10 @@
 /* =====================================================================
    STEP 5: rendered schedule grid and CRN worksheet. PALETTE lives in
    app.js now (also used by page-map.js, so each added course reads as
-   the same color on both pages).
+   the same color on both pages). describeTimeConflict() and
+   wireCopyCrnButtons() live in app.js too, shared with the Map page's
+   "Your classes" panel.
    ===================================================================== */
-
-/* Null if this pick's section has no time problem, otherwise a plain-
-   English clause ("overlaps POLS 3315.") for the Copy CRN confirmation
-   dialog -- reuses the same conflictingCodes()/hitsBlocked() app.js
-   already computes for the calendar and Instructors page, so this is
-   never a second, possibly-out-of-sync notion of "conflict." */
-function describeTimeConflict(code, scheduleType){
-  const entry = state.chosen.get(code)?.get(scheduleType);
-  const sec = entry ? resolveSection(code, entry) : null;
-  if(!sec) return null;
-  const clashWith = conflictingCodes(sec, code, scheduleType);
-  const blocked = hitsBlocked(sec);
-  if(!clashWith.length && !blocked) return null;
-  const parts = [];
-  if(clashWith.length) parts.push("overlaps "+clashWith.join(", "));
-  if(blocked) parts.push("overlaps an hour you marked unavailable");
-  return parts.join(" and ")+".";
-}
 
 function renderSchedule(){
   /* {code, profName, section, scheduleType} for every added pick, resolved
@@ -172,28 +156,7 @@ function renderSchedule(){
       }).join("")
     : '<div style="color:var(--ink-muted);font-size:13.5px">No sections added.</div>';
 
-  $$("[data-copy-crn]").forEach(b=>{
-    const label = b.textContent;
-    b.onclick = () => {
-      const crn = b.dataset.copyCrn, code = b.dataset.code, type = b.dataset.type;
-      const conflict = describeTimeConflict(code, type);
-      if(conflict && !confirm("Are you sure? CRN "+crn+" ("+code+") "+conflict+" Goldmine may reject conflicting CRNs together.")){
-        return;
-      }
-      if(navigator.clipboard) navigator.clipboard.writeText(crn).catch(()=>{});
-      $("#copyMsg").textContent = "Copied CRN "+crn+".";
-      setTimeout(()=>$("#copyMsg").textContent="",2200);
-      // On the button itself too, right where the click happened, not
-      // just the shared message line below the whole worksheet.
-      b.textContent = "Copied!";
-      b.classList.add("copied");
-      clearTimeout(b._copiedTimer);
-      b._copiedTimer = setTimeout(()=>{
-        b.textContent = label;
-        b.classList.remove("copied");
-      }, 1600);
-    };
-  });
+  wireCopyCrnButtons($("#crnList"), $("#copyMsg"));
 }
 
 /* Hovering any slot of a class highlights every slot that class occupies

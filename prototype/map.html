@@ -44,9 +44,14 @@
     </div>
     <div>
       <div class="panel">
-        <div class="phead">Your classes</div>
+        <div class="paneltabs" id="panelTabs" role="tablist">
+          <button class="ptab on" data-panel-tab="classes" role="tab" aria-selected="true">Your classes</button>
+          <button class="ptab" data-panel-tab="routes" role="tab" aria-selected="false">Routes</button>
+        </div>
         <div class="pad" id="mapCourseList"></div>
+        <div class="pad" id="mapRoutes" hidden></div>
       </div>
+      <div id="mapCopyMsg" style="font-size:12.5px;color:var(--good);margin-top:9px;min-height:16px"></div>
     </div>
   </div>
 </div></div></main>

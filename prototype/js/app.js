@@ -286,6 +286,56 @@ function conflictCount(code){
   return n;
 }
 
+/* Null if this pick's section has no time problem, otherwise a plain-
+   English clause ("overlaps POLS 3315.") for a Copy CRN confirmation
+   dialog -- shared by Schedule's worksheet and the Map page's "Your
+   classes" panel (see wireCopyCrnButtons()) so it's never a second,
+   possibly-out-of-sync notion of "conflict." */
+function describeTimeConflict(code, scheduleType){
+  const entry = state.chosen.get(code)?.get(scheduleType);
+  const sec = entry ? resolveSection(code, entry) : null;
+  if(!sec) return null;
+  const clashWith = conflictingCodes(sec, code, scheduleType);
+  const blocked = hitsBlocked(sec);
+  if(!clashWith.length && !blocked) return null;
+  const parts = [];
+  if(clashWith.length) parts.push("overlaps "+clashWith.join(", "));
+  if(blocked) parts.push("overlaps an hour you marked unavailable");
+  return parts.join(" and ")+".";
+}
+
+/* Wires every [data-copy-crn] button under `root` (a fresh render's
+   worth, called after innerHTML is rebuilt) -- confirms first if the
+   CRN has a real time conflict, copies to the clipboard, and turns the
+   button "Copied!" green for a moment. `msgEl` is optional (a shared
+   status line below the whole list); the per-button feedback works
+   without it. Shared by page-schedule.js and page-map.js so the two
+   "Your classes" lists behave identically, not two maintained copies. */
+function wireCopyCrnButtons(root, msgEl){
+  $$("[data-copy-crn]", root).forEach(b=>{
+    const label = b.textContent;
+    b.onclick = () => {
+      const crn = b.dataset.copyCrn, code = b.dataset.code, type = b.dataset.type;
+      const conflict = describeTimeConflict(code, type);
+      if(conflict && !confirm("Are you sure? CRN "+crn+" ("+code+") "+conflict+" Goldmine may reject conflicting CRNs together.")){
+        return;
+      }
+      if(navigator.clipboard) navigator.clipboard.writeText(crn).catch(()=>{});
+      if(msgEl){
+        msgEl.textContent = "Copied CRN "+crn+".";
+        setTimeout(()=>{ msgEl.textContent=""; },2200);
+      }
+      b.textContent = "Copied!";
+      b.classList.add("copied");
+      clearTimeout(b._copiedTimer);
+      b._copiedTimer = setTimeout(()=>{
+        b.textContent = label;
+        b.classList.remove("copied");
+      }, 1600);
+    };
+  });
+}
+
 function combined(p){
   const hasE = p.evalAdj!=null, hasR = !!p.rmp;
   if(!hasE && !hasR) return null;

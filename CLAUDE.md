@@ -32,7 +32,20 @@ pannable, clamped to the whole campus footprint plus a margin rather
 than to whatever's tightly in frame, so panning has real room to
 explore without wandering off into unrelated parts of El Paso; picking
 a different set of classes re-fits and re-zooms, but toggling parking
-or hovering a pin preserves wherever the student last panned to.
+or hovering a pin preserves wherever the student last panned to. It's
+also scroll-wheel and pinch zoomable (integer tile-zoom steps, kept
+centered on the cursor/pinch point, same pan-clamp margin applied
+afterward). The side panel has two tabs: "Your classes" (done
+2026-08-22, the same CRN-worksheet layout as Schedule's own "Your
+classes" panel -- both share app.js's wireCopyCrnButtons() now, one
+definition instead of two) and "Routes," one button per day the student
+actually has a class on, which zooms the map to that day's stops in
+schedule order, draws a dashed line connecting them, and lists them in
+a time/class/location table. A building visited twice in one day,
+non-consecutively, is kept as two separate stops rather than merged --
+order is the feature's whole point -- so its pins can end up stacked
+exactly on top of each other if the two visits share the same
+coordinates; the table and numbered legend still disambiguate them.
 UTEP's own detailed campus view turned out not to be a downloadable
 image at all -- it's the same OSM building/street data, rendered live by
 MapboxGL through Concept3D's own paid tileserver
