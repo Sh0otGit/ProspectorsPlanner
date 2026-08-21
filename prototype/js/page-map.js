@@ -153,6 +153,13 @@ function computeView(bounds){
   };
 }
 
+/* The zoom level at which the whole campus (DEFAULT_BOUNDS) already
+   fills the viewport -- the floor for manual zoom-out (see zoomAt()),
+   so scrolling out stops at "all of campus is visible" instead of
+   continuing on into the rest of El Paso. MIN_ZOOM above stays a purely
+   technical safety bound for computeView's own fit search. */
+const CAMPUS_FIT_ZOOM = computeView(DEFAULT_BOUNDS).zoom;
+
 /* lat/lng -> {x,y} at a camera's current zoom/offset -- a plain function
    of live camera state, not a closure captured at fit time, so it stays
    correct while the user drags the map around. */
@@ -170,6 +177,7 @@ function projectAt(camera){
    whatever the current tab/day is showing), so switching tabs never
    changes how far you're allowed to pan. */
 function clampCamera(camera, points){
+  camera.zoom = Math.max(camera.zoom, CAMPUS_FIT_ZOOM);
   const b = { ...DEFAULT_BOUNDS };
   for(const p of points){
     b.minLat = Math.min(b.minLat, p.lat); b.maxLat = Math.max(b.maxLat, p.lat);
@@ -378,8 +386,9 @@ function render(){
   }
 
   $("#mapWrap").innerHTML = '<svg id="campusMap" viewBox="0 0 '+MAP_W+' '+MAP_H+'" role="img" '
-    + 'aria-label="Map of UTEP campus with pins at your added classes\' buildings">'+svg+'</svg>'
+    + 'aria-label="Map of UTEP campus with pins at your added classes\' buildings"><g id="mapLayer">'+svg+'</g></svg>'
     + '<div class="maptileattr">&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>';
+  renderedCamera = { zoom: camera.zoom, offX: camera.offX, offY: camera.offY };
 
   $$(".bldgpin,.parkpin", $("#mapWrap")).forEach(el=>{
     el.onmouseenter = e => showTip(el.dataset.tip, e.pageX, e.pageY);
@@ -440,19 +449,27 @@ $$(".ptab", $("#panelTabs")).forEach(b=>{
   };
 });
 
-/* Click-and-drag (or touch-drag) panning, clamped by clampCamera() inside
-   render() itself -- see its header for why the limit is "the whole
-   campus plus a margin," not just whatever's tightly in view. Mutates
-   camera.offX/offY directly and re-renders on the next animation frame
-   (rAF-throttled so a burst of pointermove events doesn't rebuild the
-   SVG more than once per frame); the real position is committed the
-   moment the drag ends, since every render() call clamps it anyway.
+/* Click-and-drag (or touch-drag) panning. Early versions called the full
+   render() (which throws away and rebuilds every tile <image> and pin,
+   see tileLayerSVG) on every animation frame of the drag -- functionally
+   fine, but each fresh <image> element makes the browser redecode/repaint
+   that tile from scratch even when it's the exact same URL already in
+   cache, which reads as constant "reloading" during a drag. Instead,
+   live dragging just moves the existing <g id="mapLayer"> with a cheap
+   CSS-space `transform`, touching zero tile elements; a real render()
+   (new tiles fetched/decoded, everything reclamped) only happens when
+   the live offset would start exposing the unrendered edge beyond
+   tileLayerSVG's one-tile buffer, or once the drag actually ends. Every
+   render() records `renderedCamera`, the {zoom,offX,offY} that content
+   was actually built for, so panMove can measure how far the live
+   camera has since drifted from what's on screen.
    `dragged` distinguishes an actual drag from a click so a building pin
    still navigates on a genuine tap, not after being nudged a pixel or
    two mid-click. */
 let dragState = null;
 let dragged = false;
 let panRaf = null;
+let renderedCamera = null;
 function svgScale(){
   const svgEl = $("#campusMap");
   if(!svgEl) return 1;
@@ -471,9 +488,22 @@ function panMove(clientX, clientY){
   camera.offX = dragState.startOffX - dx;
   camera.offY = dragState.startOffY - dy;
   if(panRaf) return;
-  panRaf = requestAnimationFrame(() => { panRaf = null; render(); });
+  panRaf = requestAnimationFrame(() => {
+    panRaf = null;
+    if(!renderedCamera || camera.zoom!==renderedCamera.zoom){ render(); return; }
+    const liveDx = camera.offX-renderedCamera.offX, liveDy = camera.offY-renderedCamera.offY;
+    if(Math.abs(liveDx) > TILE*0.75 || Math.abs(liveDy) > TILE*0.75){
+      render(); // the live offset is about to outrun the buffered tiles -- refresh for real
+    } else {
+      const layer = document.getElementById("mapLayer");
+      if(layer) layer.setAttribute("transform", "translate("+(-liveDx)+","+(-liveDy)+")");
+    }
+  });
 }
-function panEnd(){ dragState = null; }
+function panEnd(){
+  dragState = null;
+  if(camera) render(); // settle: clamp for real, refresh tiles, drop the transform
+}
 
 /* Zooms by `deltaZoom` integer steps (tiles only exist at integer zooms,
    see tileLayerSVG), keeping the point under (clientX,clientY) stationary
@@ -484,7 +514,7 @@ function panEnd(){ dragState = null; }
    render() this triggers keeps the result within the usual pan limits. */
 function zoomAt(clientX, clientY, deltaZoom){
   if(!camera) return;
-  const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, camera.zoom+deltaZoom));
+  const newZoom = Math.min(MAX_ZOOM, Math.max(CAMPUS_FIT_ZOOM, camera.zoom+deltaZoom));
   if(newZoom===camera.zoom) return;
   const svgEl = $("#campusMap");
   if(!svgEl) return;

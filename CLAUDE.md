@@ -35,7 +35,18 @@ a different set of classes re-fits and re-zooms, but toggling parking
 or hovering a pin preserves wherever the student last panned to. It's
 also scroll-wheel and pinch zoomable (integer tile-zoom steps, kept
 centered on the cursor/pinch point, same pan-clamp margin applied
-afterward). The side panel has two tabs: "Your classes" (done
+afterward, floored at the zoom where the whole campus already fills the
+viewport -- CAMPUS_FIT_ZOOM in page-map.js -- so zooming out stops
+there instead of continuing into the rest of El Paso). Live dragging
+moves the rendered tiles/pins with a plain SVG `transform` on a wrapping
+`<g>` rather than calling the real render() every animation frame: an
+early version did call render() per frame, which rebuilds every tile
+`<image>` from scratch, and even a cache-served image still costs a
+redecode/repaint on a fresh element, which read as constant tile
+"reloading" during a drag. A real render() (new tiles, full reclamp)
+now only happens when the live pan would start exposing the edge beyond
+tileLayerSVG's one-tile buffer, or once the drag actually ends. The
+side panel has two tabs: "Your classes" (done
 2026-08-22, the same CRN-worksheet layout as Schedule's own "Your
 classes" panel -- both share app.js's wireCopyCrnButtons() now, one
 definition instead of two) and "Routes," one button per day the student
