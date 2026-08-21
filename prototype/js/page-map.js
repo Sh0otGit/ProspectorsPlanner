@@ -86,9 +86,10 @@ function worldY(lat, z){
 
 /* Picks the largest integer zoom where `bounds` still fits inside the
    padded viewBox (the tile equivalent of the old projector's "fit to
-   scale"), then returns a lat/lng -> {x,y} projector at that zoom plus
-   the zoom itself, so the tile grid and the pins share one coordinate
-   space exactly. */
+   scale"), then returns the offset that centers it -- the tile grid and
+   the pins share this same {zoom, offX, offY}, projected fresh each
+   render via worldX/worldY so a later pan (which mutates offX/offY
+   directly, see `camera` below) is always reflected immediately. */
 function computeView(bounds){
   const availW = MAP_W - PAD*2, availH = MAP_H - PAD*2;
   let zoom = MAX_ZOOM;
@@ -99,25 +100,56 @@ function computeView(bounds){
   }
   const wx0 = worldX(bounds.minLng, zoom), wx1 = worldX(bounds.maxLng, zoom);
   const wy0 = worldY(bounds.maxLat, zoom), wy1 = worldY(bounds.minLat, zoom);
-  const offX = wx0 - (availW-(wx1-wx0))/2 - PAD;
-  const offY = wy0 - (availH-(wy1-wy0))/2 - PAD;
   return {
-    zoom, offX, offY,
-    project: (lat,lng) => ({ x: worldX(lng,zoom)-offX, y: worldY(lat,zoom)-offY }),
+    zoom,
+    offX: wx0 - (availW-(wx1-wx0))/2 - PAD,
+    offY: wy0 - (availH-(wy1-wy0))/2 - PAD,
   };
 }
 
+/* lat/lng -> {x,y} at a camera's current zoom/offset -- a plain function
+   of live camera state, not a closure captured at fit time, so it stays
+   correct while the user drags the map around. */
+function projectAt(camera){
+  return (lat,lng) => ({ x: worldX(lng,camera.zoom)-camera.offX, y: worldY(lat,camera.zoom)-camera.offY });
+}
+
+/* How far the camera is allowed to pan: the whole campus footprint
+   (DEFAULT_BOUNDS, widened to also cover any picked point outside it,
+   e.g. a satellite building) plus a margin, in world pixels at the
+   camera's zoom -- "a scroll border where I can't scroll too far past
+   the edge buildings," not a hard clamp to whatever's tightly in view.
+   Applied every render, so a drag, an auto-fit, or a resize all land
+   somewhere valid. */
+function clampCamera(camera, points){
+  const b = { ...DEFAULT_BOUNDS };
+  for(const p of points){
+    b.minLat = Math.min(b.minLat, p.lat); b.maxLat = Math.max(b.maxLat, p.lat);
+    b.minLng = Math.min(b.minLng, p.lng); b.maxLng = Math.max(b.maxLng, p.lng);
+  }
+  const marginLat = (b.maxLat-b.minLat)*0.2, marginLng = (b.maxLng-b.minLng)*0.2;
+  const { zoom } = camera;
+  const wx0 = worldX(b.minLng-marginLng, zoom), wx1 = worldX(b.maxLng+marginLng, zoom);
+  const wy0 = worldY(b.maxLat+marginLat, zoom), wy1 = worldY(b.minLat-marginLat, zoom);
+  const minOffX = wx0, maxOffX = wx1-MAP_W, minOffY = wy0, maxOffY = wy1-MAP_H;
+  camera.offX = maxOffX >= minOffX ? Math.min(Math.max(camera.offX, minOffX), maxOffX) : (minOffX+maxOffX)/2;
+  camera.offY = maxOffY >= minOffY ? Math.min(Math.max(camera.offY, minOffY), maxOffY) : (minOffY+maxOffY)/2;
+}
+
 /* SVG <image> tiles covering the visible MAP_W x MAP_H area at the
-   view's zoom -- see https://operations.osmfoundation.org/policies/tiles/
-   for OSM's tile usage policy this stays within (plain browser-rendered
-   <img>-equivalents, standard attribution below the map, no bulk/
-   automated fetching). Longitude wraps around the world; latitude tiles
-   outside the valid 0..2^zoom-1 range (past the poles) are skipped. */
-function tileLayerSVG(view){
-  const { zoom, offX, offY } = view;
+   camera's zoom, plus a one-tile buffer on every side so a drag in
+   progress (rendered every animation frame, see the pan handlers below)
+   doesn't flash blank edges before the next frame catches up -- see
+   https://operations.osmfoundation.org/policies/tiles/ for the OSM tile
+   usage policy this stays within (plain browser-rendered <img>-
+   equivalents, standard attribution below the map, no bulk/automated
+   fetching). Longitude wraps around the world; latitude tiles outside
+   the valid 0..2^zoom-1 range (past the poles) are skipped. */
+function tileLayerSVG(camera){
+  const { zoom, offX, offY } = camera;
   const n = Math.pow(2, zoom);
-  const x0 = Math.floor(offX / TILE), x1 = Math.floor((offX+MAP_W) / TILE);
-  const y0 = Math.floor(offY / TILE), y1 = Math.floor((offY+MAP_H) / TILE);
+  const x0 = Math.floor(offX / TILE) - 1, x1 = Math.floor((offX+MAP_W) / TILE) + 1;
+  const y0 = Math.floor(offY / TILE) - 1, y1 = Math.floor((offY+MAP_H) / TILE) + 1;
   let html = "";
   for(let ty=y0; ty<=y1; ty++){
     if(ty < 0 || ty >= n) continue;
@@ -128,6 +160,18 @@ function tileLayerSVG(view){
     }
   }
   return html;
+}
+
+/* One <text> with a <tspan> per line, bottom line anchored at (x,y) and
+   earlier lines stacked upward -- used for a pin's label so two classes
+   sharing a building show as two lines under one pin instead of two
+   overlapping pins. */
+function stackedLabelSVG(lines, x, y){
+  const lineH = 13;
+  const topY = y - (lines.length-1)*lineH;
+  return '<text x="'+x+'" y="'+topY+'" class="pinlabel">'
+    + lines.map((line,i)=> '<tspan x="'+x+'"'+(i?' dy="'+lineH+'"':"")+'>'+esc(line)+'</tspan>').join("")
+    + '</text>';
 }
 
 let mapTipEl = null;
@@ -157,6 +201,14 @@ function whereHTML(p){
   return "Online/asynchronous";
 }
 
+/* Persists across renders so a manual drag (see the pan handlers below)
+   survives a re-render triggered by something else (the parking toggle,
+   a tooltip hover). Only reset -- re-fit and re-zoom -- when the actual
+   set of picked buildings changes; see buildingKey(). */
+let camera = null;
+let lastBuildingKey = null;
+function buildingKey(groups){ return groups.map(g=>g.building.id).sort((a,b)=>a-b).join(","); }
+
 function render(){
   const { picks, byBuilding } = collectPickedSections();
   const groups = [...byBuilding.values()];
@@ -166,11 +218,16 @@ function render(){
      whether or not anything's been added yet. Picked sections just add
      pins on top of that same base view instead of gating the map behind
      having a schedule at all. */
+  const key = buildingKey(groups);
+  if(!camera || key !== lastBuildingKey){
+    camera = computeView(computeBounds(groups.map(g=>g.building)));
+    lastBuildingKey = key;
+  }
   const points = groups.map(g=>g.building).concat(showParking && parkingLocations ? parkingLocations : []);
-  const view = computeView(computeBounds(points));
-  const project = view.project;
+  clampCamera(camera, points);
+  const project = projectAt(camera);
 
-  let svg = tileLayerSVG(view);
+  let svg = tileLayerSVG(camera);
 
   if(showParking && parkingLocations){
     svg += parkingLocations.map(p=>{
@@ -183,12 +240,12 @@ function render(){
     const {x,y} = project(g.building.lat, g.building.lng);
     const c = "var("+PALETTE[g.picks[0].colorIdx % PALETTE.length]+")";
     const codes = [...new Set(g.picks.map(p=>p.code))];
+    const lines = codes.map(code => CATALOG_TITLE[code] ? code+" - "+CATALOG_TITLE[code] : code);
     return '<g class="bldgpin" tabindex="0" role="button" data-goto-code="'+esc(codes[0])+'" '
       + 'data-tip="'+esc(pinPicksHTML(g.picks))+'" '
       + 'aria-label="'+esc(g.building.name)+': '+esc(codes.join(", "))+'. Click to view in Instructors.">'
       + '<circle cx="'+x+'" cy="'+y+'" r="10" style="--c:'+c+'"></circle>'
-      + (g.picks.length>1?'<text x="'+x+'" y="'+(y+4)+'" class="pinbadge">'+g.picks.length+'</text>':"")
-      + '<text x="'+x+'" y="'+(y-15)+'" class="pinlabel">'+esc(g.building.name)+'</text>'
+      + stackedLabelSVG(lines, x, y-15)
       + '</g>';
   }).join("");
 
@@ -204,7 +261,7 @@ function render(){
     el.onblur = hideTip;
   });
   $$("[data-goto-code]", $("#mapWrap")).forEach(el=>{
-    const go = () => { state.activeCourse = el.dataset.gotoCode; state.revOpen.clear(); saveState(); location.href = "instructors.html"; };
+    const go = () => { if(dragged) return; state.activeCourse = el.dataset.gotoCode; state.revOpen.clear(); saveState(); location.href = "instructors.html"; };
     el.onclick = go;
     el.onkeydown = e => { if(e.key==="Enter" || e.key===" "){ e.preventDefault(); go(); } };
   });
@@ -228,6 +285,50 @@ function render(){
 }
 
 $("#parkingToggle").onchange = render;
+
+/* Click-and-drag (or touch-drag) panning, clamped by clampCamera() inside
+   render() itself -- see its header for why the limit is "the whole
+   campus plus a margin," not just whatever's tightly in view. Mutates
+   camera.offX/offY directly and re-renders on the next animation frame
+   (rAF-throttled so a burst of pointermove events doesn't rebuild the
+   SVG more than once per frame); the real position is committed the
+   moment the drag ends, since every render() call clamps it anyway.
+   `dragged` distinguishes an actual drag from a click so a building pin
+   still navigates on a genuine tap, not after being nudged a pixel or
+   two mid-click. */
+let dragState = null;
+let dragged = false;
+let panRaf = null;
+function svgScale(){
+  const svgEl = $("#campusMap");
+  if(!svgEl) return 1;
+  const rect = svgEl.getBoundingClientRect();
+  return rect.width ? MAP_W/rect.width : 1;
+}
+function panStart(clientX, clientY){
+  if(!camera) return;
+  dragState = { startX: clientX, startY: clientY, startOffX: camera.offX, startOffY: camera.offY, scale: svgScale() };
+  dragged = false;
+}
+function panMove(clientX, clientY){
+  if(!dragState) return;
+  const dx = (clientX-dragState.startX)*dragState.scale, dy = (clientY-dragState.startY)*dragState.scale;
+  if(Math.abs(dx) > 3 || Math.abs(dy) > 3) dragged = true;
+  camera.offX = dragState.startOffX - dx;
+  camera.offY = dragState.startOffY - dy;
+  if(panRaf) return;
+  panRaf = requestAnimationFrame(() => { panRaf = null; render(); });
+}
+function panEnd(){ dragState = null; }
+
+const mapWrapEl = $("#mapWrap");
+mapWrapEl.addEventListener("mousedown", e => { if(e.button!==0) return; panStart(e.clientX, e.clientY); e.preventDefault(); });
+window.addEventListener("mousemove", e => { if(dragState) panMove(e.clientX, e.clientY); });
+window.addEventListener("mouseup", panEnd);
+mapWrapEl.addEventListener("touchstart", e => { if(e.touches.length===1) panStart(e.touches[0].clientX, e.touches[0].clientY); }, {passive:true});
+mapWrapEl.addEventListener("touchmove", e => { if(dragState && e.touches.length===1){ panMove(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); } }, {passive:false});
+mapWrapEl.addEventListener("touchend", panEnd);
+mapWrapEl.addEventListener("dragstart", e => e.preventDefault());
 
 (async () => {
   render(); // draw the base map immediately, don't wait on any fetch

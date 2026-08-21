@@ -23,8 +23,16 @@ tiles (`tile.openstreetmap.org`, standard public tile usage, plain SVG
 `<image>` elements, no mapping library) fit to a fixed main-campus
 bounding box, whether or not anything's been picked yet, so it reads as
 a real map of campus from the first visit; picked sections add larger,
-labeled, colored pins projected into that same Web Mercator space on
-top, instead of gating the whole page behind having a schedule.
+colored pins projected into that same Web Mercator space on top,
+labeled with the class code and title rather than the building name --
+two or more classes sharing a building stack as separate lines under
+one pin instead of overlapping pins -- instead of gating the whole page
+behind having a schedule. The view is click-and-drag (and touch-drag)
+pannable, clamped to the whole campus footprint plus a margin rather
+than to whatever's tightly in frame, so panning has real room to
+explore without wandering off into unrelated parts of El Paso; picking
+a different set of classes re-fits and re-zooms, but toggling parking
+or hovering a pin preserves wherever the student last panned to.
 UTEP's own detailed campus view turned out not to be a downloadable
 image at all -- it's the same OSM building/street data, rendered live by
 MapboxGL through Concept3D's own paid tileserver

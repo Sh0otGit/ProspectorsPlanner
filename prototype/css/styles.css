@@ -393,7 +393,8 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
    mapping library -- see page-map.js's header for why. Pins are
    projected into the same Web Mercator coordinate space the tiles use,
    so they land exactly on real building footprints. */
-.mapwrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface-2);position:relative}
+.mapwrap{overflow:hidden;border:1px solid var(--rule);background:var(--surface-2);position:relative;cursor:grab;touch-action:none;user-select:none}
+.mapwrap:active{cursor:grabbing}
 #campusMap{display:block;width:100%;height:auto}
 .maptileattr{position:absolute;right:4px;bottom:2px;font-size:10px;color:var(--ink-muted);background:color-mix(in srgb,var(--surface) 70%,transparent);padding:1px 4px;pointer-events:none}
 .maptileattr a{color:inherit;pointer-events:auto}
