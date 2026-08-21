@@ -18,14 +18,25 @@ Availability, Instructors, Schedule -- not five, plus a Map tab (done
 2026-08-21) that isn't part of that numbered flow: real pins, from UTEP's
 own campus map platform, at whichever buildings a student's added
 sections actually meet in, an always-available utility view rather than
-a fifth step. The map itself always renders -- every non-parking campus
-point on file drawn as a plain reference dot, fit to a fixed main-campus
-bounding box -- whether or not anything's been picked yet, so it reads as
-a real map of campus from the first visit; picked sections just add
-larger, labeled, colored pins on top of that same base layer instead of
-gating the whole page behind having a schedule. See Data sources below
-for where the building coordinates come from and
-`prototype/js/page-map.js` for the (external-library-free) rendering.
+a fifth step. The map itself always renders real OpenStreetMap raster
+tiles (`tile.openstreetmap.org`, standard public tile usage, plain SVG
+`<image>` elements, no mapping library) fit to a fixed main-campus
+bounding box, whether or not anything's been picked yet, so it reads as
+a real map of campus from the first visit; picked sections add larger,
+labeled, colored pins projected into that same Web Mercator space on
+top, instead of gating the whole page behind having a schedule.
+UTEP's own detailed campus view turned out not to be a downloadable
+image at all -- it's the same OSM building/street data, rendered live by
+MapboxGL through Concept3D's own paid tileserver
+(`tileserver.concept3d.com`, confirmed 2026-08-21 via CDP network
+capture of both `map.concept3d.com/?id=843` and the live `utep.edu/map/`
+embed, same reconnaissance technique as the points API). Reusing that
+tileserver directly would mean depending on another vendor's metered
+infrastructure, a real step up from the public, unauthenticated points
+endpoint this project already relies on, so the public OSM tile service
+is used instead -- a deliberate choice, not a technical fallback. See
+Data sources below for where the building coordinates come from and
+`prototype/js/page-map.js` for the tile/pin rendering.
 Rate My Professors is now scraped too (`scrapers/rmp.js`, done 2026-08-19),
 a deliberate exception to this project's otherwise legally-clean data
 sourcing, since RMP's own ToS prohibits it; see Data sources below for the
@@ -117,6 +128,7 @@ Rules that follow:
 | `www.goldmine.utep.edu/prod/owa/bwckschd.p_get_crse_unsec` (legacy Banner 8, public HB 2504 view) | CRN, subject/course/section, days, times, room, instructor, credits, term, registration dates | none | Confirmed working 2026-08-18 for Fall 2026 (term code `202710`). See exact request shape below. **Does not include seats/capacity/enrollment counts anywhere** -- that's not on this view at all, only on the CAS-gated Banner 9 side. Everything else Phase 2 needs is here. |
 | Rate My Professors | Qualitative reviews, difficulty, would-take-again | none | **Scraped despite an explicit ToS prohibition** (Section 6, confirmed current as of this decision: bans "automated software, devices, scripts, robots... to access, scrape, crawl or spider any web pages or other services" on the site) -- a deliberate, informed call by the project owner, not an oversight. Researched first: no official API or partner program exists (confirmed 2026-08-19); the "undocumented GraphQL" below is the same endpoint third-party wrappers use, not a sanctioned alternative, since it's still "a service contained in the site" under that same clause. UTEP's RMP school ID is `4058` (`U2Nob29sLTQwNTg=` base64, found via the live school search). Professor list: `POST ratemyprofessors.com/graphql`, `TeacherSearchPaginationQuery`, `schoolID` variable, up to `count:100` per page accepted (~24 requests for ~2,400 UTEP professors) -- found by watching real browser network traffic with CDP, not copied from a wrapper. Professor detail pages need no GraphQL call at all for the aggregate numbers and rating distribution: server-rendered, with the Relay store embedded in `window.__RELAY_STORE__ = {...}`, a plain HTML fetch and a regex like every other scraper here. Reviews are a separate pull: the page itself only embeds the first 5, so `fetchAllRatings()` pages through the same `RatingsListQuery` connection the site's own "Load More Ratings" button calls (found the same CDP-network-capture way), `count:100` per page, confirmed live to return everything for a professor in one request. Revised 2026-08-20 from an earlier "bounded sample of ~5 reviews, never deeper pagination" policy, after Monika Akbar's real 21 reviews turned up as only 5 in this site's own data -- the bound that's kept is on *which professors* get scraped at all (`scrapers/run.js`'s `currentlyTeachingRmpMatches`: only instructors who also match someone actually teaching a real section this term, not the full campus list), not on how many of their reviews come back once they qualify. Be ready to drop `rmp_professors`/`rmp_reviews` entirely if it ever needs to go. |
 | Concept3D (`api.concept3d.com`) | Building and parking-lot names with exact lat/lng, for the Map page | none | UTEP's own campus map (`utep.edu/map/`) is an iframe of a third-party platform, Concept3D (`map.concept3d.com/?id=843`) -- confirmed 2026-08-21 via CDP network capture of the live page, same technique as RMP's GraphQL discovery. Its `/locations` API is public and unauthenticated: the `key` query parameter is embedded directly in UTEP's own page JS, visible to any browser that loads the map, not a credential obtained any other way -- but it's still Concept3D's platform, not UTEP's own published open data, so scraping it is the same kind of deliberate, informed call as Rate My Professors above, not an assumption that it's fine. Full reasoning and the matching algorithm (a scraped room string like "Texas Western Hall 203" to one of these points -- prefix match first, then a two-directional fuzzy token score, 219 of 261 real room strings on file resolve correctly with zero false positives) is in `scrapers/campusmap.js` and `server/lib/campusmap.js`. Runs every 120 days (buildings don't move); see the ingestion page. |
+| `tile.openstreetmap.org` | Basemap imagery (real streets/building footprints) under the Map page's pins | none | Not scraped: this is OSMF's own public tile service, meant for exactly this kind of embedding -- see their tile usage policy at `operations.osmfoundation.org/policies/tiles/` (attribution, no bulk/automated fetching, browser-normal request volume). Investigated as an alternative to Concept3D's own detailed campus view, which turned out not to be a static image at all: CDP network capture of both `map.concept3d.com/?id=843` and the live `utep.edu/map/` embed (confirmed 2026-08-21) showed it's the same OSM building/street data, rendered live by MapboxGL through Concept3D's paid `tileserver.concept3d.com`, styled with a MapTiler-sourced vector style (`c3d_default_style`) -- reusing that tileserver directly would mean depending on another vendor's metered infrastructure, a real step up from the public points API above, so the public OSM tile service is used instead. Rendered as plain SVG `<image>` elements in `prototype/js/page-map.js`, positioned with the standard Web Mercator slippy-map formula, no mapping library. |
 
 **Schedule crawl path (`bwckschd.p_get_crse_unsec`):** one POST per subject,
 no cookies needed (this app is fully stateless -- confirmed 2026-08-19, the

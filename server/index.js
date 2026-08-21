@@ -15,7 +15,7 @@ import { db } from "../scrapers/lib/db.js";
 import { checkPassword, createSession, verifySession, destroySession, parseCookies } from "./lib/auth.js";
 import { isRateLimited, clientIp } from "./lib/rate-limit.js";
 import { latestTerm, listCourses, getCourse } from "./lib/catalog.js";
-import { listParkingLocations, listBuildingLocations } from "./lib/campusmap.js";
+import { listParkingLocations } from "./lib/campusmap.js";
 import {
   triggerScheduleRun,
   triggerEvaluationsRun,
@@ -81,14 +81,17 @@ const SECURITY_HEADERS = {
 // a CSP spec limitation, not an oversight) -- closing that gap would mean
 // moving every one of those to a real CSS class, not a security fix on its
 // own. Fonts are self-hosted from /fonts (see styles.css), so no font CDN
-// needs an allowance here.
+// needs an allowance here. img-src carries one real third-party origin,
+// tile.openstreetmap.org, for the Map page's basemap tiles (see
+// prototype/js/page-map.js and CLAUDE.md's Data sources table) -- every
+// other image on this site is same-origin or a data: URI.
 function buildCsp(nonce) {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'`,
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
-    "img-src 'self' data:",
+    "img-src 'self' data: https://tile.openstreetmap.org",
     "connect-src 'self'",
     "base-uri 'none'",
     "frame-ancestors 'none'",
@@ -290,7 +293,7 @@ const server = createServer(async (req, res) => {
       });
     }
     if (pathname === "/api/campus-locations" && req.method === "GET") {
-      return sendJson(res, 200, { buildings: listBuildingLocations(), parking: listParkingLocations() });
+      return sendJson(res, 200, { parking: listParkingLocations() });
     }
 
     // ---- public API: reviews submission (the "Rate this tool" card) ----

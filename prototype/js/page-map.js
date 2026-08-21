@@ -1,18 +1,28 @@
 /* =====================================================================
-   MAP: pins at the buildings your added sections meet in, projected
-   from real lat/lng (see server/lib/campusmap.js) onto a simple flat
-   SVG -- no external mapping library (this project has zero npm
-   dependencies anywhere, see CLAUDE.md), just a linear projection over
-   whatever bounding box the actually-relevant points fall into, with a
-   longitude correction for latitude (real and visible at this latitude,
-   ~31.77N, not a rounding nicety). Campus is small enough that a flat
-   projection reads as accurate; a real map-projection library would be
-   solving a problem this scale doesn't have.
+   MAP: pins at the buildings your added sections meet in, drawn over
+   real OpenStreetMap raster tiles (tile.openstreetmap.org) -- standard
+   public tile usage, the sanctioned way any site embeds a map, not a
+   scrape of UTEP's own paid Concept3D map service. Concept3D's detailed
+   campus view turned out not to be a static image at all: it's the same
+   OSM building/street data, rendered live by MapboxGL through their own
+   metered tileserver (tileserver.concept3d.com) -- reusing that directly
+   would mean depending on another vendor's paid infrastructure, a real
+   step up from the public, unauthenticated lat/lng points endpoint this
+   project already relies on. Tiles are plotted with the standard Web
+   Mercator slippy-map formula so pins line up exactly with real building
+   footprints; the zoom level is chosen per view to fit whatever bounding
+   box is being shown, the same "fit the visible points" idea the old
+   flat-projection version used, just against real integer tile zooms
+   instead of a continuous scale. No mapping library involved (this
+   project has zero npm dependencies anywhere, see CLAUDE.md) -- tiles
+   are plain SVG <image> elements inside the same coordinate space the
+   pins already use, so the whole page is still one SVG element that
+   scales responsively via its viewBox like before.
    ===================================================================== */
-const MAP_W = 800, MAP_H = 600, PAD = 56;
+const MAP_W = 800, MAP_H = 600, PAD = 24;
+const TILE = 256, MAX_ZOOM = 19, MIN_ZOOM = 12;
 
-let parkingLocations = null; // both fetched together, once, from the same /api/campus-locations call
-let refBuildings = null;     // every non-parking campus point, drawn as small unlabeled dots so the map reads as real campus before any class is picked
+let parkingLocations = null; // fetched once on load, from /api/campus-locations
 
 /* Every added section, tagged with where it stands: a real building match
    (the map's job), a real room this project's map data just doesn't
@@ -40,42 +50,84 @@ function collectPickedSections(){
 }
 
 /* Main campus's own footprint, in plain lat/lng -- 818 of the 887 scraped
-   points (buildings and lots both) fall inside this box, the rest are
-   satellite/off-campus properties out past El Paso. This is the floor
-   the map always shows, so an empty schedule still renders real campus,
-   not a blank panel -- see the "always show the map" note below. */
+   Concept3D points (buildings and lots both) fall inside this box, the
+   rest are satellite/off-campus properties out past El Paso. This is the
+   floor every view fits at minimum, so an empty schedule still shows
+   real main campus, not a blank panel. */
 const DEFAULT_BOUNDS = { minLat: 31.7635, maxLat: 31.7835, minLng: -106.513, maxLng: -106.494 };
 
 /* Widens DEFAULT_BOUNDS to also fit any real points being plotted, so a
    picked class at a building outside the usual core (a satellite site)
-   still lands on-screen instead of getting clipped to the default. */
-function unionBounds(points){
-  let { minLat, maxLat, minLng, maxLng } = DEFAULT_BOUNDS;
+   still lands on-screen instead of getting clipped to the default. Once
+   there's at least one real point, the view fits tightly to just those
+   points (with a small margin) instead of also being floored to whole-
+   campus DEFAULT_BOUNDS -- that floor is only for the truly-empty case,
+   otherwise a single picked class would never zoom in past the
+   whole-campus view, defeating the point of picking it. */
+function computeBounds(points){
+  if(!points.length) return { ...DEFAULT_BOUNDS };
+  let minLat=Infinity, maxLat=-Infinity, minLng=Infinity, maxLng=-Infinity;
   for(const p of points){
     minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
     minLng = Math.min(minLng, p.lng); maxLng = Math.max(maxLng, p.lng);
   }
-  return { minLat, maxLat, minLng, maxLng };
+  const latPad = Math.max((maxLat-minLat)*0.2, 0.0018);
+  const lngPad = Math.max((maxLng-minLng)*0.2, 0.0018);
+  return { minLat: minLat-latPad, maxLat: maxLat+latPad, minLng: minLng-lngPad, maxLng: maxLng+lngPad };
 }
 
-/* lat/lng -> {x,y} in the 800x600 viewBox, fit to the given bounds with
-   padding, preserving real relative distances (one shared scale for both
-   axes, not stretched to fill the box) instead of distorting campus's
-   actual shape. */
-function projector(bounds){
-  const { minLat, maxLat, minLng, maxLng } = bounds;
-  const midLat = (minLat+maxLat)/2;
-  const lngScale = Math.cos(midLat * Math.PI/180);
-  const latSpan = Math.max(maxLat-minLat, 0.0012);
-  const lngSpanCorrected = Math.max((maxLng-minLng)*lngScale, 0.0012);
+/* Standard Web Mercator lng/lat -> world pixel at a given integer zoom
+   (256px tiles, the same formula every slippy-map tile server uses). */
+function worldX(lng, z){ return (lng+180)/360 * TILE * Math.pow(2,z); }
+function worldY(lat, z){
+  const r = lat * Math.PI/180;
+  return (1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * TILE * Math.pow(2,z);
+}
+
+/* Picks the largest integer zoom where `bounds` still fits inside the
+   padded viewBox (the tile equivalent of the old projector's "fit to
+   scale"), then returns a lat/lng -> {x,y} projector at that zoom plus
+   the zoom itself, so the tile grid and the pins share one coordinate
+   space exactly. */
+function computeView(bounds){
   const availW = MAP_W - PAD*2, availH = MAP_H - PAD*2;
-  const scale = Math.min(availW/lngSpanCorrected, availH/latSpan);
-  const usedW = lngSpanCorrected*scale, usedH = latSpan*scale;
-  const offX = PAD + (availW-usedW)/2, offY = PAD + (availH-usedH)/2;
-  return (lat,lng) => ({
-    x: offX + (lng-minLng)*lngScale*scale,
-    y: offY + (maxLat-lat)*scale,
-  });
+  let zoom = MAX_ZOOM;
+  for(; zoom > MIN_ZOOM; zoom--){
+    const w = worldX(bounds.maxLng, zoom) - worldX(bounds.minLng, zoom);
+    const h = worldY(bounds.minLat, zoom) - worldY(bounds.maxLat, zoom);
+    if(w <= availW && h <= availH) break;
+  }
+  const wx0 = worldX(bounds.minLng, zoom), wx1 = worldX(bounds.maxLng, zoom);
+  const wy0 = worldY(bounds.maxLat, zoom), wy1 = worldY(bounds.minLat, zoom);
+  const offX = wx0 - (availW-(wx1-wx0))/2 - PAD;
+  const offY = wy0 - (availH-(wy1-wy0))/2 - PAD;
+  return {
+    zoom, offX, offY,
+    project: (lat,lng) => ({ x: worldX(lng,zoom)-offX, y: worldY(lat,zoom)-offY }),
+  };
+}
+
+/* SVG <image> tiles covering the visible MAP_W x MAP_H area at the
+   view's zoom -- see https://operations.osmfoundation.org/policies/tiles/
+   for OSM's tile usage policy this stays within (plain browser-rendered
+   <img>-equivalents, standard attribution below the map, no bulk/
+   automated fetching). Longitude wraps around the world; latitude tiles
+   outside the valid 0..2^zoom-1 range (past the poles) are skipped. */
+function tileLayerSVG(view){
+  const { zoom, offX, offY } = view;
+  const n = Math.pow(2, zoom);
+  const x0 = Math.floor(offX / TILE), x1 = Math.floor((offX+MAP_W) / TILE);
+  const y0 = Math.floor(offY / TILE), y1 = Math.floor((offY+MAP_H) / TILE);
+  let html = "";
+  for(let ty=y0; ty<=y1; ty++){
+    if(ty < 0 || ty >= n) continue;
+    for(let tx=x0; tx<=x1; tx++){
+      const wx = ((tx % n) + n) % n;
+      html += '<image href="https://tile.openstreetmap.org/'+zoom+'/'+wx+'/'+ty+'.png" '
+        + 'x="'+(tx*TILE-offX)+'" y="'+(ty*TILE-offY)+'" width="'+TILE+'" height="'+TILE+'"></image>';
+    }
+  }
+  return html;
 }
 
 let mapTipEl = null;
@@ -115,21 +167,10 @@ function render(){
      pins on top of that same base view instead of gating the map behind
      having a schedule at all. */
   const points = groups.map(g=>g.building).concat(showParking && parkingLocations ? parkingLocations : []);
-  const project = projector(unionBounds(points));
+  const view = computeView(computeBounds(points));
+  const project = view.project;
 
-  let svg = '<rect x="0" y="0" width="'+MAP_W+'" height="'+MAP_H+'" class="mapbg"></rect>';
-
-  /* Plain reference dots for every building on file, drawn first (under
-     everything else) so the page reads as a real map of campus even
-     before any class is picked. A building already carrying a picked
-     section gets its own bigger, labeled, colored pin below instead of
-     also a plain dot underneath it. */
-  if(refBuildings){
-    svg += refBuildings.filter(b=>!byBuilding.has(b.id)).map(b=>{
-      const {x,y} = project(b.lat, b.lng);
-      return '<circle class="refpin" cx="'+x+'" cy="'+y+'" r="3"><title>'+esc(b.name)+'</title></circle>';
-    }).join("");
-  }
+  let svg = tileLayerSVG(view);
 
   if(showParking && parkingLocations){
     svg += parkingLocations.map(p=>{
@@ -152,7 +193,8 @@ function render(){
   }).join("");
 
   $("#mapWrap").innerHTML = '<svg id="campusMap" viewBox="0 0 '+MAP_W+' '+MAP_H+'" role="img" '
-    + 'aria-label="Map of UTEP campus with pins at your added classes\' buildings">'+svg+'</svg>';
+    + 'aria-label="Map of UTEP campus with pins at your added classes\' buildings">'+svg+'</svg>'
+    + '<div class="maptileattr">&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>';
 
   $$(".bldgpin,.parkpin", $("#mapWrap")).forEach(el=>{
     el.onmouseenter = e => showTip(el.dataset.tip, e.pageX, e.pageY);
@@ -194,7 +236,6 @@ $("#parkingToggle").onchange = render;
       fetch("/api/campus-locations").then(r=>r.json()),
       ensureCatalog([...state.picked]),
     ]);
-    refBuildings = locations.buildings || [];
     parkingLocations = locations.parking || [];
   } catch(e) { /* render() still works with whatever loaded */ }
   render();

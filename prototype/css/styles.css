@@ -388,15 +388,15 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .conflictnote b{color:var(--critical)}
 
 /* ============ CAMPUS MAP ============
-   No basemap imagery (no external map-tile service is part of this
-   project's zero-dependency approach, see CLAUDE.md) -- just a plain
-   surface with a hairline border, matching every other panel/calendar on
-   this site, and pins projected onto it from real lat/lng (see
-   page-map.js's projector()). */
-.mapwrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface)}
+   Real OpenStreetMap raster tiles (tile.openstreetmap.org) as SVG
+   <image> elements, standard public tile usage rather than any external
+   mapping library -- see page-map.js's header for why. Pins are
+   projected into the same Web Mercator coordinate space the tiles use,
+   so they land exactly on real building footprints. */
+.mapwrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface-2);position:relative}
 #campusMap{display:block;width:100%;height:auto}
-.mapbg{fill:var(--surface-2)}
-.refpin{fill:var(--surface-3);stroke:var(--rule);stroke-width:1}
+.maptileattr{position:absolute;right:4px;bottom:2px;font-size:10px;color:var(--ink-muted);background:color-mix(in srgb,var(--surface) 70%,transparent);padding:1px 4px;pointer-events:none}
+.maptileattr a{color:inherit;pointer-events:auto}
 .bldgpin{cursor:pointer}
 .bldgpin circle{fill:color-mix(in srgb,var(--c) 25%,#fff);stroke:var(--c);stroke-width:2.5;transition:r .12s}
 .bldgpin:hover circle,.bldgpin:focus-visible circle{r:13}
