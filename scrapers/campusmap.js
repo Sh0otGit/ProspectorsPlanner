@@ -18,12 +18,14 @@
    dropped real matches from 231/261 to 203/261, since useful room-level
    points (e.g. a specific building entrance) are sometimes filed under
    other categories like "Services." Instead, everything that isn't
-   obviously non-physical (a dated event, a 360-degree virtual-tour
-   "Interiors" entry, a dining menu) stays in the matching pool; only the
-   Parking & Transportation subtree (catId 12786) is flagged is_parking
-   for the Map page's optional parking layer -- see matchBuilding() in
-   server/lib/campusmap.js for how a scraped room string actually
-   resolves to one of these points. */
+   obviously non-physical (a dated event, a dining menu -- see
+   JUNK_NAME_RE below) stays in the matching pool, including a
+   virtual-tour "X - Interiors"/"New Model for X" duplicate when it's the
+   only point representing that building (see DUPLICATE_SUFFIX_RE/
+   DUPLICATE_PREFIX_RE below). Only the Parking & Transportation subtree
+   (catId 12786) is flagged is_parking for the Map page's optional
+   parking layer -- see matchBuilding() in server/lib/campusmap.js for
+   how a scraped room string actually resolves to one of these points. */
 import { politeFetch } from "./lib/fetch.js";
 
 const MAP_ID = "843";
@@ -36,10 +38,30 @@ export const PARKING_ROOT_CAT = 12786;
 
 // Real, physical, evergreen locations only. Confirmed against the live
 // data: everything this drops is either a dated one-off event ("Oct. 4 -
-// Gold Nugget Reception"), a virtual-tour/floorplan duplicate of a real
-// building ("Texas Western Hall - Interiors", "New Model for..."), or a
-// dining menu/cafe listing that isn't itself a distinct location.
-const JUNK_NAME_RE = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s|reception|breakfast|menu|-\s*interiors?$|^new model for|caf[ée]\b/i;
+// Gold Nugget Reception") or a dining menu/cafe listing that isn't
+// itself a distinct location.
+const JUNK_NAME_RE = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s|reception|breakfast|menu|caf[ée]\b/i;
+
+/* "X - Interiors" and "New Model for X" are usually a virtual-tour/CAD
+   duplicate of a real building that already has its own clean "X" point
+   elsewhere -- confirmed 2026-08-22 by a user report that a real, newly
+   built building (Texas Western Hall, completed within the last year)
+   wasn't on the map at all: the filter below used to drop both of its
+   only two points unconditionally, on the assumption every building
+   also has a clean entry, which happened to be false for this one --
+   Concept3D has no plain "Texas Western Hall" point, only these two
+   marked variants (confirmed live: exactly 2 of these markers exist
+   campus-wide, and both are Texas Western Hall's). So these are now
+   dropped only when a clean, unmarked point with the same core name
+   survives elsewhere -- the common case stays deduplicated, but a
+   building represented *only* by a marked variant (a new building
+   Concept3D hasn't gotten around to giving a clean entry yet) keeps
+   its one real point instead of losing all map coverage. */
+const DUPLICATE_SUFFIX_RE = /\s*-\s*interiors?$/i;
+const DUPLICATE_PREFIX_RE = /^new model for\s+/i;
+function coreName(name) {
+  return name.replace(DUPLICATE_SUFFIX_RE, "").replace(DUPLICATE_PREFIX_RE, "").trim().toLowerCase();
+}
 
 async function fetchJson(path) {
   const sep = path.includes("?") ? "&" : "?";
@@ -75,7 +97,18 @@ function descendants(childMap, rootId) {
 export async function fetchCampusLocations() {
   const [locations, childMap] = await Promise.all([fetchJson("/locations"), fetchCategoryChildIds()]);
   const parkingIds = descendants(childMap, PARKING_ROOT_CAT);
-  return locations
-    .filter((l) => l.name && !JUNK_NAME_RE.test(l.name) && typeof l.lat === "number" && typeof l.lng === "number")
+  const candidates = locations.filter(
+    (l) => l.name && !JUNK_NAME_RE.test(l.name) && typeof l.lat === "number" && typeof l.lng === "number"
+  );
+  const cleanNames = new Set(
+    candidates
+      .filter((l) => !DUPLICATE_SUFFIX_RE.test(l.name) && !DUPLICATE_PREFIX_RE.test(l.name))
+      .map((l) => coreName(l.name))
+  );
+  return candidates
+    .filter((l) => {
+      const isMarkedVariant = DUPLICATE_SUFFIX_RE.test(l.name) || DUPLICATE_PREFIX_RE.test(l.name);
+      return !isMarkedVariant || !cleanNames.has(coreName(l.name));
+    })
     .map((l) => ({ id: l.id, name: l.name, lat: l.lat, lng: l.lng, isParking: parkingIds.has(l.catId) }));
 }

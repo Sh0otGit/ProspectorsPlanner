@@ -36,9 +36,9 @@ let parkingLocations = null; // fetched once on load, from /api/campus-locations
 
 /* Every added section, tagged with where it stands: a real building match
    (the map's job), a real room this project's map data just doesn't
-   cover (Texas Western Hall and a handful of others -- see
-   campusmap.js's header for why), or no room at all (async/TBA, nothing
-   to plot). server/lib/catalog.js already attached `building` per
+   cover (a handful of individually-unresolvable names -- see
+   server/lib/campusmap.js's header for why), or no room at all
+   (async/TBA, nothing to plot). server/lib/catalog.js already attached `building` per
    section -- see matchBuilding() in server/lib/campusmap.js -- so no
    matching happens here, just grouping. colorIdx matches its position in
    allChosenSections(), the same indexing page-schedule.js's PALETTE

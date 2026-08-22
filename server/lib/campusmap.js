@@ -35,18 +35,30 @@
       Confirmed against every distinct room string this project has
       actually scraped: 219 of 261 resolve this way, zero false positives
       (verified by hand against every fuzzy match, not just spot-checked).
-      The rest are mostly "Texas Western Hall," which UTEP's own map
-      platform simply has no distinct point for under any category -- not
-      a matching bug, a real gap in the source data -- plus a handful of
-      individually-unresolvable names ("Geology Building" vs. the source's
-      "Geological Sciences Building" -- the room string has no word
-      corresponding to "Sciences" at all, so precision can't clear the
-      bar without a hardcoded override this project chose not to add for
-      one building). A miss returns null, which the Map page renders as
-      "no location on file for this room" -- the same "no data, not a
-      wrong answer" pattern already used everywhere else in this project
-      (an instructor with no evaluations, a course with no RMP match),
-      not a guess. */
+      The remaining gap is mostly a handful of individually-unresolvable
+      names ("Geology Building" vs. the source's "Geological Sciences
+      Building" -- the room string has no word corresponding to
+      "Sciences" at all, so precision can't clear the bar without a
+      hardcoded override this project chose not to add for one building).
+      A miss returns null, which the Map page renders as "no location on
+      file for this room" -- the same "no data, not a wrong answer"
+      pattern already used everywhere else in this project (an instructor
+      with no evaluations, a course with no RMP match), not a guess.
+
+      "Texas Western Hall" used to be in that gap too -- a real building,
+      but Concept3D had no *clean* point for it, only two marked variants
+      ("Texas Western Hall - Interiors", "New Model for Texas Western
+      Hall") that scrapers/campusmap.js's own dedup filter dropped on the
+      assumption a clean entry existed elsewhere, which turned out false
+      for this one building (confirmed 2026-08-22 by a user report --
+      Concept3D added these points once the building was completed, a
+      little under a year old at the time, but never added a plain
+      unmarked entry). Fixed at the source: that filter now only drops a
+      marked variant when a clean point with the same core name survives
+      elsewhere. displayName() below strips the marker text so a student
+      sees "Texas Western Hall," not "Texas Western Hall - Interiors," on
+      the map -- the raw name is still what's stored and matched against,
+      only the label shown to a student is cleaned up. */
 import { db } from "../../scrapers/lib/db.js";
 
 // Expanded before comparing, not stripped -- a short abbreviation like
@@ -99,6 +111,16 @@ function fuzzyScore(roomTokens, locationName) {
 
 const FUZZY_THRESHOLD = 0.7;
 
+// Same marker patterns scrapers/campusmap.js uses to decide whether to keep
+// a "X - Interiors"/"New Model for X" point at all -- here they're stripped
+// for display once a match is found, so a student sees the building's real
+// name, not Concept3D's internal variant label.
+const DUPLICATE_SUFFIX_RE = /\s*-\s*interiors?$/i;
+const DUPLICATE_PREFIX_RE = /^new model for\s+/i;
+function displayName(name) {
+  return name.replace(DUPLICATE_SUFFIX_RE, "").replace(DUPLICATE_PREFIX_RE, "").trim();
+}
+
 /* locations: [{id, name, lat, lng, isParking}], typically every row from
    campus_locations. Returns {id, name, lat, lng} or null. */
 export function matchBuilding(room, locations) {
@@ -113,7 +135,7 @@ export function matchBuilding(room, locations) {
       bestLen = nameLower.length;
     }
   }
-  if (best) return { id: best.id, name: best.name, lat: best.lat, lng: best.lng };
+  if (best) return { id: best.id, name: displayName(best.name), lat: best.lat, lng: best.lng };
 
   const roomTokens = tokens(room);
   let bestScore = 0, bestLoc = null;
@@ -125,7 +147,7 @@ export function matchBuilding(room, locations) {
     }
   }
   if (bestLoc && bestScore >= FUZZY_THRESHOLD) {
-    return { id: bestLoc.id, name: bestLoc.name, lat: bestLoc.lat, lng: bestLoc.lng };
+    return { id: bestLoc.id, name: displayName(bestLoc.name), lat: bestLoc.lat, lng: bestLoc.lng };
   }
   return null;
 }
