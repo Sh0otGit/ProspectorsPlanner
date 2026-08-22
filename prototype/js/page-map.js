@@ -245,10 +245,7 @@ function showTip(html, x, y){
 function hideTip(){ if(mapTipEl) mapTipEl.style.display = "none"; }
 
 function pinPicksHTML(picks){
-  return picks.map(p=>
-    '<div class="calTipRow"><b>'+esc(p.code)+'</b>'+(p.title?" &middot; "+esc(p.title):"")+(p.scheduleType?" &middot; "+esc(shortType(p.scheduleType)):"")+'<br>'
-    + 'CRN '+esc(p.crn)+' &middot; '+esc(p.profName)+(p.room?' &middot; '+esc(p.room):"")+'</div>'
-  ).join("");
+  return picks.map(p => calTipRowHTML(p.code, p.title, p.scheduleType, p.crn, p.profName, p.days, p.start, p.end, p.room)).join("");
 }
 
 function whereHTML(p){
@@ -352,38 +349,44 @@ function render(){
     }).join("");
   }
 
+  /* Labels are appended in their own pass, after every pin's circle+badge,
+     so a crowded map never lets one pin's text sit on top of a different
+     pin's circle -- every circle stays clickable/visible above any
+     label, not just its own. */
+  let pinsSVG = "", labelsSVG = "";
   if(routeStops){
     if(routeStops.length>1){
       const linePts = routeStops.map(s=>project(s.building.lat, s.building.lng));
       svg += '<polyline points="'+linePts.map(p=>p.x+","+p.y).join(" ")+'" class="routeline"></polyline>';
     }
-    svg += routeStops.map((s,i)=>{
+    routeStops.forEach((s,i)=>{
       const {x,y} = project(s.building.lat, s.building.lng);
       const c = "var("+PALETTE[s.picks[0].colorIdx % PALETTE.length]+")";
       const codes = [...new Set(s.picks.map(p=>p.code))];
       const lines = codes.map(code => CATALOG_TITLE[code] ? code+" - "+CATALOG_TITLE[code] : code);
-      return '<g class="bldgpin" tabindex="0" role="button" data-goto-code="'+esc(codes[0])+'" '
+      labelsSVG += stackedLabelSVG(lines, x, y-17);
+      pinsSVG += '<g class="bldgpin" tabindex="0" role="button" data-goto-code="'+esc(codes[0])+'" '
         + 'data-tip="'+esc(pinPicksHTML(s.picks))+'" '
         + 'aria-label="Stop '+(i+1)+' of '+routeStops.length+': '+esc(s.building.name)+'. Click to view in Instructors.">'
         + '<circle cx="'+x+'" cy="'+y+'" r="11" style="--c:'+c+'"></circle>'
         + '<text x="'+x+'" y="'+(y+4)+'" class="pinbadge">'+(i+1)+'</text>'
-        + stackedLabelSVG(lines, x, y-17)
         + '</g>';
-    }).join("");
+    });
   } else {
-    svg += groups.map(g=>{
+    groups.forEach(g=>{
       const {x,y} = project(g.building.lat, g.building.lng);
       const c = "var("+PALETTE[g.picks[0].colorIdx % PALETTE.length]+")";
       const codes = [...new Set(g.picks.map(p=>p.code))];
       const lines = codes.map(code => CATALOG_TITLE[code] ? code+" - "+CATALOG_TITLE[code] : code);
-      return '<g class="bldgpin" tabindex="0" role="button" data-goto-code="'+esc(codes[0])+'" '
+      labelsSVG += stackedLabelSVG(lines, x, y-15);
+      pinsSVG += '<g class="bldgpin" tabindex="0" role="button" data-goto-code="'+esc(codes[0])+'" '
         + 'data-tip="'+esc(pinPicksHTML(g.picks))+'" '
         + 'aria-label="'+esc(g.building.name)+': '+esc(codes.join(", "))+'. Click to view in Instructors.">'
         + '<circle cx="'+x+'" cy="'+y+'" r="10" style="--c:'+c+'"></circle>'
-        + stackedLabelSVG(lines, x, y-15)
         + '</g>';
-    }).join("");
+    });
   }
+  svg += labelsSVG + pinsSVG;
 
   $("#mapWrap").innerHTML = '<svg id="campusMap" viewBox="0 0 '+MAP_W+' '+MAP_H+'" role="img" '
     + 'aria-label="Map of UTEP campus with pins at your added classes\' buildings"><g id="mapLayer">'+svg+'</g></svg>'
@@ -439,6 +442,7 @@ $("#parkingToggle").onchange = render;
 $$(".ptab", $("#panelTabs")).forEach(b=>{
   b.onclick = () => {
     panelTab = b.dataset.panelTab;
+    logEvent("map_tab", { tab: panelTab });
     $$(".ptab", $("#panelTabs")).forEach(x=>{
       x.classList.toggle("on", x===b);
       x.setAttribute("aria-selected", x===b ? "true" : "false");

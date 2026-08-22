@@ -16,9 +16,52 @@
   <nav class="admin-nav" id="adminNav"></nav>
 
   <div class="notice" style="margin-bottom:20px">
-    <b>Brainstorm only.</b> Nothing on this page is computed or wired up yet.
-    Each card is an idea, what it would show, and what data or instrumentation
-    it actually needs before it could be built for real.
+    <b>Anonymous and session-scoped.</b> Events are keyed by a random id
+    generated into the visitor's own sessionStorage (cleared when they close
+    the tab), never a cookie, never tied to any account -- there are none.
+    See the Privacy page for the full disclosure.
+  </div>
+
+  <div class="rangepicker" id="rangePicker">
+    <button data-days="7">7 days</button>
+    <button data-days="30" class="on">30 days</button>
+    <button data-days="90">90 days</button>
+    <button data-days="3650">All time</button>
+  </div>
+
+  <div class="statgrid">
+    <div><div class="lab">Sessions</div><div class="val" id="statSessions">N/A</div></div>
+    <div><div class="lab">Events logged</div><div class="val" id="statEvents">N/A</div></div>
+    <div><div class="lab">Copy CRN clicks</div><div class="val" id="statCopyCrn">N/A</div></div>
+    <div><div class="lab">Add to schedule clicks</div><div class="val" id="statAddToSchedule">N/A</div></div>
+    <div><div class="lab">Routes tab opened</div><div class="val" id="statRoutesTab">N/A</div></div>
+  </div>
+
+  <div class="engagement-grid">
+    <div class="panel">
+      <div class="phead">Step funnel &mdash; sessions reaching each page</div>
+      <div class="pad"><div class="barlist" id="funnelList">Loading&hellip;</div></div>
+    </div>
+    <div class="panel">
+      <div class="phead">Page views</div>
+      <div class="pad"><div class="barlist" id="pageViewsList">Loading&hellip;</div></div>
+    </div>
+    <div class="panel">
+      <div class="phead">Average time on page</div>
+      <div class="pad"><div class="barlist" id="durationList">Loading&hellip;</div></div>
+    </div>
+    <div class="panel">
+      <div class="phead">Outbound link clicks</div>
+      <div class="pad"><div class="barlist" id="outboundList">Loading&hellip;</div></div>
+    </div>
+  </div>
+
+  <div class="notice" style="margin:24px 0 20px">
+    <b>Brainstorm below.</b> The two ideas that needed session-level usage
+    tracking ("our own usage as a demand proxy" and "tool feedback vs. what
+    people actually did") are the engagement panels above now that the
+    instrumentation exists -- these four still need more scraped data, not
+    more instrumentation, before they could be built for real.
   </div>
 
   <div class="idea-card">
@@ -42,20 +85,6 @@
   </div>
 
   <div class="idea-card">
-    <h3>Our own usage as a demand proxy</h3>
-    <p>Real seat-fill velocity is blocked behind Banner's login wall with no
-    workaround we're willing to use. The next best thing we actually control:
-    anonymous, aggregate counts of which courses and sections
-    Prospector's Planner users themselves search for and add to a schedule.
-    Heavily-added sections are, at minimum, a signal of which courses this
-    tool's own users treat as competitive.</p>
-    <div class="needs"><b>Needs:</b> lightweight anonymous event logging on
-    the "Add to schedule" action (course + CRN + timestamp, no student
-    identity). Does not exist yet; requires a deliberate privacy decision
-    first, not a quiet addition.</div>
-  </div>
-
-  <div class="idea-card">
     <h3>Campus time-of-day density</h3>
     <p>With real meeting times/rooms for every scraped section (even without
     seat counts), we can show which time blocks and buildings are most
@@ -75,20 +104,9 @@
     <code>sections</code> and <code>evaluations</code> once more departments
     are scraped.</div>
   </div>
-
-  <div class="idea-card">
-    <h3>Tool feedback vs. what people actually did</h3>
-    <p>Cross-reference submitted "Rate this tool" feedback with what that
-    session did before leaving it: how many courses picked, whether they
-    hit a schedule conflict, whether they reached the CRN list. Distinguishes
-    "this is annoying to use" from "the ranking wasn't helpful" from "no
-    real complaint, just anonymous noise."</p>
-    <div class="needs"><b>Needs:</b> the same session-level event logging as
-    the usage-demand idea above, joined to the existing <code>reviews</code>
-    table by session, not identity.</div>
-  </div>
 </div>
 
 <script src="/admin/js/admin-common.js"></script>
+<script src="/admin/js/analytics.js"></script>
 </body>
 </html>

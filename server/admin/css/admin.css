@@ -40,6 +40,20 @@ table.admin-table tr:last-child td{border-bottom:0}
 .review-card .meta{font-size:12px;color:var(--ink-muted);margin-top:2px}
 .review-card .text{font-size:13.5px;margin-top:8px;color:var(--ink-2);line-height:1.5}
 
+/* ---------- engagement (analytics.html) ---------- */
+.barlist{display:flex;flex-direction:column;gap:9px}
+.barlist .row{display:grid;grid-template-columns:150px 1fr 46px;align-items:center;gap:10px;font-size:13px}
+.barlist .lbl{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.barlist .track{background:var(--surface-2);height:14px;border:1px solid var(--rule)}
+.barlist .fill{background:var(--utep-blue);height:100%}
+.barlist .n{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);text-align:right}
+.rangepicker{display:flex;gap:6px;margin-bottom:16px}
+.rangepicker button{font-family:var(--font-display);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:7px 12px;border:1px solid var(--rule-strong);background:var(--surface);color:var(--ink-2);cursor:pointer;border-radius:2px}
+.rangepicker button:hover{background:var(--surface-2)}
+.rangepicker button.on{background:var(--utep-blue);color:#fff;border-color:var(--utep-blue)}
+.engagement-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:760px){.engagement-grid{grid-template-columns:1fr}}
+
 .idea-card{border:1px solid var(--rule);padding:16px;margin-bottom:14px;background:var(--surface)}
 .idea-card h3{font-family:var(--font-display);font-size:15px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
 .idea-card p{font-size:13.5px;color:var(--ink-2);line-height:1.55;margin:0 0 8px}

@@ -310,12 +310,29 @@ the public `prototype/` site and a password-gated admin panel from one port.
   keys (fine at current row counts, revisit once several terms' worth of
   "semester by semester logs" have accumulated in the same tables).
 
-**Analytics brainstorm** lives on `/admin/analytics.html` itself (six ideas,
-each with what it needs), not duplicated here since the page is the more
-useful place to keep it current. Deliberately unimplemented -- brainstorm
-only, per the owner, until there's a real plan for session-level usage
-tracking (several of the ideas depend on it, and that's its own privacy
-decision to make deliberately).
+**Analytics** on `/admin/analytics.html` is half real now, half still
+brainstorm -- the split is which of the six original ideas needed
+session-level usage tracking (done 2026-08-22, a deliberate decision, not
+a quiet addition -- see below) versus more scraped data (still just
+`idea-card`s on the page itself, not duplicated here). Anonymous,
+session-scoped engagement events (`analytics_events` in
+`scrapers/lib/db.js`) log page views, time on page, Copy CRN, Add to
+schedule, the Map page's Routes tab, and outbound link clicks --
+`prototype/js/app.js`'s `logEvent()`/`flushAnalytics()`, queued and sent
+as a batch to the public `POST /api/events` (rate-limited the same as
+the review/report endpoints) rather than one request per interaction,
+both because that's fewer requests and because the existing per-IP
+limiter is sized for spam bursts, not a browsing session's worth of
+clicks. Keyed by a random id generated into `sessionStorage`, the same
+clears-on-tab-close lifetime as the rest of this project's client state
+-- not a cookie, not tied to any account (there are none), never joined
+against anything identifying. `server/lib/analytics.js` aggregates in
+plain JS after one bounded SELECT (not SQLite's JSON1 functions -- this
+project's row counts don't need it) into the funnel/page-views/duration/
+outbound-link panels the admin page now renders for real, behind a
+7/30/90/all-time range picker. The Privacy page was rewritten in the
+same change to disclose this honestly, not left saying "no analytics
+tracking your visit."
 
 ---
 

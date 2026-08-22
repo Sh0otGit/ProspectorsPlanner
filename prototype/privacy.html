@@ -26,7 +26,7 @@
 
 <div class="body-area"><div class="wrap">
   <div class="prose">
-    <div class="updated">Last updated August 20, 2026.</div>
+    <div class="updated">Last updated August 22, 2026.</div>
 
     <h2>What is stored, and where</h2>
     <p>Your in-progress picks (which courses you selected, which hours you blocked, which sections you added) are kept in your browser's <code>sessionStorage</code> so you can move between pages without losing your place. This clears automatically when you close the tab and never leaves your device: it is not sent to any server.</p>
@@ -34,10 +34,13 @@
 
     <h2>What we collect</h2>
     <p>Course, section, and instructor data comes from public sources: UTEP's Banner class schedule, the HB 2504 instructor evaluation site, and Rate My Professors, all scraped and cached on our own server so the site does not have to hit those systems on every visit. None of these sources involve your personal data. They are public listings, not tied to you.</p>
-    <p>If you submit the anonymous "Rate this tool" feedback or use "Report a problem," we store the rating, the text you write, and, only if you choose to include one, a name or contact email. Nothing else about you is collected alongside it: no IP address logging tied to your submission, no account, no analytics tracking your visit.</p>
+    <p>If you submit the anonymous "Rate this tool" feedback or use "Report a problem," we store the rating, the text you write, and, only if you choose to include one, a name or contact email. Nothing else about you is collected alongside it: no IP address logging tied to your submission.</p>
+
+    <h2>Anonymous engagement analytics</h2>
+    <p>To see which parts of the tool actually get used, we log a small set of anonymous events: which pages you visit and roughly how long you spend on each, whether you use Copy CRN, add a section to your schedule, open the Map page's Routes tab, or click a link to an outside site (Goldmine, the course catalog, and similar). Nothing you type into a search box or the availability grid is logged, and nothing about which specific courses or instructors you looked at leaves an identifiable trail: events are grouped only by a random id generated into your browser's own <code>sessionStorage</code>, the same clears-on-tab-close lifetime as your in-progress picks, never a cookie and never tied to an account -- this site has none. That id cannot be connected to you, your IP address, or any other visit. The admin panel only ever shows aggregate counts (e.g. "how many sessions reached the Schedule page this month"), never a single session's individual activity.</p>
 
     <h2>Who this data is shared with</h2>
-    <p>Nobody. Course lookups are not sold, shared, or used for advertising. There is no ad network and no third-party tracking script on this site.</p>
+    <p>Nobody. Course lookups are not sold, shared, or used for advertising. There is no ad network and no third-party tracking script on this site: the engagement analytics above run on our own server, self-hosted, never sent to any outside analytics provider.</p>
 
     <h2>Questions</h2>
     <p>Reach the operator through <a href="report.html">Report a problem</a>.</p>

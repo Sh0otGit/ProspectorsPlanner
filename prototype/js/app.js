@@ -304,6 +304,19 @@ function describeTimeConflict(code, scheduleType){
   return parts.join(" and ")+".";
 }
 
+/* One class's worth of hover-tooltip HTML: code/title/type, then CRN/
+   professor, then day-time/room -- the exact three-line layout Schedule's
+   calendar hover already used, now shared with the Map page's pin
+   tooltips (see pinPicksHTML in page-map.js) so hovering a class reads
+   identically on both pages instead of two near-but-not-quite-matching
+   formats. */
+function calTipRowHTML(code, title, scheduleType, crn, profName, days, start, end, room){
+  const when = days && days.length ? days.join("")+" &middot; "+fmt(start)+" to "+fmt(end) : "Asynchronous";
+  return '<div class="calTipRow"><b>'+esc(code)+'</b>'+(title?" &middot; "+esc(title):"")+(scheduleType?" &middot; "+esc(shortType(scheduleType)):"")+'<br>'
+    + 'CRN '+esc(crn)+' &middot; '+esc(profName)+'<br>'
+    + when + (room?' &middot; '+esc(room):"")+'</div>';
+}
+
 /* Wires every [data-copy-crn] button under `root` (a fresh render's
    worth, called after innerHTML is rebuilt) -- confirms first if the
    CRN has a real time conflict, copies to the clipboard, and turns the
@@ -321,6 +334,7 @@ function wireCopyCrnButtons(root, msgEl){
         return;
       }
       if(navigator.clipboard) navigator.clipboard.writeText(crn).catch(()=>{});
+      logEvent("copy_crn", { code, crn });
       if(msgEl){
         msgEl.textContent = "Copied CRN "+crn+".";
         setTimeout(()=>{ msgEl.textContent=""; },2200);
@@ -541,6 +555,83 @@ function hidePageLoading(){
   el.classList.add("hide");
   setTimeout(()=>el.remove(), 200);
 }
+
+/* ---------- anonymous engagement analytics ----------
+   Session-scoped (sessionStorage, the same "cleared when you close the
+   tab" lifetime as everything else this file stores, not a cookie, not
+   tied to any account -- there are none), never joined against anything
+   that could identify a person. See scrapers/lib/db.js's
+   analytics_events table and server/lib/analytics.js for what's kept
+   and how it's aggregated, and the Privacy page for the disclosure.
+   Queued client-side and sent as a batch rather than one HTTP call per
+   event, both because that's simply fewer requests and because the
+   existing per-IP rate limiter (server/lib/rate-limit.js, 5/minute) is
+   sized for a burst of spam on the review/report forms, not a normal
+   browsing session's worth of clicks. */
+const ANALYTICS_SESSION_KEY = "prospectors_planner_analytics_session_v1";
+function analyticsSessionId(){
+  let id = sessionStorage.getItem(ANALYTICS_SESSION_KEY);
+  if(!id){
+    id = crypto.randomUUID ? crypto.randomUUID() : Date.now()+"-"+Math.random().toString(16).slice(2);
+    sessionStorage.setItem(ANALYTICS_SESSION_KEY, id);
+  }
+  return id;
+}
+const analyticsQueue = [];
+function logEvent(type, data){
+  analyticsQueue.push({ type, data: data||{}, at: new Date().toISOString() });
+}
+function flushAnalytics(useBeacon){
+  if(!analyticsQueue.length) return;
+  const payload = JSON.stringify({ sessionId: analyticsSessionId(), events: analyticsQueue.splice(0, analyticsQueue.length) });
+  if(useBeacon && navigator.sendBeacon){
+    navigator.sendBeacon("/api/events", new Blob([payload], {type:"application/json"}));
+  } else {
+    fetch("/api/events", { method:"POST", headers:{"Content-Type":"application/json"}, body: payload, keepalive:true }).catch(()=>{});
+  }
+}
+setInterval(()=>flushAnalytics(false), 15000);
+
+// Filename without the extension ("courses", "instructors", "map"...),
+// the same derivation on every page regardless of whether that page
+// happens to set window.CURRENT_STEP (the static pages don't).
+function analyticsPageName(){
+  const file = location.pathname.split("/").pop() || "index.html";
+  return file.replace(/\.html$/, "") || "index";
+}
+const ANALYTICS_PAGE = analyticsPageName();
+const ANALYTICS_ENTERED_AT = Date.now();
+logEvent("page_view", { page: ANALYTICS_PAGE });
+
+/* visibilitychange (tab hidden/backgrounded) and pagehide (actually
+   navigating away) both fire on a same-tab navigation, typically in that
+   order -- registering a separate flush on each used to race the flush
+   against logging the duration event, so the duration was still sitting
+   unsent in the queue by the time the page was gone. leftPage guards
+   against running this twice (both events firing for one departure)
+   double-logging the duration. */
+let leftPage = false;
+function flushOnLeave(){
+  if(leftPage) return;
+  leftPage = true;
+  logEvent("page_view_duration", { page: ANALYTICS_PAGE, durationMs: Date.now()-ANALYTICS_ENTERED_AT });
+  flushAnalytics(true);
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState==="hidden") flushOnLeave(); });
+window.addEventListener("pagehide", flushOnLeave);
+
+// Any link to a different origin -- Goldmine, the course catalog, RMP,
+// OpenStreetMap's attribution, etc. Delegated on document so it covers
+// links rendered after this script runs (footer, course results, review
+// text) without every page wiring its own listener.
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[href]");
+  if(!a) return;
+  try {
+    const href = new URL(a.href, location.href);
+    if(href.origin !== location.origin) logEvent("outbound_link", { href: href.href, page: ANALYTICS_PAGE });
+  } catch(err){ /* a malformed href -- nothing to log */ }
+});
 
 /* ---------- cookie / storage notice ----------
    Not built to satisfy an ad-tech consent framework -- there are no

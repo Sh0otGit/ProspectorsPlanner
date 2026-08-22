@@ -181,12 +181,8 @@ function wireCalHover(picks){
   function rowHTML(crn){
     const pk = byCrn.get(crn);
     if(!pk) return "";
-    const title = CATALOG_TITLE[pk.code];
     const s = pk.section;
-    const when = s.days.length ? s.days.join("")+" &middot; "+fmt(s.start)+" to "+fmt(s.end) : "Asynchronous";
-    return '<div class="calTipRow"><b>'+esc(pk.code)+'</b>'+(title?" &middot; "+esc(title):"")+(pk.scheduleType?" &middot; "+esc(shortType(pk.scheduleType)):"")+'<br>'
-      + 'CRN '+esc(s.crn)+' &middot; '+esc(pk.profName)+'<br>'
-      + when + (s.room?' &middot; '+esc(s.room):"")+'</div>';
+    return calTipRowHTML(pk.code, CATALOG_TITLE[pk.code], pk.scheduleType, s.crn, pk.profName, s.days, s.start, s.end, s.room);
   }
 
   const cal = $("#schedCal");

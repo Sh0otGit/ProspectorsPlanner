@@ -16,6 +16,7 @@ import { checkPassword, createSession, verifySession, destroySession, parseCooki
 import { isRateLimited, clientIp } from "./lib/rate-limit.js";
 import { latestTerm, listCourses, getCourse } from "./lib/catalog.js";
 import { listParkingLocations } from "./lib/campusmap.js";
+import { insertEvents, analyticsSummary } from "./lib/analytics.js";
 import {
   triggerScheduleRun,
   triggerEvaluationsRun,
@@ -333,6 +334,18 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 201, { ok: true });
     }
 
+    // ---- public API: anonymous engagement events (see app.js's logEvent/
+    // flushAnalytics and scrapers/lib/db.js's analytics_events table) ----
+    if (pathname === "/api/events" && req.method === "POST") {
+      if (isRateLimited(clientIp(req))) return sendJson(res, 429, { error: "Too many requests, try again shortly." });
+      const body = await readJsonBody(req);
+      const sessionId = String(body.sessionId || "").slice(0, 64);
+      const events = Array.isArray(body.events) ? body.events.slice(0, 50) : [];
+      if (!sessionId || !events.length) return sendJson(res, 400, { error: "sessionId and events are required" });
+      insertEvents(sessionId, events);
+      return sendJson(res, 201, { ok: true });
+    }
+
     // ---- admin auth ----
     if (pathname === "/admin/api/login" && req.method === "POST") {
       // Only real friction in front of the single shared admin password --
@@ -437,6 +450,11 @@ const server = createServer(async (req, res) => {
       if (!requireAuth(req, res)) return;
       const reports = db.prepare(`SELECT * FROM problem_reports ORDER BY id DESC LIMIT 500`).all();
       return sendJson(res, 200, { reports });
+    }
+    if (pathname === "/admin/api/analytics" && req.method === "GET") {
+      if (!requireAuth(req, res)) return;
+      const days = Math.min(3650, Math.max(1, parseInt(url.searchParams.get("days"), 10) || 30));
+      return sendJson(res, 200, analyticsSummary(days));
     }
 
     // ---- data browser: every scraped section, grouped client-side by

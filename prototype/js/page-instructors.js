@@ -218,6 +218,7 @@ function renderResults(){
       } else {
         if(!byType){ byType = new Map(); state.chosen.set(c, byType); }
         byType.set(type, {profName:prof, crn:crn});
+        logEvent("add_to_schedule", { code: c, crn, type });
       }
       saveState();
       renderResults(); renderChrome();

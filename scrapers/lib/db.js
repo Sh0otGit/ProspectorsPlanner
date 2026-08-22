@@ -205,6 +205,27 @@ CREATE TABLE IF NOT EXISTS campus_locations (
   is_parking  INTEGER NOT NULL DEFAULT 0,
   scraped_at  TEXT NOT NULL
 );
+
+/* Anonymous engagement events -- which pages get visited, how long, and a
+   handful of specific interactions (Copy CRN, Add to schedule, an
+   outbound link, the Map page's Routes tab), for the admin Analytics
+   page. session_id is a random id app.js generates into sessionStorage
+   per tab (see ANALYTICS_SESSION_KEY), the same "cleared when you close
+   the tab" lifetime already used for in-progress picks -- not a cookie,
+   not tied to any account (there are none), and never joined against
+   anything that could identify a person. event_data is a small JSON
+   blob whose shape depends on event_type (see server/lib/analytics.js
+   for what each type carries and how they're aggregated). This was a
+   deliberately-unbuilt brainstorm item (see /admin/analytics.html) until
+   a real decision to build it, at which point the Privacy page was
+   updated to disclose it. */
+CREATE TABLE IF NOT EXISTS analytics_events (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id   TEXT NOT NULL,
+  event_type   TEXT NOT NULL,
+  event_data   TEXT,
+  occurred_at  TEXT NOT NULL
+);
 `);
 
 /* Migrations for scrape_runs columns added after the table already existed
