@@ -91,9 +91,17 @@ function wireToggles(){
 
 let searchTimer;
 $("#courseSearch").addEventListener("input", e=>{
+  $("#courseSearchClear").hidden = !e.target.value;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(()=>renderResults(e.target.value), 120);
 });
+$("#courseSearchClear").onclick = () => {
+  const box = $("#courseSearch");
+  box.value = "";
+  box.focus();
+  $("#courseSearchClear").hidden = true;
+  renderResults("");
+};
 
 (async ()=>{
   const hint = $("#courseHint");

@@ -587,6 +587,11 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .revinput{display:block;width:100%;border:1px solid var(--rule-strong);border-radius:2px;padding:8px 10px;font-family:var(--font-ui);font-size:14px;color:var(--ink);background:var(--surface)}
 .revinput:focus{outline:2px solid var(--utep-blue);outline-offset:1px}
 textarea.revinput{resize:vertical}
+.searchwrap{position:relative}
+.searchwrap .revinput{padding-right:34px}
+.searchclear{position:absolute;top:0;right:0;bottom:0;width:32px;border:0;background:none;color:var(--ink-muted);font-size:20px;line-height:1;cursor:pointer;border-radius:2px}
+.searchclear:hover{color:var(--ink);background:var(--surface-2)}
+.searchclear:focus-visible{outline:2px solid var(--utep-blue);outline-offset:-2px}
 
 /* ---------- step nav (Back/Skip/Continue) ----------
    In-flow now, placed wherever each page's own markup puts it (see
