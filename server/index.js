@@ -132,7 +132,26 @@ async function serveStatic(req, res, rootDir, urlPath, { notFoundPage, nonce } =
   }
   try {
     let finalPath = filePath;
-    let s = await stat(finalPath);
+    let s;
+    try {
+      s = await stat(finalPath);
+    } catch (e) {
+      // Extensionless path with no exact file: try the .html sibling, so
+      // /courses resolves to courses.html without a redirect -- every
+      // internal link across the site (and the admin panel) now points
+      // at these clean URLs directly. Scoped to extensionless paths only
+      // -- a genuinely missing asset (styles.css, some.png) still 404s as
+      // itself instead of silently trying styles.css.html. The old
+      // name.html URLs keep resolving too (the stat above already
+      // succeeded for those), a deliberate choice: nothing that already
+      // links to the .html form breaks.
+      if (extname(finalPath) === "") {
+        finalPath = finalPath + ".html";
+        s = await stat(finalPath);
+      } else {
+        throw e;
+      }
+    }
     if (s.isDirectory()) {
       finalPath = join(finalPath, "index.html");
       s = await stat(finalPath);
@@ -497,7 +516,7 @@ const server = createServer(async (req, res) => {
     // ---- admin static pages (session-protected, except the login page and
     // the CSS/JS/etc it needs to render itself) ----
     if (pathname.startsWith("/admin")) {
-      const isLoginPage = pathname === "/admin" || pathname === "/admin/" || pathname === "/admin/login.html";
+      const isLoginPage = pathname === "/admin" || pathname === "/admin/" || pathname === "/admin/login" || pathname === "/admin/login.html";
       // A visitor with no session yet is, by definition, everyone looking
       // at the login page -- gating its own stylesheet and script behind
       // the session it doesn't have yet meant they always 302'd to
@@ -510,11 +529,11 @@ const server = createServer(async (req, res) => {
       // access, whatever it was.
       const isPublicAsset = pathname.startsWith("/admin/css/") || pathname.startsWith("/admin/js/");
       if (!isLoginPage && !isPublicAsset && !verifySession(getSessionToken(req))) {
-        res.writeHead(302, { Location: "/admin/login.html" });
+        res.writeHead(302, { Location: "/admin/login" });
         return res.end();
       }
-      let sub = pathname.slice("/admin".length) || "/login.html";
-      if (sub === "/") sub = "/login.html";
+      let sub = pathname.slice("/admin".length) || "/login";
+      if (sub === "/") sub = "/login";
       return serveStatic(req, res, ADMIN_DIR, sub, { nonce });
     }
 
@@ -540,7 +559,7 @@ const server = createServer(async (req, res) => {
 startAutoScheduler();
 server.listen(PORT, () => {
   console.log(`Prospector's Planner listening on http://localhost:${PORT}`);
-  console.log(`Admin panel at http://localhost:${PORT}/admin/login.html`);
+  console.log(`Admin panel at http://localhost:${PORT}/admin/login`);
   if (!process.env.ADMIN_PASSWORD) {
     console.warn("ADMIN_PASSWORD is not set -- admin login will fail until it is.");
   }

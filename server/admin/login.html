@@ -37,7 +37,7 @@ document.getElementById("loginForm").onsubmit = async (e) => {
       body: JSON.stringify({password})
     });
     if (res.ok) {
-      location.href = "/admin/ingestion.html";
+      location.href = "/admin/ingestion";
     } else {
       const body = await res.json().catch(() => ({}));
       err.textContent = body.error || "Login failed.";

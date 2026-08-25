@@ -401,7 +401,7 @@ function render(){
     el.onblur = hideTip;
   });
   $$("[data-goto-code]", $("#mapWrap")).forEach(el=>{
-    const go = () => { if(dragged) return; state.activeCourse = el.dataset.gotoCode; state.revOpen.clear(); saveState(); location.href = "instructors.html"; };
+    const go = () => { if(dragged) return; state.activeCourse = el.dataset.gotoCode; state.revOpen.clear(); saveState(); location.href = "instructors"; };
     el.onclick = go;
     el.onkeydown = e => { if(e.key==="Enter" || e.key===" "){ e.preventDefault(); go(); } };
   });

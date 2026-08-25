@@ -15,7 +15,7 @@ const W_EVAL = 0.5, W_RMP = 0.5;
 const DIST_KEYS = ["Excellent","Good","Satisfactory","Poor","Very Poor"];
 const REVIEWS_PER_PAGE = 3;
 
-const SCREENS = ["index.html","courses.html","availability.html","instructors.html","schedule.html"];
+const SCREENS = ["/","courses","availability","instructors","schedule"];
 // Ten distinct colors, not five -- a student can have more picks than
 // that once a course with a required lab/seminar counts as two (see
 // server/lib/catalog.js's components), and reusing a color after five
@@ -410,7 +410,7 @@ function renderChrome(){
   + '<button class="item '+(n==="map"?"active":"avail")+'" data-map-link><span class="n">5</span>Map</button>';
   $$(".item.done[data-step],.item.avail[data-step]").forEach(el=>el.onclick=()=>{ location.href = SCREENS[+el.dataset.step]; });
   const mapLink = $("[data-map-link]");
-  if(mapLink) mapLink.onclick = () => { location.href = "map.html"; };
+  if(mapLink) mapLink.onclick = () => { location.href = "map"; };
 
   /* No fixed bottom bar -- each page places its own Back/Skip/Continue
      inline wherever makes sense for that page's layout (courses and
@@ -464,7 +464,7 @@ const SITE_HEADER_HTML = `
 
 <div class="masthead">
   <div class="wrap">
-    <a class="lockup" href="index.html">
+    <a class="lockup" href="/">
       <span class="mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="#ff8200" stroke-width="2.6" stroke-linecap="square">
           <path d="M3 6h18"/><path d="M3 12h11"/><path d="M3 18h15"/>
@@ -511,11 +511,11 @@ const SITE_FOOTER_HTML = `
       <div>
         <h2>About Prospector's Planner</h2>
         <ul>
-          <li><a href="methodology.html">Methodology</a></li>
-          <li><a href="privacy.html">Privacy</a></li>
-          <li><a href="terms.html">Terms of use</a></li>
-          <li><a href="accessibility.html">Accessibility</a></li>
-          <li><a href="report.html">Report a problem</a></li>
+          <li><a href="methodology">Methodology</a></li>
+          <li><a href="privacy">Privacy</a></li>
+          <li><a href="terms">Terms of use</a></li>
+          <li><a href="accessibility">Accessibility</a></li>
+          <li><a href="report">Report a problem</a></li>
         </ul>
       </div>
     </div>
@@ -524,7 +524,7 @@ const SITE_FOOTER_HTML = `
       sponsored by or endorsed by The University of Texas at El Paso. No UTEP logo, wordmark, pick,
       boxmark, seal or mascot is used. UTEP is referenced only to describe which students the tool
       serves. Instructor, evaluation and schedule data is real, scraped from public UTEP sources
-      -- see <a href="methodology.html" style="color:#ffb257">Methodology</a>.
+      -- see <a href="methodology" style="color:#ffb257">Methodology</a>.
     </div>
   </div>`;
 
@@ -651,7 +651,7 @@ function renderCookieBanner(){
     '<div class="wrap">'
     + '<p>This site stores your in-progress picks in your browser\'s session storage, cleared when '
     + 'you close the tab. No tracking or advertising cookies. The admin panel sets one cookie for '
-    + 'the site operator only. See <a href="privacy.html">Privacy</a>.</p>'
+    + 'the site operator only. See <a href="privacy">Privacy</a>.</p>'
     + '<button class="btn sm primary" id="cookieAckBtn">Got it</button>'
     + '</div>';
   document.body.appendChild(el);

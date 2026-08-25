@@ -242,6 +242,17 @@ the open records officer; worth sending early since replies take time.
 `server/index.js` is a single `node:http` process, no framework, that serves
 the public `prototype/` site and a password-gated admin panel from one port.
 
+**Clean URLs** (`/courses`, `/admin/analytics`, not `/courses.html`,
+`/admin/analytics.html`) since 2026-08-22: `serveStatic()` tries the
+`.html` sibling when an extensionless path has no exact file match. The
+old `name.html` URLs still resolve too (the exact-match stat succeeds
+for those before the fallback is ever reached) -- a deliberate choice,
+not an oversight, so nothing that already links to the `.html` form
+breaks. Every internal link/`location.href` across the public site and
+the admin panel points at the clean form now; only real on-disk
+filenames (still `.html`, e.g. `NOT_FOUND_PAGE`) and the file-extension-
+stripping logic itself keep the literal string.
+
 - **Auth:** one shared password (`ADMIN_PASSWORD` env var, no default,
   server refuses to start admin logins without it), not per-user accounts --
   this is a single-operator tool. Sessions are random tokens in the

@@ -19,7 +19,7 @@ function renderAdminChrome() {
     header.innerHTML = `
 <div class="masthead">
   <div class="wrap">
-    <a class="lockup" href="/admin/ingestion.html">
+    <a class="lockup" href="/admin/ingestion">
       <span class="mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="#ff8200" stroke-width="2.6" stroke-linecap="square">
           <path d="M3 6h18"/><path d="M3 12h11"/><path d="M3 18h15"/>
@@ -38,7 +38,7 @@ function renderAdminChrome() {
   if (nav) {
     nav.innerHTML = `
 ${ADMIN_NAV_ITEMS.map(
-  (item) => `<a href="/admin/${item.page}.html"${item.page === current ? ' class="on"' : ""}>${item.label}</a>`
+  (item) => `<a href="/admin/${item.page}"${item.page === current ? ' class="on"' : ""}>${item.label}</a>`
 ).join("")}
 <span class="spacer"></span>
 <button id="logoutBtn">Log out</button>`;
@@ -48,7 +48,7 @@ renderAdminChrome();
 
 document.getElementById("logoutBtn")?.addEventListener("click", async () => {
   await fetch("/admin/api/logout", { method: "POST" });
-  location.href = "/admin/login.html";
+  location.href = "/admin/login";
 });
 
 /* Every admin/api/* call funnels through here so a session that's expired
@@ -56,7 +56,7 @@ document.getElementById("logoutBtn")?.addEventListener("click", async () => {
 async function adminFetch(url, options) {
   const res = await fetch(url, options);
   if (res.status === 401) {
-    location.href = "/admin/login.html";
+    location.href = "/admin/login";
     throw new Error("Not authenticated");
   }
   return res;

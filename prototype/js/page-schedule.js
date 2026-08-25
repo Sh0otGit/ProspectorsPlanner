@@ -105,7 +105,7 @@ function renderSchedule(){
       state.activeCourse = el.dataset.gotoCode;
       state.revOpen.clear();
       saveState();
-      location.href = "instructors.html";
+      location.href = "instructors";
     };
     el.onclick = go;
     // role="button" on a div doesn't get native Enter/Space activation the
