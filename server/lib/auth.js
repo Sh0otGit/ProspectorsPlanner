@@ -24,13 +24,6 @@ function passwordSalt() {
   return salt;
 }
 
-function constantTimeEqual(a, b) {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
-}
-
 // Async scrypt instead of scryptSync: measured at ~77ms wall-clock per call
 // on this machine, and scryptSync runs on Node's single main thread, which
 // means that 77ms blocks every other request the server has in flight, not

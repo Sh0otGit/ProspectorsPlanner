@@ -181,18 +181,6 @@ function resolveSection(code, entry){
   return p ? p.sections.find(s=>s.crn===entry.crn) : null;
 }
 
-/* Back-compat convenience for the common case (a course with only one
-   chosen component) -- the first resolved section, or null. Schedule/
-   calendar code that needs *every* chosen section (a course can have
-   more than one now) uses allChosenSections() below instead. */
-function getChosenSection(code){
-  for(const entry of chosenEntries(code)){
-    const sec = resolveSection(code, entry);
-    if(sec) return sec;
-  }
-  return null;
-}
-
 /* Every {code, entry, sec} currently chosen, across every picked course --
    flattened because a single course can now contribute more than one
    section (a lecture and its seminar are two separate calendar entries,

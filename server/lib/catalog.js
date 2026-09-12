@@ -184,8 +184,8 @@ export function getCourse(termCode, subject, courseNumber) {
   // Every distinct schedule_type under this one course number -- a plain
   // Lecture-only course has exactly one and needs no disclaimer. More
   // than one means a student can genuinely add more than one section at
-  // once for this course (a lecture *and* its seminar), which
-  // getChosenSection-era app.js used to structurally forbid.
+  // once for this course (a lecture *and* its seminar), which the old
+  // one-pick-per-course app.js used to structurally forbid.
   const components = [...new Set(sections.map((s) => s.schedule_type))];
 
   const idx = instructorIndex();

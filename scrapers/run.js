@@ -9,7 +9,7 @@
    `node scrapers/run.js evaluations`) and from server/lib/scheduler.js. */
 import { pathToFileURL } from "node:url";
 import { db } from "./lib/db.js";
-import { fetchDirectory, filterByDepartment } from "./faculty_directory.js";
+import { fetchDirectory } from "./faculty_directory.js";
 import { fetchProfileEvaluationLinks } from "./profiles.js";
 import { fetchEvaluation } from "./evaluations.js";
 import { fetchSchedule, fetchSubjects } from "./schedule.js";
@@ -18,7 +18,6 @@ import { fetchCampusLocations } from "./campusmap.js";
 import { nameTokenSet, cleanBannerName, findByName } from "../server/lib/name-match.js";
 
 export const DEFAULT_TERM = "202710"; // Fall 2026
-export const DEFAULT_DEPARTMENT = "Computer Science"; // still available for a scoped run
 export const DEFAULT_SUBJECT = "CS";
 
 /* =====================================================================
@@ -166,16 +165,6 @@ async function scrapeInstructorList(targets, onProgress) {
     onProgress?.(i + 1, targets.length, instr.username, newEvals);
   }
   return newEvals;
-}
-
-/* One department (substring match on the HB 2504 directory's department
-   text). Useful for a quick, cheap re-check of one area without paying for
-   the full campus crawl. */
-export async function scrapeEvaluations(departmentNeedle = DEFAULT_DEPARTMENT, onProgress) {
-  const directory = await fetchDirectory();
-  const targets = filterByDepartment(directory, departmentNeedle);
-  const newEvaluations = await scrapeInstructorList(targets, onProgress);
-  return { instructors: targets.length, newEvaluations };
 }
 
 /* Every instructor in the HB 2504 directory, campus-wide (~1965 people).

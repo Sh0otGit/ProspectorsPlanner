@@ -9,17 +9,13 @@ const USER_AGENT =
 
 let lastRequestAt = 0;
 
-async function wait(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 /* An unrestricted query (see schedule.js) was found to hang indefinitely
    rather than error -- a bare `fetch` has no default timeout, so a bad
    request or a slow day on UTEP's end could otherwise stall a scrape run
    forever. */
 export async function politeFetch(url, options = {}) {
   const elapsed = Date.now() - lastRequestAt;
-  if (elapsed < DELAY_MS) await wait(DELAY_MS - elapsed);
+  if (elapsed < DELAY_MS) await new Promise((r) => setTimeout(r, DELAY_MS - elapsed));
   lastRequestAt = Date.now();
 
   const controller = new AbortController();

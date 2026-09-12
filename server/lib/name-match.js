@@ -26,11 +26,6 @@ export function nameTokenSet(raw) {
   );
 }
 
-export function isSubset(smaller, larger) {
-  for (const t of smaller) if (!larger.has(t)) return false;
-  return true;
-}
-
 export function cleanBannerName(raw) {
   return (raw || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
 }
@@ -43,8 +38,8 @@ export function findByName(index, name) {
   if (!nameTokens.size) return null;
   let subsetMatch = null;
   for (const { tokens, row } of index) {
-    if (tokens.size === nameTokens.size && isSubset(nameTokens, tokens)) return row;
-    if (!subsetMatch && (isSubset(nameTokens, tokens) || isSubset(tokens, nameTokens))) subsetMatch = row;
+    if (tokens.size === nameTokens.size && nameTokens.isSubsetOf(tokens)) return row;
+    if (!subsetMatch && (nameTokens.isSubsetOf(tokens) || tokens.isSubsetOf(nameTokens))) subsetMatch = row;
   }
   return subsetMatch;
 }

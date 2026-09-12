@@ -27,6 +27,13 @@ export const EVALUATIONS_INTERVAL_DAYS = 120;
 export const RMP_INTERVAL_DAYS = 30;
 export const CAMPUSMAP_INTERVAL_DAYS = 120;
 
+const INTERVAL_DAYS = {
+  schedule: SCHEDULE_INTERVAL_HOURS / 24,
+  evaluations: EVALUATIONS_INTERVAL_DAYS,
+  rmp: RMP_INTERVAL_DAYS,
+  campusmap: CAMPUSMAP_INTERVAL_DAYS,
+};
+
 const running = { schedule: false, evaluations: false, rmp: false, campusmap: false };
 
 export function lastRun(kind) {
@@ -38,11 +45,7 @@ export function nextAutoRunAt(kind) {
     .prepare(`SELECT started_at FROM scrape_runs WHERE kind = ? AND status = 'done' ORDER BY id DESC LIMIT 1`)
     .get(kind);
   const base = last ? new Date(last.started_at) : new Date();
-  const days = kind === "schedule" ? SCHEDULE_INTERVAL_HOURS / 24
-    : kind === "rmp" ? RMP_INTERVAL_DAYS
-    : kind === "campusmap" ? CAMPUSMAP_INTERVAL_DAYS
-    : EVALUATIONS_INTERVAL_DAYS;
-  return new Date(base.getTime() + days * 24 * 3600 * 1000);
+  return new Date(base.getTime() + INTERVAL_DAYS[kind] * 24 * 3600 * 1000);
 }
 
 export function isRunning(kind) {
@@ -152,22 +155,22 @@ export function triggerCampusMapRun(trigger) {
   );
 }
 
+const AUTO_TRIGGERS = [
+  ["schedule", triggerScheduleRun],
+  ["evaluations", triggerEvaluationsRun],
+  ["rmp", triggerRmpRun],
+  ["campusmap", triggerCampusMapRun],
+];
+
 /* Only fires while this server process is alive. There's no OS-level cron
    here -- if the process isn't running, none of "daily", "once a
    semester" or "every 30 days" happens. */
 export function startAutoScheduler() {
   setInterval(() => {
-    if (!running.schedule && new Date() >= nextAutoRunAt("schedule")) {
-      triggerScheduleRun("auto").catch((e) => console.error("Auto schedule scrape failed:", e.message));
-    }
-    if (!running.evaluations && new Date() >= nextAutoRunAt("evaluations")) {
-      triggerEvaluationsRun("auto").catch((e) => console.error("Auto evaluations scrape failed:", e.message));
-    }
-    if (!running.rmp && new Date() >= nextAutoRunAt("rmp")) {
-      triggerRmpRun("auto").catch((e) => console.error("Auto RMP scrape failed:", e.message));
-    }
-    if (!running.campusmap && new Date() >= nextAutoRunAt("campusmap")) {
-      triggerCampusMapRun("auto").catch((e) => console.error("Auto campus map scrape failed:", e.message));
+    for (const [kind, trigger] of AUTO_TRIGGERS) {
+      if (!running[kind] && new Date() >= nextAutoRunAt(kind)) {
+        trigger("auto").catch((e) => console.error(`Auto ${kind} scrape failed:`, e.message));
+      }
     }
   }, CHECK_INTERVAL_MS);
 }

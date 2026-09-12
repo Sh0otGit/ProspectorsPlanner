@@ -42,8 +42,3 @@ export async function fetchDirectory() {
   }
   return rows;
 }
-
-export function filterByDepartment(rows, needle) {
-  const lower = needle.toLowerCase();
-  return rows.filter((r) => r.department.toLowerCase().includes(lower));
-}
