@@ -439,7 +439,7 @@ function renderChrome(){
     if(hint) hint.textContent = state.blocked.size ? numCap(state.blocked.size)+" half-hour blocks marked" : "No hours blocked";
   } else if(n===3){
     const c=state.chosen.size;
-    if(next){ next.disabled=c===0; next.textContent="View schedule"; }
+    if(next){ next.disabled=c===0; next.textContent="View Schedule"; }
   } else if(hint){
     hint.textContent = "";
   }
@@ -486,7 +486,6 @@ const SITE_FOOTER_HTML = `
         <ul>
           <li>An independent student project</li>
           <li>El Paso, Texas</li>
-          <li><a href="https://github.com/Sh0otGit/ProspectorsPlanner" target="_blank" rel="noopener">Source code</a></li>
         </ul>
       </div>
       <div>
