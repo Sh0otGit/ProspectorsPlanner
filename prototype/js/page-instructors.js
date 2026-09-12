@@ -316,30 +316,54 @@ function reviewsHTML(p){
     + '</details>';
 }
 
-/* One thin source row of the full distribution bar -- shown inside the
-   "See full breakdown" disclosure (see profHTML below), not by default.
-   Bucket text doesn't fit inside a bar this thin, so the per-segment
-   breakdown lives in the title tooltip instead; the shared legend under
-   both rows still names the five buckets by color. */
-function distRowHTML(label, dist, n, unit){
-  if(!dist) return "";
-  return '<div class="distrow">'
-    + '<span class="distsrc">'+label+'</span>'
-    + '<div class="stack">'
-    + dist.map((v,i)=> v>0
-        ? '<span style="width:'+v+'%;background:var(--r'+(5-i)+')" title="'+DIST_KEYS[i]+': '+v.toFixed(0)+'%"></span>'
-        : "").join("")
-    + '</div>'
-    + '<span class="distn">'+num(n)+' '+unit+'</span>'
-    + '</div>';
+/* Full breakdown chart shown inside "See full breakdown" (see profHTML
+   below): one pair of bars per category, UTEP solid and RMP a lighter
+   tint of the same color, so "Excellent" always reads green regardless
+   of source instead of needing two separate legends. A single-source
+   professor (only one of utepDist/rmpDist real) draws one centered bar
+   per category instead of a pair. Category names sit right under their
+   own bars, so unlike the old stacked bars this needs no separate color
+   legend at all -- what a bar's color and position mean is already
+   spelled out on the chart itself. */
+function groupedBarChartSVG(utepDist, rmpDist, utepN, rmpN){
+  const scale = 2.5, baseline = 148, groupW = 100, barW = 30, gapBar = 4;
+  const hasBoth = utepDist && rmpDist;
+  const totalW = 20 + DIST_KEYS.length*groupW;
+  let bars = "";
+  DIST_KEYS.forEach((label,i)=>{
+    const x0 = 10 + i*groupW;
+    const color = "var(--r"+(5-i)+")";
+    if(hasBoth){
+      const ux = x0+19, rx = ux+barW+gapBar;
+      const uv = utepDist[i], rv = rmpDist[i];
+      const uh = uv*scale, uy = baseline-uh, rh = rv*scale, ry = baseline-rh;
+      bars += '<rect x="'+ux+'" y="'+uy+'" width="'+barW+'" height="'+uh+'" fill="'+color+'"></rect>'
+        + '<rect x="'+rx+'" y="'+ry+'" width="'+barW+'" height="'+rh+'" fill="'+color+'" opacity="0.4"></rect>'
+        + '<text x="'+(ux+barW/2)+'" y="'+(uy-6)+'" text-anchor="middle" class="gbarval">'+uv.toFixed(0)+'%</text>'
+        + '<text x="'+(rx+barW/2)+'" y="'+(ry-6)+'" text-anchor="middle" class="gbarval">'+rv.toFixed(0)+'%</text>';
+    } else {
+      const v = (utepDist || rmpDist)[i];
+      const bx = x0+(groupW-barW)/2, bh = v*scale, by = baseline-bh;
+      bars += '<rect x="'+bx+'" y="'+by+'" width="'+barW+'" height="'+bh+'" fill="'+color+'"></rect>'
+        + '<text x="'+(bx+barW/2)+'" y="'+(by-6)+'" text-anchor="middle" class="gbarval">'+v.toFixed(0)+'%</text>';
+    }
+    bars += '<text x="'+(x0+groupW/2)+'" y="'+(baseline+22)+'" text-anchor="middle" class="gbarcat">'+label+'</text>';
+  });
+  return '<svg class="groupedchart" viewBox="0 0 '+totalW+' '+(baseline+36)+'" role="img" aria-label="Rating distribution by category">'
+    + '<line x1="10" y1="'+baseline+'" x2="'+(totalW-10)+'" y2="'+baseline+'" stroke="var(--rule-strong)"></line>'
+    + bars
+    + '</svg>'
+    + (hasBoth ? '<div class="gbarsrc"><span><i style="background:var(--rule-strong)"></i>UTEP (solid) &middot; '+num(utepN)+' evaluations</span>'
+        + '<span><i style="background:var(--rule-strong);opacity:.4"></i>RMP (lighter) &middot; '+num(rmpN)+' ratings</span></div>' : "");
 }
 
 /* The default-visible summary of one source's distribution: a dominant-
    category label ("Mostly Excellent (57%)") plus a small shape cue,
    instead of the full labeled stacked bar (still available one click
-   away via distRowHTML above) -- replaces the old two full-width bars,
-   which read as the actual friction point, not just "too much detail." A
-   genuine near-tie between the top categories (within 4 points) is shown
+   away via groupedBarChartSVG above) -- replaces the old two full-width
+   bars, which read as the actual friction point, not just "too much
+   detail." A genuine near-tie between the top categories (within 4
+   points) is shown
    as a split rather than picking one arbitrarily, since claiming a
    single "mostly X" when two categories are essentially equal would be
    its own kind of wrong answer. */
@@ -413,11 +437,7 @@ function profHTML(code,p){
       + sentimentRowHTML("RMP", rmpDist, p.rmp?.n, "ratings")
       + '</div>'
       + '<details class="breakdown"><summary>See full breakdown</summary>'
-      + distRowHTML("UTEP", p.dist, p.evalN, "evaluations")
-      + distRowHTML("RMP", rmpDist, p.rmp?.n, "ratings")
-      + '<div class="distlegend">'
-      + DIST_KEYS.map((k,i)=>'<span><i style="background:var(--r'+(5-i)+')"></i>'+k+'</span>').join("")
-      + '</div>'
+      + groupedBarChartSVG(p.dist, rmpDist, p.evalN, p.rmp?.n)
       + metricsHTML
       + '</details></div>'
     : '<div class="distrib"><div class="hdr"><span>Overall rating of the instructor</span></div>'
@@ -436,12 +456,14 @@ function profHTML(code,p){
   return '<div class="prof'+(score==null?" dim":"")+'">'
    + '<div class="prof-main">'
    + '<div class="prof-id">'
-     + '<div class="prof-idtext"><span class="nm">'+esc(p.name)+'</span><span class="dept">'+esc(p.dept||"")+'</span></div>'
+     + '<div class="prof-idtext">'
+       + '<div class="prof-idname"><span class="nm">'+esc(p.name)+'</span><span class="dept">'+esc(p.dept||"")+'</span></div>'
+       + '<div class="scoreline">'+starsHTML(score)
+         + '<span class="bignum">'+(score==null?"n/a":score.toFixed(2))+'</span>'
+         + '<span class="of">of 5.00</span></div>'
+     + '</div>'
      + avatarHTML(p)
    + '</div>'
-   + '<div class="scoreline">'+starsHTML(score)
-     + '<span class="bignum">'+(score==null?"n/a":score.toFixed(2))+'</span>'
-     + '<span class="of">of 5.00</span></div>'
    + warn + distHTML
    + reviewsHTML(p)
    + '</div>'

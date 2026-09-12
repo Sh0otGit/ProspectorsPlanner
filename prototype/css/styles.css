@@ -470,12 +470,14 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .prof-side h2{font-family:var(--font-display);font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-muted);margin:0 0 10px}
 .sectlist{overflow-y:auto}
 
-/* Text first, avatar on the right -- justify-content:space-between with
-   the text block NOT set to flex:1 would still leave the avatar pinned
-   right since it's the only other child; flex:1 here makes that explicit
-   and lets the text block wrap independently of the avatar's own width. */
-.prof-id{display:flex;align-items:center;gap:14px}
-.prof-idtext{display:flex;flex:1;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
+/* Name+dept and the stars/score row stack in one text column on the
+   left; the photo sits on the right, tall enough to run alongside both
+   rows instead of just the name -- align-items:flex-start (not center)
+   is what lets the avatar's fixed height visually span that stacked
+   pair rather than centering against just one line of text. */
+.prof-id{display:flex;align-items:flex-start;gap:14px}
+.prof-idtext{flex:1;min-width:0}
+.prof-idname{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .prof-id .nm{font-weight:700;font-size:22px}
 .prof-id .dept{font-size:12.5px;color:var(--ink-muted)}
 /* HB 2504 headshot (hotlinked, see page-instructors.js's avatarHTML), a
@@ -485,8 +487,10 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
    decorative initials avatar -- same "no data, not a guess" rule as
    everywhere else, just spelled out here instead of implied by a blank
    shape. Both states share this sizing so swapping one for the other
-   (see the onerror wiring in renderResults()) doesn't shift the layout. */
-.avatar{flex:none;width:64px;height:64px;border-radius:2px;border:1px solid var(--rule)}
+   (see the onerror wiring in renderResults()) doesn't shift the layout.
+   Sized to roughly the combined height of the name and scoreline rows
+   beside it, not just the name -- see .prof-id's own comment above. */
+.avatar{flex:none;width:88px;height:88px;border-radius:2px;border:1px solid var(--rule)}
 .avatar.photo{object-fit:cover;background:var(--surface-2)}
 .avatar.empty{display:grid;place-items:center;background:var(--surface-2);color:var(--ink-muted);font-size:10px;line-height:1.3;text-align:center;padding:4px}
 .scoreline{display:flex;align-items:center;gap:11px;margin:9px 0 12px;flex-wrap:wrap}
@@ -518,19 +522,16 @@ details.breakdown summary{cursor:pointer;color:var(--link);font-weight:700;font-
 details.breakdown summary::-webkit-details-marker{display:none}
 details.breakdown summary:hover{text-decoration:underline}
 
-/* One row per source (UTEP, RMP), shown inside .breakdown -- see
-   distRowHTML in page-instructors.js. Thin enough that per-segment
-   percentage text doesn't fit inside the bar itself (that lives in each
-   segment's title tooltip instead); a source with no distribution to
-   show just omits its row, so a professor with only one source still
-   lines up the same way a professor with both does. */
-.distrow{display:flex;align-items:center;gap:8px;margin-top:8px}
-.distsrc{flex:none;width:30px;font-size:10px;font-weight:700;letter-spacing:.03em;color:var(--ink-muted);text-transform:uppercase}
-.distn{flex:none;font-size:10.5px;color:var(--ink-muted);white-space:nowrap}
-.stack{display:flex;flex:1;min-width:0;height:12px;background:var(--surface-3);gap:1px;border:1px solid var(--rule)}
-.stack span{display:block;height:100%;overflow:hidden}
-.distlegend{display:flex;flex-wrap:wrap;gap:11px;margin-top:7px;font-size:11.5px;color:var(--ink-2)}
-.distlegend i{width:10px;height:10px;display:inline-block;margin-right:5px;vertical-align:-1px}
+/* Grouped bar chart, shown inside .breakdown -- see groupedBarChartSVG in
+   page-instructors.js. One pair of bars per category (UTEP solid, RMP a
+   lighter tint of the same color), category name printed under its own
+   bars, so unlike the old stacked bars this needs no separate color
+   legend -- what a bar's color/position means is already on the chart. */
+.groupedchart{display:block;width:100%;height:auto;margin-top:6px}
+.gbarval{font-size:11px;font-weight:700;fill:var(--ink);font-family:var(--font-ui)}
+.gbarcat{font-size:11px;fill:var(--ink-2);font-family:var(--font-ui)}
+.gbarsrc{display:flex;flex-wrap:wrap;gap:16px;margin-top:6px;font-size:11.5px;color:var(--ink-2)}
+.gbarsrc i{width:14px;height:10px;display:inline-block;margin-right:5px;vertical-align:-1px;border:1px solid var(--rule-strong)}
 
 .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:13px;max-width:420px}
 .metrics div{background:var(--surface);padding:6px 10px}
