@@ -470,18 +470,25 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .prof-side h2{font-family:var(--font-display);font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-muted);margin:0 0 10px}
 .sectlist{overflow-y:auto}
 
+/* Text first, avatar on the right -- justify-content:space-between with
+   the text block NOT set to flex:1 would still leave the avatar pinned
+   right since it's the only other child; flex:1 here makes that explicit
+   and lets the text block wrap independently of the avatar's own width. */
 .prof-id{display:flex;align-items:center;gap:14px}
-.prof-idtext{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
-.prof-id .nm{font-weight:700;font-size:32px}
+.prof-idtext{display:flex;flex:1;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
+.prof-id .nm{font-weight:700;font-size:22px}
 .prof-id .dept{font-size:12.5px;color:var(--ink-muted)}
-/* HB 2504 headshot (hotlinked, see page-instructors.js's avatarHTML) or
-   the .init initials placeholder when there's no username at all, or the
-   photo itself fails to load -- both share this sizing/shape so swapping
-   one for the other (see the onerror wiring in renderResults()) doesn't
-   shift the layout. */
-.avatar{flex:none;width:56px;height:56px;border-radius:50%}
-.avatar.photo{object-fit:cover;background:var(--surface-3)}
-.avatar.init{display:grid;place-items:center;background:var(--surface-3);color:var(--ink-2);font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:.02em}
+/* HB 2504 headshot (hotlinked, see page-instructors.js's avatarHTML), a
+   square not a circle -- 2px radius matches this project's institutional
+   corner-rounding everywhere else. The .empty placeholder (no username at
+   all, or the photo failing to load) says so in plain text rather than a
+   decorative initials avatar -- same "no data, not a guess" rule as
+   everywhere else, just spelled out here instead of implied by a blank
+   shape. Both states share this sizing so swapping one for the other
+   (see the onerror wiring in renderResults()) doesn't shift the layout. */
+.avatar{flex:none;width:64px;height:64px;border-radius:2px;border:1px solid var(--rule)}
+.avatar.photo{object-fit:cover;background:var(--surface-2)}
+.avatar.empty{display:grid;place-items:center;background:var(--surface-2);color:var(--ink-muted);font-size:10px;line-height:1.3;text-align:center;padding:4px}
 .scoreline{display:flex;align-items:center;gap:11px;margin:9px 0 12px;flex-wrap:wrap}
 .starwrap{position:relative;display:inline-block;font-size:22px;line-height:1;letter-spacing:2px;white-space:nowrap}
 .starbase{color:var(--rule-strong)}

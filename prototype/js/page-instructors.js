@@ -196,18 +196,19 @@ function renderResults(){
   }
 
   // A username matched, but that doesn't guarantee a real photo is on
-  // file with HB 2504 -- swap to the initials placeholder on a load
-  // failure instead of leaving a broken-image icon. Wired here, not an
-  // inline onerror="" attribute, since this project's CSP has no
+  // file with HB 2504 -- swap to the "No image set" placeholder on a
+  // load failure instead of leaving a broken-image icon. Wired here, not
+  // an inline onerror="" attribute, since this project's CSP has no
   // 'unsafe-inline' for script-src (see server/index.js's buildCsp).
   $$("img.avatar.photo").forEach(img=>{
-    img.onerror = () => {
-      const div = document.createElement("div");
-      div.className = "avatar init";
-      div.setAttribute("aria-hidden","true");
-      div.textContent = img.dataset.fallback;
-      img.replaceWith(div);
-    };
+    img.onerror = () => { img.outerHTML = avatarEmptyHTML(); };
+  });
+
+  // Re-measure once "See full breakdown" changes .prof-main's height --
+  // see syncSectionListHeights's own header comment for why .prof-side
+  // needs a live min-height at all.
+  $$("details.breakdown").forEach(d=>{
+    d.addEventListener("toggle", syncSectionListHeights);
   });
 
   $$("[data-add]").forEach(b=>{
@@ -368,19 +369,14 @@ function sentimentRowHTML(label, dist, n, unit){
     + '</div>';
 }
 
-/* First + last initial, for the avatar placeholder -- shown immediately
-   for an instructor with no HB 2504 username at all, and swapped in by
-   the onerror wiring in renderResults() when a username exists but its
-   /photos/{username}.jpg 404s (not every profile has uploaded one). Never
-   a guessed photo, same "no data, not a guess" rule as everywhere else
-   this project handles a missing value. */
-function initials(name){
-  const parts = (name||"").trim().split(/\s+/).filter(Boolean);
-  if(!parts.length) return "?";
-  return (parts[0][0] + (parts.length>1 ? parts[parts.length-1][0] : "")).toUpperCase();
-}
-function avatarInitialsHTML(name){
-  return '<div class="avatar init" aria-hidden="true">'+esc(initials(name))+'</div>';
+/* Shown immediately for an instructor with no HB 2504 username at all,
+   and swapped in by the onerror wiring in renderResults() when a
+   username exists but its /photos/{username}.jpg 404s (not every profile
+   has uploaded one) -- plain text saying so, not a guessed placeholder
+   image, same "no data, not a guess" rule as everywhere else this
+   project handles a missing value. */
+function avatarEmptyHTML(){
+  return '<div class="avatar empty" aria-hidden="true">No image set</div>';
 }
 /* HB 2504 hosts a real headshot per profile at /photos/{username}.jpg
    (confirmed 2026-09-13 live against a real profile) -- hotlinked
@@ -390,8 +386,8 @@ function avatarInitialsHTML(name){
    match at all, which skips the image entirely rather than requesting a
    URL that can't exist. */
 function avatarHTML(p){
-  if(!p.username) return avatarInitialsHTML(p.name);
-  return '<img class="avatar photo" src="https://hb2504.utep.edu/photos/'+esc(p.username)+'.jpg" alt="" data-fallback="'+esc(initials(p.name))+'">';
+  if(!p.username) return avatarEmptyHTML();
+  return '<img class="avatar photo" src="https://hb2504.utep.edu/photos/'+esc(p.username)+'.jpg" alt="">';
 }
 
 function profHTML(code,p){
@@ -401,6 +397,14 @@ function profHTML(code,p){
   if(!secs.length) return "";
 
   const rmpDist = p.rmp && p.rmp.dist;
+  const tip = txt => '<span class="tip" tabindex="0">?<span class="tiptext">'+esc(txt)+'</span></span>';
+  // Moved inside the "See full breakdown" disclosure below, alongside the
+  // full bars -- not shown by default any more than those are.
+  const metricsHTML = '<div class="metrics">'
+     + '<div><div class="k">UTEP evaluation'+tip("Instructor rating from UTEP course evaluations, published under Texas HB 2504. Shrunk toward the university mean when response counts are low.")+'</div><div class="v">'+(p.evalAdj?p.evalAdj.toFixed(2)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
+     + '<div><div class="k">Rate My Professors'+tip("Aggregate quality rating from Rate My Professors, a third-party site. Self-selected reviews, not a UTEP source.")+'</div><div class="v">'+(p.rmp?p.rmp.score.toFixed(1)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
+     + '<div><div class="k">Difficulty'+tip("Self-reported course difficulty from Rate My Professors. Not part of the UTEP evaluation.")+'</div><div class="v">'+(p.rmp&&p.rmp.diff!=null?p.rmp.diff.toFixed(1)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
+   + '</div>';
   const distHTML = (p.dist || rmpDist)
     ? '<div class="distrib">'
       + '<div class="hdr"><span>Overall rating of the instructor</span></div>'
@@ -413,30 +417,32 @@ function profHTML(code,p){
       + distRowHTML("RMP", rmpDist, p.rmp?.n, "ratings")
       + '<div class="distlegend">'
       + DIST_KEYS.map((k,i)=>'<span><i style="background:var(--r'+(5-i)+')"></i>'+k+'</span>').join("")
-      + '</div></details></div>'
+      + '</div>'
+      + metricsHTML
+      + '</details></div>'
     : '<div class="distrib"><div class="hdr"><span>Overall rating of the instructor</span></div>'
-      + '<div style="font-size:13px;color:var(--ink-muted);padding:5px 0">No UTEP evaluation or Rate My Professors rating distribution on file for this instructor yet.</div></div>';
+      + '<div style="font-size:13px;color:var(--ink-muted);padding:5px 0">No UTEP evaluation or Rate My Professors rating distribution on file for this instructor yet.</div>'
+      // A score can exist (see combined()) without a bucketed distribution
+      // to go with it -- e.g. an RMP aggregate with no per-review dist
+      // pull -- in which case the metrics grid still has something real
+      // to show. Genuinely nothing at all (no eval, no RMP) skips the
+      // disclosure entirely rather than offering to reveal three "n/a"s.
+      + (p.evalAdj!=null || p.rmp ? '<details class="breakdown"><summary>See full breakdown</summary>'+metricsHTML+'</details>' : "")
+      + '</div>';
 
   const warn = (p.evalN>0 && p.evalN<10)
     ? '<div class="provisional">Based on '+num(p.evalN)+' responses. Treat this rating as provisional.</div>' : "";
 
-  const tip = txt => '<span class="tip" tabindex="0">?<span class="tiptext">'+esc(txt)+'</span></span>';
-
   return '<div class="prof'+(score==null?" dim":"")+'">'
    + '<div class="prof-main">'
    + '<div class="prof-id">'
-     + avatarHTML(p)
      + '<div class="prof-idtext"><span class="nm">'+esc(p.name)+'</span><span class="dept">'+esc(p.dept||"")+'</span></div>'
+     + avatarHTML(p)
    + '</div>'
    + '<div class="scoreline">'+starsHTML(score)
      + '<span class="bignum">'+(score==null?"n/a":score.toFixed(2))+'</span>'
      + '<span class="of">of 5.00</span></div>'
    + warn + distHTML
-   + '<div class="metrics">'
-     + '<div><div class="k">UTEP evaluation'+tip("Instructor rating from UTEP course evaluations, published under Texas HB 2504. Shrunk toward the university mean when response counts are low.")+'</div><div class="v">'+(p.evalAdj?p.evalAdj.toFixed(2)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
-     + '<div><div class="k">Rate My Professors'+tip("Aggregate quality rating from Rate My Professors, a third-party site. Self-selected reviews, not a UTEP source.")+'</div><div class="v">'+(p.rmp?p.rmp.score.toFixed(1)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
-     + '<div><div class="k">Difficulty'+tip("Self-reported course difficulty from Rate My Professors. Not part of the UTEP evaluation.")+'</div><div class="v">'+(p.rmp&&p.rmp.diff!=null?p.rmp.diff.toFixed(1)+'<span class="unit"> out of 5</span>':"n/a")+'</div></div>'
-   + '</div>'
    + reviewsHTML(p)
    + '</div>'
    + '<div class="prof-side"><h2>Sections, '+esc(TERM_LABEL||"this term")+'</h2>'
