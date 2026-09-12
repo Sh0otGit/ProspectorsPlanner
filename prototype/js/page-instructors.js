@@ -195,6 +195,21 @@ function renderResults(){
     results.style.minHeight = (naturalResults + side.scrollHeight + 40) + "px";
   }
 
+  // A username matched, but that doesn't guarantee a real photo is on
+  // file with HB 2504 -- swap to the initials placeholder on a load
+  // failure instead of leaving a broken-image icon. Wired here, not an
+  // inline onerror="" attribute, since this project's CSP has no
+  // 'unsafe-inline' for script-src (see server/index.js's buildCsp).
+  $$("img.avatar.photo").forEach(img=>{
+    img.onerror = () => {
+      const div = document.createElement("div");
+      div.className = "avatar init";
+      div.setAttribute("aria-hidden","true");
+      div.textContent = img.dataset.fallback;
+      img.replaceWith(div);
+    };
+  });
+
   $$("[data-add]").forEach(b=>{
     b.onclick = () => {
       const c=b.dataset.code, prof=b.dataset.prof, crn=b.dataset.crn, type=b.dataset.type;
@@ -300,10 +315,11 @@ function reviewsHTML(p){
     + '</details>';
 }
 
-/* One thin source row of the combined distribution bar -- see distHTML in
-   profHTML below. Bucket text doesn't fit inside a bar this thin, so the
-   per-segment breakdown lives in the title tooltip instead; the shared
-   legend under both rows still names the five buckets by color. */
+/* One thin source row of the full distribution bar -- shown inside the
+   "See full breakdown" disclosure (see profHTML below), not by default.
+   Bucket text doesn't fit inside a bar this thin, so the per-segment
+   breakdown lives in the title tooltip instead; the shared legend under
+   both rows still names the five buckets by color. */
 function distRowHTML(label, dist, n, unit){
   if(!dist) return "";
   return '<div class="distrow">'
@@ -317,6 +333,67 @@ function distRowHTML(label, dist, n, unit){
     + '</div>';
 }
 
+/* The default-visible summary of one source's distribution: a dominant-
+   category label ("Mostly Excellent (57%)") plus a small shape cue,
+   instead of the full labeled stacked bar (still available one click
+   away via distRowHTML above) -- replaces the old two full-width bars,
+   which read as the actual friction point, not just "too much detail." A
+   genuine near-tie between the top categories (within 4 points) is shown
+   as a split rather than picking one arbitrarily, since claiming a
+   single "mostly X" when two categories are essentially equal would be
+   its own kind of wrong answer. */
+function sentimentRowHTML(label, dist, n, unit){
+  if(!dist) return "";
+  const max = Math.max(...dist);
+  const tied = dist.map((v,i)=>i).filter(i=>dist[i]>0 && max-dist[i]<=4);
+  let dotStyle, labelText;
+  if(tied.length>1){
+    const colors = tied.map(i=>"var(--r"+(5-i)+")");
+    const step = 100/colors.length;
+    const stops = colors.map((c,i)=>c+" "+(i*step)+"%, "+c+" "+((i+1)*step)+"%").join(", ");
+    dotStyle = "background:linear-gradient(90deg,"+stops+")";
+    labelText = "Split: "+tied.map(i=>DIST_KEYS[i]+" "+dist[i].toFixed(0)+"%").join(" &middot; ");
+  } else {
+    const i = dist.indexOf(max);
+    dotStyle = "background:var(--r"+(5-i)+")";
+    labelText = "Mostly "+DIST_KEYS[i]+" ("+max.toFixed(0)+"%)";
+  }
+  const strip = dist.map((v,i)=> v>0 ? '<span style="width:'+v+'%;background:var(--r'+(5-i)+')"></span>' : "").join("");
+  return '<div class="srow">'
+    + '<span class="ssrc">'+label+'</span>'
+    + '<span class="sdot" style="'+dotStyle+'"></span>'
+    + '<span class="slbl">'+labelText+'</span>'
+    + '<span class="sstrip">'+strip+'</span>'
+    + '<span class="sn">'+num(n)+' '+unit+'</span>'
+    + '</div>';
+}
+
+/* First + last initial, for the avatar placeholder -- shown immediately
+   for an instructor with no HB 2504 username at all, and swapped in by
+   the onerror wiring in renderResults() when a username exists but its
+   /photos/{username}.jpg 404s (not every profile has uploaded one). Never
+   a guessed photo, same "no data, not a guess" rule as everywhere else
+   this project handles a missing value. */
+function initials(name){
+  const parts = (name||"").trim().split(/\s+/).filter(Boolean);
+  if(!parts.length) return "?";
+  return (parts[0][0] + (parts.length>1 ? parts[parts.length-1][0] : "")).toUpperCase();
+}
+function avatarInitialsHTML(name){
+  return '<div class="avatar init" aria-hidden="true">'+esc(initials(name))+'</div>';
+}
+/* HB 2504 hosts a real headshot per profile at /photos/{username}.jpg
+   (confirmed 2026-09-13 live against a real profile) -- hotlinked
+   straight from hb2504.utep.edu, not re-hosted, same "browser fetches a
+   real third-party image directly" pattern the Map page's OSM tiles
+   already use. p.username is null for an instructor with no HB 2504
+   match at all, which skips the image entirely rather than requesting a
+   URL that can't exist. */
+function avatarHTML(p){
+  if(!p.username) return avatarInitialsHTML(p.name);
+  return '<img class="avatar photo" src="https://hb2504.utep.edu/photos/'+esc(p.username)+'.jpg" alt="" data-fallback="'+esc(initials(p.name))+'">';
+}
+
 function profHTML(code,p){
   const score = combined(p);
   const entries = chosenEntries(code);
@@ -327,11 +404,16 @@ function profHTML(code,p){
   const distHTML = (p.dist || rmpDist)
     ? '<div class="distrib">'
       + '<div class="hdr"><span>Overall rating of the instructor</span></div>'
-      + distRowHTML("UTEP", p.dist, p.evalN, "responses")
+      + '<div class="sentiment">'
+      + sentimentRowHTML("UTEP", p.dist, p.evalN, "evaluations")
+      + sentimentRowHTML("RMP", rmpDist, p.rmp?.n, "ratings")
+      + '</div>'
+      + '<details class="breakdown"><summary>See full breakdown</summary>'
+      + distRowHTML("UTEP", p.dist, p.evalN, "evaluations")
       + distRowHTML("RMP", rmpDist, p.rmp?.n, "ratings")
       + '<div class="distlegend">'
       + DIST_KEYS.map((k,i)=>'<span><i style="background:var(--r'+(5-i)+')"></i>'+k+'</span>').join("")
-      + '</div></div>'
+      + '</div></details></div>'
     : '<div class="distrib"><div class="hdr"><span>Overall rating of the instructor</span></div>'
       + '<div style="font-size:13px;color:var(--ink-muted);padding:5px 0">No UTEP evaluation or Rate My Professors rating distribution on file for this instructor yet.</div></div>';
 
@@ -343,7 +425,9 @@ function profHTML(code,p){
   return '<div class="prof'+(score==null?" dim":"")+'">'
    + '<div class="prof-main">'
    + '<div class="prof-id">'
-     + '<span class="nm">'+esc(p.name)+'</span><span class="dept">'+esc(p.dept||"")+'</span></div>'
+     + avatarHTML(p)
+     + '<div class="prof-idtext"><span class="nm">'+esc(p.name)+'</span><span class="dept">'+esc(p.dept||"")+'</span></div>'
+   + '</div>'
    + '<div class="scoreline">'+starsHTML(score)
      + '<span class="bignum">'+(score==null?"n/a":score.toFixed(2))+'</span>'
      + '<span class="of">of 5.00</span></div>'

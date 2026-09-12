@@ -470,9 +470,18 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .prof-side h2{font-family:var(--font-display);font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-muted);margin:0 0 10px}
 .sectlist{overflow-y:auto}
 
-.prof-id{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.prof-id{display:flex;align-items:center;gap:14px}
+.prof-idtext{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
 .prof-id .nm{font-weight:700;font-size:32px}
 .prof-id .dept{font-size:12.5px;color:var(--ink-muted)}
+/* HB 2504 headshot (hotlinked, see page-instructors.js's avatarHTML) or
+   the .init initials placeholder when there's no username at all, or the
+   photo itself fails to load -- both share this sizing/shape so swapping
+   one for the other (see the onerror wiring in renderResults()) doesn't
+   shift the layout. */
+.avatar{flex:none;width:56px;height:56px;border-radius:50%}
+.avatar.photo{object-fit:cover;background:var(--surface-3)}
+.avatar.init{display:grid;place-items:center;background:var(--surface-3);color:var(--ink-2);font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:.02em}
 .scoreline{display:flex;align-items:center;gap:11px;margin:9px 0 12px;flex-wrap:wrap}
 .starwrap{position:relative;display:inline-block;font-size:22px;line-height:1;letter-spacing:2px;white-space:nowrap}
 .starbase{color:var(--rule-strong)}
@@ -483,13 +492,32 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .distrib{margin:12px 0 4px}
 .distrib .hdr{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-muted);margin-bottom:6px;gap:12px}
 
-/* One row per source (UTEP, RMP) -- see distRowHTML in page-instructors.js.
-   Thin enough that per-segment percentage text doesn't fit inside the bar
-   itself (that lives in each segment's title tooltip instead); a source
-   with no distribution to show just omits its row, so a professor with
-   only one source still lines up the same way a professor with both does. */
-.distrow{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.distrow:last-of-type{margin-bottom:0}
+/* Default-visible summary: one line per source, a dominant-category label
+   plus a small shape cue, instead of a full labeled stacked bar -- see
+   sentimentRowHTML in page-instructors.js. Replaces the two full-width
+   bars that used to sit here by default; the same detail is still one
+   click away via .breakdown below. */
+.sentiment{display:flex;flex-direction:column;gap:6px}
+.srow{display:flex;align-items:center;gap:8px}
+.ssrc{flex:none;width:30px;font-size:10px;font-weight:700;letter-spacing:.03em;color:var(--ink-muted);text-transform:uppercase}
+.sdot{flex:none;width:9px;height:9px;border-radius:50%}
+.slbl{font-size:13px;color:var(--ink)}
+.sstrip{display:flex;height:6px;width:64px;flex:none;gap:1px}
+.sstrip span{display:block;height:100%}
+.sn{flex:none;font-size:10.5px;color:var(--ink-muted);white-space:nowrap;margin-left:auto}
+
+details.breakdown{margin-top:9px}
+details.breakdown summary{cursor:pointer;color:var(--link);font-weight:700;font-size:12.5px;list-style:none}
+details.breakdown summary::-webkit-details-marker{display:none}
+details.breakdown summary:hover{text-decoration:underline}
+
+/* One row per source (UTEP, RMP), shown inside .breakdown -- see
+   distRowHTML in page-instructors.js. Thin enough that per-segment
+   percentage text doesn't fit inside the bar itself (that lives in each
+   segment's title tooltip instead); a source with no distribution to
+   show just omits its row, so a professor with only one source still
+   lines up the same way a professor with both does. */
+.distrow{display:flex;align-items:center;gap:8px;margin-top:8px}
 .distsrc{flex:none;width:30px;font-size:10px;font-weight:700;letter-spacing:.03em;color:var(--ink-muted);text-transform:uppercase}
 .distn{flex:none;font-size:10.5px;color:var(--ink-muted);white-space:nowrap}
 .stack{display:flex;flex:1;min-width:0;height:12px;background:var(--surface-3);gap:1px;border:1px solid var(--rule)}

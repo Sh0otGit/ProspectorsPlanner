@@ -84,17 +84,19 @@ const SECURITY_HEADERS = {
 // a CSP spec limitation, not an oversight) -- closing that gap would mean
 // moving every one of those to a real CSS class, not a security fix on its
 // own. Fonts are self-hosted from /fonts (see styles.css), so no font CDN
-// needs an allowance here. img-src carries one real third-party origin,
-// tile.openstreetmap.org, for the Map page's basemap tiles (see
-// prototype/js/page-map.js and CLAUDE.md's Data sources table) -- every
-// other image on this site is same-origin or a data: URI.
+// needs an allowance here. img-src carries two real third-party origins:
+// tile.openstreetmap.org for the Map page's basemap tiles, and
+// hb2504.utep.edu for instructor photos on the Instructors page (hotlinked
+// straight from HB 2504's own /photos/{username}.jpg, not re-hosted --
+// see prototype/js/page-instructors.js and CLAUDE.md's Data sources
+// table) -- every other image on this site is same-origin or a data: URI.
 function buildCsp(nonce) {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'`,
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
-    "img-src 'self' data: https://tile.openstreetmap.org",
+    "img-src 'self' data: https://tile.openstreetmap.org https://hb2504.utep.edu",
     "connect-src 'self'",
     "base-uri 'none'",
     "frame-ancestors 'none'",

@@ -275,6 +275,16 @@ export function getCourse(termCode, subject, courseNumber) {
     return {
       name: g.name,
       dept: g.dept,
+      // HB 2504 username, not a photo URL -- same "expose the raw id, let
+      // the client build the link" pattern as rmp.legacyId below. HB 2504
+      // hosts a real headshot per profile at a predictable
+      // /photos/{username}.jpg (confirmed 2026-09-12 live against a real
+      // profile), but not everyone has one uploaded -- prototype/js/
+      // page-instructors.js falls back to a plain initials avatar on that
+      // image failing to load, same "no data, not a guess" rule as
+      // everywhere else, rather than assuming every matched instructor
+      // has a real photo on file.
+      username: g.username,
       evalRaw: agg?.raw ?? null,
       evalN: agg?.n ?? 0,
       evalAdj: agg?.adj ?? null,
