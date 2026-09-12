@@ -117,12 +117,39 @@
     </div>
   </div>
 
+  <div class="panel" style="margin-bottom:20px">
+    <div class="phead">Building footprints: every 120 days</div>
+    <div class="pad">
+      <div class="notice" style="margin-bottom:14px">
+        Real building outlines for the Map page's "highlight the whole
+        building" treatment, from OpenStreetMap's public Overpass API --
+        one bounding-box query per building not already on file, matched
+        by whether the building's known point actually falls inside the
+        returned shape. See CLAUDE.md's Data sources entry and
+        <code>scrapers/buildingfootprints.js</code> for the full reasoning.
+        The first run queries every real building on the map (~800) and
+        can take a while; repeat runs only query ones still missing one.
+      </div>
+      <div class="statgrid">
+        <div><div class="lab">Status</div><div class="val" id="footprintsStatus">N/A</div></div>
+        <div><div class="lab">Last run</div><div class="val" id="footprintsLast">N/A</div><div class="sub" id="footprintsLastSub"></div></div>
+        <div><div class="lab">Next automatic run</div><div class="val" id="footprintsNext">N/A</div><div class="sub">Only while the server process stays running</div></div>
+      </div>
+      <div class="progress-live" id="footprintsProgress" hidden>
+        <div class="progress"><i id="footprintsProgressBar" style="width:0%"></i></div>
+        <div class="progress-label" id="footprintsProgressLabel"></div>
+      </div>
+      <button class="btn primary" id="rescrapeFootprintsBtn">Rescrape building footprints now</button>
+      <span id="rescrapeFootprintsMsg" style="margin-left:12px;font-size:13px;color:var(--ink-muted)"></span>
+    </div>
+  </div>
+
   <div class="panel">
     <div class="phead">Recent runs</div>
     <div class="pad" style="overflow-x:auto">
       <table class="admin-table" id="runsTable">
-        <thead><tr><th>Kind</th><th>Trigger</th><th>Status</th><th>Started</th><th>Sections</th><th>New evals</th><th>RMP</th><th>Map</th><th>Summary</th></tr></thead>
-        <tbody id="runsBody"><tr><td colspan="9" class="empty">Loading&hellip;</td></tr></tbody>
+        <thead><tr><th>Kind</th><th>Trigger</th><th>Status</th><th>Started</th><th>Sections</th><th>New evals</th><th>RMP</th><th>Map</th><th>Footprints</th><th>Summary</th></tr></thead>
+        <tbody id="runsBody"><tr><td colspan="10" class="empty">Loading&hellip;</td></tr></tbody>
       </table>
     </div>
   </div>

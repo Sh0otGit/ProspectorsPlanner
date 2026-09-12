@@ -22,6 +22,7 @@ import {
   triggerEvaluationsRun,
   triggerRmpRun,
   triggerCampusMapRun,
+  triggerFootprintsRun,
   lastRun,
   nextAutoRunAt,
   isRunning,
@@ -30,6 +31,7 @@ import {
   EVALUATIONS_INTERVAL_DAYS,
   RMP_INTERVAL_DAYS,
   CAMPUSMAP_INTERVAL_DAYS,
+  FOOTPRINTS_INTERVAL_DAYS,
 } from "./lib/scheduler.js";
 
 const PORT = process.env.PORT || 8420;
@@ -429,6 +431,12 @@ const server = createServer(async (req, res) => {
           nextAutoRunAt: nextAutoRunAt("campusmap").toISOString(),
           autoIntervalDays: CAMPUSMAP_INTERVAL_DAYS,
         },
+        footprints: {
+          running: isRunning("footprints"),
+          lastRun: lastRun("footprints"),
+          nextAutoRunAt: nextAutoRunAt("footprints").toISOString(),
+          autoIntervalDays: FOOTPRINTS_INTERVAL_DAYS,
+        },
       });
     }
     if (pathname === "/admin/api/rescrape-schedule" && req.method === "POST") {
@@ -454,6 +462,12 @@ const server = createServer(async (req, res) => {
       if (isRunning("campusmap")) return sendJson(res, 409, { error: "A campus map scrape is already running." });
       triggerCampusMapRun("manual").catch((e) => console.error("Manual campus map scrape failed:", e.message));
       return sendJson(res, 202, { ok: true, message: "Campus map scrape started." });
+    }
+    if (pathname === "/admin/api/rescrape-footprints" && req.method === "POST") {
+      if (!requireAuth(req, res)) return;
+      if (isRunning("footprints")) return sendJson(res, 409, { error: "A building footprints scrape is already running." });
+      triggerFootprintsRun("manual").catch((e) => console.error("Manual building footprints scrape failed:", e.message));
+      return sendJson(res, 202, { ok: true, message: "Building footprints scrape started." });
     }
     if (pathname === "/admin/api/scrape-runs" && req.method === "GET") {
       if (!requireAuth(req, res)) return;

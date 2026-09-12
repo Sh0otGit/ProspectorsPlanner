@@ -257,6 +257,17 @@ function stackedLabelSVG(lines, x, y){
     + '</text>';
 }
 
+/* A building's real outline (see server/lib/campusmap.js, populated by
+   scrapers/buildingfootprints.js's Overpass match) instead of a plain
+   circle -- null/too-short when no footprint is on file for that
+   building yet, which callers fall back to a circle for, the same "no
+   data, not a guess" rule as everywhere else this map handles a miss. */
+function footprintPolygonSVG(footprint, project){
+  if(!footprint || footprint.length<3) return null;
+  const pts = footprint.map(([lat,lng])=>{ const p = project(lat,lng); return p.x+","+p.y; }).join(" ");
+  return '<polygon points="'+pts+'" class="bldgfootprint"></polygon>';
+}
+
 let mapTipEl = null;
 function showTip(html, x, y){
   if(!mapTipEl){
@@ -393,9 +404,16 @@ function render(){
       const codes = [...new Set(s.picks.map(p=>p.code))];
       const lines = codes.map(code => CATALOG_TITLE[code] ? code+" - "+CATALOG_TITLE[code] : code);
       labelsSVG += stackedLabelSVG(lines, x, y-17);
+      // The numbered badge still marks stop order even when the building's
+      // real outline is on file -- the footprint is drawn underneath it as
+      // a highlight, not a replacement, since the number is the one thing
+      // a route stop can't do without.
+      const footprint = footprintPolygonSVG(s.building.footprint, project);
       pinsSVG += '<g class="bldgpin" tabindex="0" role="button" data-goto-code="'+esc(codes[0])+'" '
+        + 'style="--c:'+c+'" '
         + 'data-tip="'+esc(pinPicksHTML(s.picks))+'" '
         + 'aria-label="Stop '+(i+1)+' of '+routeStops.length+': '+esc(s.building.name)+'. Click to view in Instructors.">'
+        + (footprint || "")
         + '<circle cx="'+x+'" cy="'+y+'" r="11" style="--c:'+c+'"></circle>'
         + '<text x="'+x+'" y="'+(y+4)+'" class="pinbadge">'+(i+1)+'</text>'
         + '</g>';
@@ -407,10 +425,15 @@ function render(){
       const codes = [...new Set(g.picks.map(p=>p.code))];
       const lines = codes.map(code => CATALOG_TITLE[code] ? code+" - "+CATALOG_TITLE[code] : code);
       labelsSVG += stackedLabelSVG(lines, x, y-15);
+      // The real building outline replaces the plain circle when one's on
+      // file (see server/lib/campusmap.js); no footprint yet just falls
+      // back to the circle, same "no data, not a guess" rule as always.
+      const footprint = footprintPolygonSVG(g.building.footprint, project);
       pinsSVG += '<g class="bldgpin" tabindex="0" role="button" data-goto-code="'+esc(codes[0])+'" '
+        + 'style="--c:'+c+'" '
         + 'data-tip="'+esc(pinPicksHTML(g.picks))+'" '
         + 'aria-label="'+esc(g.building.name)+': '+esc(codes.join(", "))+'. Click to view in Instructors.">'
-        + '<circle cx="'+x+'" cy="'+y+'" r="10" style="--c:'+c+'"></circle>'
+        + (footprint || '<circle cx="'+x+'" cy="'+y+'" r="10" style="--c:'+c+'"></circle>')
         + '</g>';
     });
   }

@@ -1,12 +1,8 @@
-/* Two independent scrapers, deliberately not run together:
-     - Schedule: every section, every subject, for one term. Meant to run
-       daily -- rooms/times/instructors can change during add/drop.
-     - Evaluations: every instructor's HB 2504 history, campus-wide. Meant
-       to run once a semester -- eval scores only change when a new term's
-       ratings get published, and a full crawl is ~40k requests (see
-       CLAUDE.md), not something to repeat daily.
-   Both are callable standalone (`node scrapers/run.js schedule` or
-   `node scrapers/run.js evaluations`) and from server/lib/scheduler.js. */
+/* Five independent scrapers, deliberately not run together -- schedule,
+   evaluations, RMP, campus map, and building footprints. See CLAUDE.md's
+   "Backend and admin" section for what each one covers and its cadence.
+   Each is callable standalone (`node scrapers/run.js <kind>`) and from
+   server/lib/scheduler.js. */
 import { pathToFileURL } from "node:url";
 import { db } from "./lib/db.js";
 import { fetchDirectory } from "./faculty_directory.js";
@@ -15,6 +11,7 @@ import { fetchEvaluation } from "./evaluations.js";
 import { fetchSchedule, fetchSubjects } from "./schedule.js";
 import { fetchAllProfessors, fetchProfessorDetail } from "./rmp.js";
 import { fetchCampusLocations } from "./campusmap.js";
+import { fetchBuildingFootprint } from "./buildingfootprints.js";
 import { nameTokenSet, cleanBannerName, findByName } from "../server/lib/name-match.js";
 
 export const DEFAULT_TERM = "202710"; // Fall 2026
@@ -397,7 +394,51 @@ export async function scrapeCampusMap() {
 }
 
 /* =====================================================================
-   CLI: node scrapers/run.js [schedule|evaluations|rmp|campusmap] [--all]
+   BUILDING FOOTPRINTS -- every ~120 days, same cadence/reasoning as
+   campus map itself (buildings don't move). Only real, non-parking
+   locations get queried (a parking lot's own outline isn't "the building
+   a class is in"), and only locations that don't already have a stored
+   footprint -- a building that already matched stays cached forever
+   (footprints don't change), while a genuine miss (the point fell
+   outside every real OSM building way) keeps getting retried on the
+   next run instead of being given up on permanently. See
+   buildingfootprints.js for the Overpass sourcing and the
+   point-in-polygon match. */
+const insertFootprint = db.prepare(
+  `INSERT OR REPLACE INTO building_footprints (location_id, polygon, scraped_at) VALUES (?, ?, ?)`
+);
+
+export async function scrapeBuildingFootprints(onProgress) {
+  const targets = db
+    .prepare(
+      `SELECT id, lat, lng FROM campus_locations
+       WHERE is_parking = 0 AND id NOT IN (SELECT location_id FROM building_footprints)`
+    )
+    .all();
+
+  let found = 0;
+  for (let i = 0; i < targets.length; i++) {
+    const loc = targets[i];
+    let ring = null;
+    try {
+      ring = await fetchBuildingFootprint(loc.lat, loc.lng);
+    } catch (e) {
+      // One building's Overpass request failing (timeout, a transient
+      // 5xx) isn't fatal to the run -- it just stays missing and gets
+      // retried next time, same as any other single-item failure this
+      // project already tolerates rather than aborting a whole scrape.
+    }
+    if (ring) {
+      insertFootprint.run(loc.id, JSON.stringify(ring), new Date().toISOString());
+      found++;
+    }
+    onProgress?.(i + 1, targets.length, `location ${loc.id}`, found);
+  }
+  return { locationsScanned: targets.length, footprintsFound: found };
+}
+
+/* =====================================================================
+   CLI: node scrapers/run.js [schedule|evaluations|rmp|campusmap|footprints] [--all]
 
    "Is this file the one Node was actually invoked on, or just imported
    by something else" (server/lib/scheduler.js imports this same file and
@@ -428,6 +469,12 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     scrapeCampusMap()
       .then((r) => console.log(`${r.locationCount} campus locations stored`))
       .catch((e) => { console.error("Campus map scrape failed:", e.message); process.exit(1); });
+  } else if (mode === "footprints") {
+    scrapeBuildingFootprints((done, total, label, count) =>
+      process.stdout.write(`\r${done}/${total} (${label}), ${count} footprints found   `)
+    )
+      .then((r) => console.log(`\n${r.footprintsFound} of ${r.locationsScanned} buildings matched to a real OSM footprint`))
+      .catch((e) => { console.error("\nBuilding footprints scrape failed:", e.message); process.exit(1); });
   } else if (mode === "schedule" || mode === undefined) {
     scrapeAllSections(undefined, (done, total, label, count) =>
       process.stdout.write(`\r${done}/${total} subjects (${label}), ${count} sections   `)
@@ -435,7 +482,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       .then((r) => console.log(`\n${r.subjectsScanned} subjects scanned, ${r.sectionsCount} sections`))
       .catch((e) => { console.error("\nSchedule scrape failed:", e.message); process.exit(1); });
   } else {
-    console.error(`Unknown mode "${mode}". Use "schedule", "evaluations", "rmp", or "campusmap".`);
+    console.error(`Unknown mode "${mode}". Use "schedule", "evaluations", "rmp", "campusmap", or "footprints".`);
     process.exit(1);
   }
 }

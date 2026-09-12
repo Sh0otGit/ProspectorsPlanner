@@ -1,4 +1,4 @@
-/* Four independent auto-schedules, each checked against its own last
+/* Five independent auto-schedules, each checked against its own last
    completed run in SQLite (not an in-memory timer, so a restart doesn't
    reset the countdown):
      - schedule: every 24 hours -- rooms/times/instructors can change
@@ -14,27 +14,33 @@
        buildings and parking lots don't move on anything faster than a
        semesters-not-days timescale. See scrapers/campusmap.js for the
        Concept3D sourcing.
+     - footprints: every ~120 days, same reasoning as campusmap -- real
+       building outlines for the Map page's building highlight, one
+       Overpass query per building not already on file. See
+       scrapers/buildingfootprints.js for the Overpass sourcing.
    None auto-run on a brand new database with no prior run -- the first
    run of any, especially evaluations' ~40k-request backfill, is a
    deliberate action via the admin ingestion page's buttons, not something
    that should silently kick off the moment the server boots. */
 import { db } from "../../scrapers/lib/db.js";
-import { scrapeAllSections, scrapeAllEvaluations, scrapeRmp, scrapeCampusMap } from "../../scrapers/run.js";
+import { scrapeAllSections, scrapeAllEvaluations, scrapeRmp, scrapeCampusMap, scrapeBuildingFootprints } from "../../scrapers/run.js";
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
 export const SCHEDULE_INTERVAL_HOURS = 24;
 export const EVALUATIONS_INTERVAL_DAYS = 120;
 export const RMP_INTERVAL_DAYS = 30;
 export const CAMPUSMAP_INTERVAL_DAYS = 120;
+export const FOOTPRINTS_INTERVAL_DAYS = 120;
 
 const INTERVAL_DAYS = {
   schedule: SCHEDULE_INTERVAL_HOURS / 24,
   evaluations: EVALUATIONS_INTERVAL_DAYS,
   rmp: RMP_INTERVAL_DAYS,
   campusmap: CAMPUSMAP_INTERVAL_DAYS,
+  footprints: FOOTPRINTS_INTERVAL_DAYS,
 };
 
-const running = { schedule: false, evaluations: false, rmp: false, campusmap: false };
+const running = { schedule: false, evaluations: false, rmp: false, campusmap: false, footprints: false };
 
 export function lastRun(kind) {
   return db.prepare(`SELECT * FROM scrape_runs WHERE kind = ? ORDER BY id DESC LIMIT 1`).get(kind) || null;
@@ -53,17 +59,17 @@ export function isRunning(kind) {
 }
 
 const updateProgress = db.prepare(
-  `UPDATE scrape_runs SET progress_current=?, progress_done=?, progress_total=?, sections_count=?, evaluations_count=?, rmp_count=?, campusmap_count=? WHERE id=?`
+  `UPDATE scrape_runs SET progress_current=?, progress_done=?, progress_total=?, sections_count=?, evaluations_count=?, rmp_count=?, campusmap_count=?, footprints_count=? WHERE id=?`
 );
 
 /* fn receives an onProgress(done, total, label, count) it can call as
-   often as it likes -- scrapeAllSections/scrapeAllEvaluations/scrapeRmp
-   call it once per subject/instructor/professor, which is what makes the
-   ingestion page's numbers move during a run instead of sitting at 0
-   until it finishes (scrapeCampusMap is one request, done or not, so it
-   never calls this at all). countKind says which of sections_count/
-   evaluations_count/rmp_count/campusmap_count `count` from onProgress
-   feeds for the live display. */
+   often as it likes -- scrapeAllSections/scrapeAllEvaluations/scrapeRmp/
+   scrapeBuildingFootprints call it once per subject/instructor/professor/
+   location, which is what makes the ingestion page's numbers move during
+   a run instead of sitting at 0 until it finishes (scrapeCampusMap is one
+   request, done or not, so it never calls this at all). countKind says
+   which of sections_count/evaluations_count/rmp_count/campusmap_count/
+   footprints_count `count` from onProgress feeds for the live display. */
 async function runOne(kind, trigger, fn, formatSummary, countKind) {
   if (running[kind]) throw new Error(`A ${kind} scrape is already running.`);
   running[kind] = true;
@@ -81,6 +87,7 @@ async function runOne(kind, trigger, fn, formatSummary, countKind) {
       countKind === "evaluations" ? count : 0,
       countKind === "rmp" ? count : 0,
       countKind === "campusmap" ? count : 0,
+      countKind === "footprints" ? count : 0,
       lastInsertRowid
     );
   };
@@ -88,7 +95,7 @@ async function runOne(kind, trigger, fn, formatSummary, countKind) {
   try {
     const result = await fn(onProgress);
     db.prepare(
-      `UPDATE scrape_runs SET status='done', finished_at=?, summary=?, sections_count=?, evaluations_count=?, rmp_count=?, campusmap_count=?, progress_current=NULL WHERE id=?`
+      `UPDATE scrape_runs SET status='done', finished_at=?, summary=?, sections_count=?, evaluations_count=?, rmp_count=?, campusmap_count=?, footprints_count=?, progress_current=NULL WHERE id=?`
     ).run(
       new Date().toISOString(),
       formatSummary(result),
@@ -96,6 +103,7 @@ async function runOne(kind, trigger, fn, formatSummary, countKind) {
       result.newEvaluations ?? 0,
       result.reviewCount ?? 0,
       result.locationCount ?? 0,
+      result.footprintsFound ?? 0,
       lastInsertRowid
     );
     return result;
@@ -155,11 +163,22 @@ export function triggerCampusMapRun(trigger) {
   );
 }
 
+export function triggerFootprintsRun(trigger) {
+  return runOne(
+    "footprints",
+    trigger,
+    (onProgress) => scrapeBuildingFootprints(onProgress),
+    (r) => `${r.footprintsFound} of ${r.locationsScanned} buildings matched to a real OSM footprint`,
+    "footprints"
+  );
+}
+
 const AUTO_TRIGGERS = [
   ["schedule", triggerScheduleRun],
   ["evaluations", triggerEvaluationsRun],
   ["rmp", triggerRmpRun],
   ["campusmap", triggerCampusMapRun],
+  ["footprints", triggerFootprintsRun],
 ];
 
 /* Only fires while this server process is alive. There's no OS-level cron

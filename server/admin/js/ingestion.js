@@ -3,8 +3,9 @@ const KINDS = {
   evaluations: { prefix: "eval", btn: "rescrapeEvalBtn", msg: "rescrapeEvalMsg", label: "Rescrape evaluations now", countField: "evaluations_count", countLabel: (n) => `${n} new evaluations` },
   rmp: { prefix: "rmp", btn: "rescrapeRmpBtn", msg: "rescrapeRmpMsg", label: "Rescrape RMP now", countField: "rmp_count", countLabel: (n) => `${n} reviews` },
   campusmap: { prefix: "campusmap", btn: "rescrapeCampusmapBtn", msg: "rescrapeCampusmapMsg", label: "Rescrape campus map now", countField: "campusmap_count", countLabel: (n) => `${n} locations` },
+  footprints: { prefix: "footprints", btn: "rescrapeFootprintsBtn", msg: "rescrapeFootprintsMsg", label: "Rescrape building footprints now", countField: "footprints_count", countLabel: (n) => `${n} footprints found` },
 };
-const nextAutoRunAt = { schedule: null, evaluations: null, rmp: null, campusmap: null };
+const nextAutoRunAt = { schedule: null, evaluations: null, rmp: null, campusmap: null, footprints: null };
 
 function fmtDate(iso) {
   if (!iso) return "Never";
@@ -70,7 +71,7 @@ async function loadRuns() {
   const { runs } = await res.json();
   const body = document.getElementById("runsBody");
   if (!runs.length) {
-    body.innerHTML = '<tr><td colspan="9" class="empty">No runs yet.</td></tr>';
+    body.innerHTML = '<tr><td colspan="10" class="empty">No runs yet.</td></tr>';
     return;
   }
   body.innerHTML = runs.map((r) => `
@@ -83,6 +84,7 @@ async function loadRuns() {
       <td>${r.evaluations_count ?? "N/A"}</td>
       <td>${r.rmp_count ?? "N/A"}</td>
       <td>${r.campusmap_count ?? "N/A"}</td>
+      <td>${r.footprints_count ?? "N/A"}</td>
       <td style="max-width:280px">${r.summary ? escapeHtml(r.summary) : ""}</td>
     </tr>`).join("");
 }
@@ -121,6 +123,14 @@ document.getElementById("rescrapeCampusmapBtn").onclick = async () => {
   const res = await adminFetch("/admin/api/rescrape-campusmap", { method: "POST" });
   const body = await res.json().catch(() => ({}));
   msg.textContent = res.status === 202 ? "Started." : (body.error || "Could not start.");
+  await refresh();
+};
+
+document.getElementById("rescrapeFootprintsBtn").onclick = async () => {
+  const msg = document.getElementById("rescrapeFootprintsMsg");
+  const res = await adminFetch("/admin/api/rescrape-footprints", { method: "POST" });
+  const body = await res.json().catch(() => ({}));
+  msg.textContent = res.status === 202 ? "Started -- the first run queries every building, this can take a while." : (body.error || "Could not start.");
   await refresh();
 };
 

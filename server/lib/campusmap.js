@@ -121,8 +121,18 @@ function displayName(name) {
   return name.replace(DUPLICATE_SUFFIX_RE, "").replace(DUPLICATE_PREFIX_RE, "").trim();
 }
 
-/* locations: [{id, name, lat, lng, isParking}], typically every row from
-   campus_locations. Returns {id, name, lat, lng} or null. */
+// building_footprints stores a JSON [[lat,lng], ...] ring per location id
+// that actually resolved to a real OSM building way (see
+// scrapers/buildingfootprints.js) -- a location with no row there just has
+// no footprint on file, parsed here as null rather than guessed.
+function parseFootprint(json) {
+  if (!json) return null;
+  try { return JSON.parse(json); } catch { return null; }
+}
+
+/* locations: [{id, name, lat, lng, isParking, footprintJson}], typically
+   every row from allLocations() below. Returns {id, name, lat, lng,
+   footprint} or null. */
 export function matchBuilding(room, locations) {
   if (!room) return null;
   const roomLower = room.toLowerCase();
@@ -135,7 +145,7 @@ export function matchBuilding(room, locations) {
       bestLen = nameLower.length;
     }
   }
-  if (best) return { id: best.id, name: displayName(best.name), lat: best.lat, lng: best.lng };
+  if (best) return { id: best.id, name: displayName(best.name), lat: best.lat, lng: best.lng, footprint: parseFootprint(best.footprintJson) };
 
   const roomTokens = tokens(room);
   let bestScore = 0, bestLoc = null;
@@ -147,7 +157,7 @@ export function matchBuilding(room, locations) {
     }
   }
   if (bestLoc && bestScore >= FUZZY_THRESHOLD) {
-    return { id: bestLoc.id, name: displayName(bestLoc.name), lat: bestLoc.lat, lng: bestLoc.lng };
+    return { id: bestLoc.id, name: displayName(bestLoc.name), lat: bestLoc.lat, lng: bestLoc.lng, footprint: parseFootprint(bestLoc.footprintJson) };
   }
   return null;
 }
@@ -158,9 +168,17 @@ export function matchBuilding(room, locations) {
    rescrape isn't worth the risk. Callers matching more than one room
    (catalog.js's getCourse(), matching every section in one course) should
    call this once and reuse it with matchBuilding() directly rather than
-   re-querying per room. */
+   re-querying per room. LEFT JOIN, not a second query per location -- a
+   location with no footprint scraped yet (or ever, if it's a parking lot)
+   just comes back with footprintJson null. */
 export function allLocations() {
-  return db.prepare(`SELECT id, name, lat, lng, is_parking AS isParking FROM campus_locations`).all();
+  return db
+    .prepare(
+      `SELECT c.id, c.name, c.lat, c.lng, c.is_parking AS isParking, f.polygon AS footprintJson
+       FROM campus_locations c
+       LEFT JOIN building_footprints f ON f.location_id = c.id`
+    )
+    .all();
 }
 
 /* Every parking-lot point, for the Map page's optional parking layer --

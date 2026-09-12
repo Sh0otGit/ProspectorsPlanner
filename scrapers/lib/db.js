@@ -206,6 +206,21 @@ CREATE TABLE IF NOT EXISTS campus_locations (
   scraped_at  TEXT NOT NULL
 );
 
+/* Real building outline for the Map page's "highlight the whole building"
+   treatment, one row per campus_locations id that actually resolved to a
+   real OSM building way -- see scrapers/buildingfootprints.js for the
+   Overpass sourcing and the point-in-polygon match. A location with no
+   row here just has no footprint on file (rendered as the plain pin
+   treatment instead, never a guessed shape); scraped independently of
+   campus_locations itself since not every location needs one queried
+   (parking lots don't) and a miss should keep getting retried on the next
+   run without re-fetching every building that already matched. */
+CREATE TABLE IF NOT EXISTS building_footprints (
+  location_id  INTEGER PRIMARY KEY,
+  polygon      TEXT NOT NULL,  -- JSON [[lat,lng], ...], one closed ring
+  scraped_at   TEXT NOT NULL
+);
+
 /* Anonymous engagement events -- which pages get visited, how long, and a
    handful of specific interactions (Copy CRN, Add to schedule, an
    outbound link, the Map page's Routes tab), for the admin Analytics
@@ -242,6 +257,7 @@ ensureColumn("scrape_runs", "progress_done", `progress_done INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "progress_total", `progress_total INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "rmp_count", `rmp_count INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "campusmap_count", `campusmap_count INTEGER DEFAULT 0`);
+ensureColumn("scrape_runs", "footprints_count", `footprints_count INTEGER DEFAULT 0`);
 ensureColumn("rmp_professors", "dist_r1", `dist_r1 INTEGER`);
 ensureColumn("rmp_professors", "dist_r2", `dist_r2 INTEGER`);
 ensureColumn("rmp_professors", "dist_r3", `dist_r3 INTEGER`);
