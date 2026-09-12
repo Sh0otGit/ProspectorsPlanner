@@ -435,8 +435,10 @@ function renderChrome(){
     if(next){ next.disabled=c===0; next.textContent="Continue"; }
     if(hint) hint.textContent = c ? numCap(c)+" course"+(c>1?"s":"")+" selected" : "Select at least one course";
   } else if(n===2){
-    if(next){ next.disabled=false; next.textContent = state.blocked.size ? "Continue" : "Skip"; }
-    if(hint) hint.textContent = state.blocked.size ? numCap(state.blocked.size)+" half-hour blocks marked" : "No hours blocked";
+    const hasCourses = state.picked.size>0;
+    if(next){ next.disabled = !hasCourses; next.textContent = state.blocked.size ? "Continue" : "Skip"; }
+    if(hint) hint.textContent = !hasCourses ? "Select at least one course first"
+      : (state.blocked.size ? numCap(state.blocked.size)+" half-hour blocks marked" : "No hours blocked");
   } else if(n===3){
     const c=state.chosen.size;
     if(next){ next.disabled=c===0; next.textContent="View Schedule"; }
