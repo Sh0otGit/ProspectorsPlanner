@@ -464,8 +464,8 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
    short content. syncSectionListHeights() in page-instructors.js caps
    .sectlist to .prof-main's real height afterward, in JS, since CSS
    alone can't express "B follows A's size, never the reverse." */
-.prof{display:grid;grid-template-columns:1fr 296px;border-top:2px solid var(--rule-strong);align-items:start}
-.prof:first-of-type{border-top:0}
+.prof{display:grid;grid-template-columns:1fr 296px;border:1px solid var(--rule-strong);border-radius:2px;align-items:start;margin-bottom:14px}
+.prof:last-of-type{margin-bottom:0}
 .prof.dim .prof-main{opacity:.62}
 .prof-main{padding:16px 18px;min-width:0}
 /* Lighter than the card's own outer/between-card borders (--rule, not
