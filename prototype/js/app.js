@@ -400,21 +400,31 @@ function renderChrome(){
   const mapLink = $("[data-map-link]");
   if(mapLink) mapLink.onclick = () => { location.href = "map"; };
 
-  /* No fixed bottom bar -- each page places its own Back/Skip/Continue
+  /* No fixed bottom bar -- each page places its own Back/Continue
      inline wherever makes sense for that page's layout (courses and
      availability under their main panel, instructors under the Your
      Courses tab, schedule under the calendar). Every lookup here is
      optional: a page that doesn't have a given control just skips
      wiring it instead of erroring on a missing element. */
-  const back=$("#backBtn"), skip=$("#skipBtn"), next=$("#nextBtn"), hint=$("#navHint");
+  const back=$("#backBtn"), next=$("#nextBtn"), hint=$("#navHint");
 
   if(back){
     back.style.visibility = n<=0 ? "hidden" : "visible";
-    back.onclick = ()=>{ location.href = SCREENS[n-1]; };
-  }
-  if(skip){
-    skip.style.display = n===2 ? "" : "none";
-    skip.onclick = ()=>{ location.href = SCREENS[3]; };
+    /* Not a plain "previous step" step-back: any page past Courses with
+       no courses picked yet (reached directly by URL, or state cleared
+       in another tab) sends Back to Courses instead of a step that has
+       nothing to show, and Availability's own back always lands on
+       Courses too -- both already agree with the default n-1 target,
+       stated explicitly here rather than relying on that arithmetic.
+       Map isn't in SCREENS/n's normal 1-4 numbering, so it needs its own
+       case instead of an n-1 lookup. */
+    back.onclick = () => {
+      if(n===1){ location.href = SCREENS[0]; return; }
+      if(!state.picked.size || n===2){ location.href = SCREENS[1]; return; }
+      if(n===3){ location.href = SCREENS[2]; return; }
+      if(n===4){ location.href = SCREENS[3]; return; }
+      if(n==="map"){ location.href = SCREENS[4]; return; }
+    };
   }
   if(next){
     next.onclick = ()=>{ location.href = SCREENS[n+1]; };
@@ -425,7 +435,7 @@ function renderChrome(){
     if(next){ next.disabled=c===0; next.textContent="Continue"; }
     if(hint) hint.textContent = c ? numCap(c)+" course"+(c>1?"s":"")+" selected" : "Select at least one course";
   } else if(n===2){
-    if(next){ next.disabled=false; next.textContent="Continue"; }
+    if(next){ next.disabled=false; next.textContent = state.blocked.size ? "Continue" : "Skip"; }
     if(hint) hint.textContent = state.blocked.size ? numCap(state.blocked.size)+" half-hour blocks marked" : "No hours blocked";
   } else if(n===3){
     const c=state.chosen.size;
@@ -464,7 +474,7 @@ const SITE_HEADER_HTML = `
       </span>
     </a>
     <span class="spacer"></span>
-    <span class="tag">Real UTEP course data</span>
+    <span class="tag">Because Goldmine sucks</span>
   </div>
 </div>`;
 
@@ -483,17 +493,15 @@ const SITE_FOOTER_HTML = `
         <h2>UTEP links</h2>
         <ul>
           <li><a href="https://goldmine9.utep.edu/" target="_blank" rel="noopener">Goldmine</a></li>
-          <li><a href="#" class="stublink">Registration dates</a></li>
-          <li><a href="#" class="stublink">Add and drop</a></li>
-          <li><a href="#" class="stublink">Academic calendar</a></li>
+          <li><a href="https://www.utep.edu/registrar/students/registration.html" target="_blank" rel="noopener">Registration</a></li>
+          <li><a href="https://www.utep.edu/registrar/academic-calendars/" target="_blank" rel="noopener">Academic calendar</a></li>
         </ul>
       </div>
       <div>
         <h2>Data sources</h2>
         <ul>
-          <li><a href="#" class="stublink">HB 2504 faculty profiles</a></li>
-          <li><a href="#" class="stublink">Class schedule search</a></li>
-          <li><a href="#" class="stublink">Course catalog</a></li>
+          <li><a href="https://hb2504.utep.edu/" target="_blank" rel="noopener">HB 2504 faculty profiles</a></li>
+          <li><a href="https://www.ratemyprofessors.com/" target="_blank" rel="noopener">Rate My Professors</a></li>
         </ul>
       </div>
       <div>
@@ -519,13 +527,7 @@ const SITE_FOOTER_HTML = `
 function renderSiteChrome(){
   const h = $("#siteHeader"), f = $("#siteFooter");
   if(h) h.innerHTML = SITE_HEADER_HTML;
-  if(f){
-    f.innerHTML = SITE_FOOTER_HTML;
-    // Footer links for data sources this project describes but doesn't yet
-    // link out to individually. Bound here instead of inline onclick=""
-    // attributes so the CSP's script-src doesn't need 'unsafe-inline'.
-    $$(".stublink",f).forEach(a=>a.onclick=e=>e.preventDefault());
-  }
+  if(f) f.innerHTML = SITE_FOOTER_HTML;
 }
 renderSiteChrome();
 

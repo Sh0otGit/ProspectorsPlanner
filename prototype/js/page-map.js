@@ -167,45 +167,72 @@ function projectAt(camera){
   return (lat,lng) => ({ x: worldX(lng,camera.zoom)-camera.offX, y: worldY(lat,camera.zoom)-camera.offY });
 }
 
-/* How far the camera is allowed to pan: the whole campus footprint
-   (DEFAULT_BOUNDS, widened to also cover any picked point outside it,
-   e.g. a satellite building) plus a margin, in world pixels at the
-   camera's zoom -- "a scroll border where I can't scroll too far past
-   the edge buildings," not a hard clamp to whatever's tightly in view.
-   Applied every render, so a drag, an auto-fit, or a resize all land
-   somewhere valid. Always uses every added section's location (not just
-   whatever the current tab/day is showing), so switching tabs never
-   changes how far you're allowed to pan. */
-function clampCamera(camera, points){
-  camera.zoom = Math.max(camera.zoom, CAMPUS_FIT_ZOOM);
+/* The whole campus footprint (DEFAULT_BOUNDS, widened to also cover any
+   picked point outside it, e.g. a satellite building) plus a margin,
+   converted to a world-pixel offset range at the given zoom -- shared by
+   clampCamera (what offX/offY are allowed to land on) and tileLayerSVG
+   (what area of tiles to have ready so panning inside that same range
+   never needs a fresh tile). */
+function pannableWorldBounds(zoom, points){
   const b = { ...DEFAULT_BOUNDS };
   for(const p of points){
     b.minLat = Math.min(b.minLat, p.lat); b.maxLat = Math.max(b.maxLat, p.lat);
     b.minLng = Math.min(b.minLng, p.lng); b.maxLng = Math.max(b.maxLng, p.lng);
   }
   const marginLat = (b.maxLat-b.minLat)*0.2, marginLng = (b.maxLng-b.minLng)*0.2;
-  const { zoom } = camera;
   const wx0 = worldX(b.minLng-marginLng, zoom), wx1 = worldX(b.maxLng+marginLng, zoom);
   const wy0 = worldY(b.maxLat+marginLat, zoom), wy1 = worldY(b.minLat-marginLat, zoom);
-  const minOffX = wx0, maxOffX = wx1-MAP_W, minOffY = wy0, maxOffY = wy1-MAP_H;
+  return { minOffX: wx0, maxOffX: wx1-MAP_W, minOffY: wy0, maxOffY: wy1-MAP_H };
+}
+
+/* How far the camera is allowed to pan -- "a scroll border where I can't
+   scroll too far past the edge buildings," not a hard clamp to whatever's
+   tightly in view. Applied every render *and* on every live drag frame
+   (see panMove below) so the view can never visually cross the border
+   mid-drag, only to be snapped back once the mouse is released. Always
+   uses every added section's location (not just whatever the current
+   tab/day is showing), so switching tabs never changes how far you're
+   allowed to pan. */
+function clampCamera(camera, points){
+  camera.zoom = Math.max(camera.zoom, CAMPUS_FIT_ZOOM);
+  const { minOffX, maxOffX, minOffY, maxOffY } = pannableWorldBounds(camera.zoom, points);
   camera.offX = maxOffX >= minOffX ? Math.min(Math.max(camera.offX, minOffX), maxOffX) : (minOffX+maxOffX)/2;
   camera.offY = maxOffY >= minOffY ? Math.min(Math.max(camera.offY, minOffY), maxOffY) : (minOffY+maxOffY)/2;
 }
 
-/* SVG <image> tiles covering the visible MAP_W x MAP_H area at the
-   camera's zoom, plus a one-tile buffer on every side so a drag in
-   progress (rendered every animation frame, see the pan handlers below)
-   doesn't flash blank edges before the next frame catches up -- see
-   https://operations.osmfoundation.org/policies/tiles/ for the OSM tile
-   usage policy this stays within (plain browser-rendered <img>-
-   equivalents, standard attribution below the map, no bulk/automated
-   fetching). Longitude wraps around the world; latitude tiles outside
-   the valid 0..2^zoom-1 range (past the poles) are skipped. */
-function tileLayerSVG(camera){
+/* SVG <image> tiles. Covers the *entire* pannable area (see
+   pannableWorldBounds) at the camera's zoom, not just the current
+   viewport, so a drag never needs a fresh tile fetch/redecode partway
+   through -- the tick of "reloading" that a rebuilt <image> element
+   causes even on an already-cached tile (see the pan handlers below).
+   Capped at MAX_PRELOAD_TILES: at deep manual zoom the same campus-wide
+   pannable area can be thousands of tiles, which would be both slow and
+   well past https://operations.osmfoundation.org/policies/tiles/'s
+   "browser-normal request volume" -- past the cap this falls back to
+   just the visible viewport plus a one-tile drag buffer, refreshed as
+   the pan handlers below already do. Longitude wraps around the world;
+   latitude tiles outside the valid 0..2^zoom-1 range (past the poles)
+   are skipped. */
+const MAX_PRELOAD_TILES = 300;
+/* Set by tileLayerSVG every render(): whether that render covered the
+   *entire* pannable area (true) or had to fall back to just the viewport
+   plus a buffer (false, only past MAX_PRELOAD_TILES). panMove's live-drag
+   loop reads this to decide whether it ever needs to force a mid-drag
+   render() -- when the whole area is already on screen there's nothing a
+   mid-drag render could add, so skipping it entirely removes the last
+   source of tile-rebuild flicker during an ordinary drag. */
+let tilesFullyPreloaded = true;
+function tileLayerSVG(camera, points){
   const { zoom, offX, offY } = camera;
   const n = Math.pow(2, zoom);
-  const x0 = Math.floor(offX / TILE) - 1, x1 = Math.floor((offX+MAP_W) / TILE) + 1;
-  const y0 = Math.floor(offY / TILE) - 1, y1 = Math.floor((offY+MAP_H) / TILE) + 1;
+  const full = pannableWorldBounds(zoom, points);
+  let x0 = Math.floor(full.minOffX / TILE) - 1, x1 = Math.floor((full.maxOffX+MAP_W) / TILE) + 1;
+  let y0 = Math.floor(full.minOffY / TILE) - 1, y1 = Math.floor((full.maxOffY+MAP_H) / TILE) + 1;
+  tilesFullyPreloaded = (x1-x0+1) * (y1-y0+1) <= MAX_PRELOAD_TILES;
+  if(!tilesFullyPreloaded){
+    x0 = Math.floor(offX / TILE) - 1; x1 = Math.floor((offX+MAP_W) / TILE) + 1;
+    y0 = Math.floor(offY / TILE) - 1; y1 = Math.floor((offY+MAP_H) / TILE) + 1;
+  }
   let html = "";
   for(let ty=y0; ty<=y1; ty++){
     if(ty < 0 || ty >= n) continue;
@@ -338,9 +365,10 @@ function render(){
   }
   const points = groups.map(g=>g.building).concat(showParking && parkingLocations ? parkingLocations : []);
   clampCamera(camera, points);
+  lastClampPoints = points; // so a live drag (see panMove below) can clamp with the same bound
   const project = projectAt(camera);
 
-  let svg = tileLayerSVG(camera);
+  let svg = tileLayerSVG(camera, points);
 
   if(showParking && parkingLocations){
     svg += parkingLocations.map(p=>{
@@ -461,12 +489,15 @@ $$(".ptab", $("#panelTabs")).forEach(b=>{
    cache, which reads as constant "reloading" during a drag. Instead,
    live dragging just moves the existing <g id="mapLayer"> with a cheap
    CSS-space `transform`, touching zero tile elements; a real render()
-   (new tiles fetched/decoded, everything reclamped) only happens when
-   the live offset would start exposing the unrendered edge beyond
-   tileLayerSVG's one-tile buffer, or once the drag actually ends. Every
+   only happens once the drag actually ends, or (in the rare deep-zoom
+   case tileLayerSVG's MAX_PRELOAD_TILES cap falls back on) once the live
+   offset would start exposing an edge beyond the buffered tiles. Every
    render() records `renderedCamera`, the {zoom,offX,offY} that content
    was actually built for, so panMove can measure how far the live
-   camera has since drifted from what's on screen.
+   camera has since drifted from what's on screen. panMove also runs the
+   same clampCamera() render() applies, every frame, so the live drag can
+   never visually cross the pan border -- only snap back on release, the
+   way it used to.
    `dragged` distinguishes an actual drag from a click so a building pin
    still navigates on a genuine tap, not after being nudged a pixel or
    two mid-click. */
@@ -474,6 +505,7 @@ let dragState = null;
 let dragged = false;
 let panRaf = null;
 let renderedCamera = null;
+let lastClampPoints = []; // set every render(), reused so a live drag can clamp with the same bound
 function svgScale(){
   const svgEl = $("#campusMap");
   if(!svgEl) return 1;
@@ -491,12 +523,13 @@ function panMove(clientX, clientY){
   if(Math.abs(dx) > 3 || Math.abs(dy) > 3) dragged = true;
   camera.offX = dragState.startOffX - dx;
   camera.offY = dragState.startOffY - dy;
+  clampCamera(camera, lastClampPoints); // never let the live drag visually cross the pan border
   if(panRaf) return;
   panRaf = requestAnimationFrame(() => {
     panRaf = null;
     if(!renderedCamera || camera.zoom!==renderedCamera.zoom){ render(); return; }
     const liveDx = camera.offX-renderedCamera.offX, liveDy = camera.offY-renderedCamera.offY;
-    if(Math.abs(liveDx) > TILE*0.75 || Math.abs(liveDy) > TILE*0.75){
+    if(!tilesFullyPreloaded && (Math.abs(liveDx) > TILE*0.75 || Math.abs(liveDy) > TILE*0.75)){
       render(); // the live offset is about to outrun the buffered tiles -- refresh for real
     } else {
       const layer = document.getElementById("mapLayer");
@@ -505,6 +538,7 @@ function panMove(clientX, clientY){
   });
 }
 function panEnd(){
+  if(!dragState) return; // no pan actually in progress -- a click/release anywhere else on the page
   dragState = null;
   if(camera) render(); // settle: clamp for real, refresh tiles, drop the transform
 }

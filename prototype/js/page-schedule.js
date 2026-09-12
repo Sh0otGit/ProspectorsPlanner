@@ -188,7 +188,14 @@ function wireCalHover(picks){
   const cal = $("#schedCal");
   cal.onmouseover = e => {
     const el = e.target.closest("[data-crn],[data-crns]");
-    if(!el) return;
+    if(!el){
+      // Moved onto a cell with no class in it (still inside the calendar,
+      // so mouseleave below never fires) -- clear the highlight/tooltip
+      // instead of leaving them stuck from whichever cell was last hovered.
+      $$("[data-crn],[data-crns]",cal).forEach(x=>x.classList.remove("hoverblk"));
+      calTipEl.style.display = "none";
+      return;
+    }
     const crns = el.dataset.crn ? [el.dataset.crn] : el.dataset.crns.split(",");
     $$("[data-crn]",cal).forEach(x=>x.classList.toggle("hoverblk", crns.includes(x.dataset.crn)));
     $$("[data-crns]",cal).forEach(x=>x.classList.toggle("hoverblk", x.dataset.crns.split(",").some(c=>crns.includes(c))));

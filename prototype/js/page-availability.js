@@ -40,7 +40,7 @@ function updBlockCount(){
   const n=state.blocked.size;
   $("#blockCount").textContent = n
     ? numCap(n)+" half-hour blocks marked unavailable"
-    : "No hours blocked. Drag across the grid, or skip this step.";
+    : "No hours blocked. Drag across the grid, or continue.";
 }
 
 $("#clearBlocks").onclick = ()=>{ state.blocked.clear(); saveState(); renderBlockCal(); renderChrome(); };

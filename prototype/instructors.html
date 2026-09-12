@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Compare real UTEP instructor ratings from HB 2504 course evaluations and Rate My Professors.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta property="og:title" content="Instructors by course | Prospector's Planner">
+<meta property="og:title" content="Choose your instructor | Prospector's Planner">
 <meta property="og:description" content="Compare real UTEP instructor ratings from HB 2504 course evaluations and Rate My Professors.">
 <meta property="og:type" content="website">
-<title>Instructors by course | Prospector's Planner</title>
+<title>Choose your instructor | Prospector's Planner</title>
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -26,9 +26,9 @@
 <div class="titleband">
   <div class="wrap">
     <div class="kicker">Step 3 of 4</div>
-    <h1>Instructors by course</h1>
-    <p>Select a course on the left. Instructors are ranked by a score that weights UTEP course
-       evaluations and Rate My Professors equally, where both exist.</p>
+    <h1>Choose Your Instructor</h1>
+    <p>Select a course on the left, and choose the instructor and class section you wish to take.
+       Instructors are rated and scored from course evaluation and Rate My Professor data.</p>
   </div>
 </div>
 
@@ -38,8 +38,9 @@
       <div class="panel">
         <div class="phead">Your courses</div>
         <div id="courseTabs"></div>
-        <div class="pad">
-          <button class="btn primary" id="nextBtn" style="width:100%">View schedule</button>
+        <div class="pad" style="display:flex;gap:8px">
+          <button class="btn" id="backBtn">Back</button>
+          <button class="btn primary" id="nextBtn" style="flex:1">View schedule</button>
         </div>
       </div>
       <div class="panel" style="margin-top:16px">
