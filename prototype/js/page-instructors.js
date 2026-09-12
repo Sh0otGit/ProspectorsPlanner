@@ -147,25 +147,17 @@ function renderResults(){
   });
 
   const code = state.activeCourse;
-  const title = CATALOG_TITLE[code];
   let profs = (CATALOG[code] || []).slice();
   profs.sort((a,b)=>{
     const sa=combined(a), sb=combined(b);
     if(sa==null) return 1; if(sb==null) return -1;
     return sb-sa;
   });
-  const entries = chosenEntries(code);
   const rows = profs.map(p=>profHTML(code,p)).join("");
 
   $("#resultsList").innerHTML =
     companionNoticesHTML(code)
-    + '<section class="coursepanel"><header>'
-    + '<span class="code">'+esc(code)+'</span><span class="ttl">'+(title?esc(title):"")+'</span>'
-    + (entries.length ? '<span class="badge on">'+entries.map(e=>"CRN "+esc(e.crn)).join(", ")+' added</span>'
-            : '<span class="badge">'+num(profs.length)+' instructor'+(profs.length===1?"":"s")+'</span>')
-    + '</header>'
-    + (rows || '<div class="empty">No instructors listed for this course this term.</div>')
-    + '</section>';
+    + (rows || '<div class="empty">No instructors listed for this course this term.</div>');
 
   syncSectionListHeights();
 
