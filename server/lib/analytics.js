@@ -32,9 +32,10 @@ export function insertEvents(sessionId, events) {
   }
 }
 
-// Canonical order for the funnel view -- the four-step flow plus Start and
-// Map, not sorted by volume, since a funnel's whole point is the order
-// and where sessions drop off between one step and the next.
+// The four-step flow plus Start and Map, in that fixed order rather than
+// sorted by volume -- used to order pageViews below so it still reads as
+// a funnel (where sessions drop off step to step) without needing its
+// own separate funnel panel/computation.
 const FUNNEL_PAGES = ["index", "courses", "availability", "instructors", "schedule", "map"];
 
 function topEntries(map, limit) {
@@ -42,6 +43,16 @@ function topEntries(map, limit) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([key, n]) => ({ key, n }));
+}
+
+/* The four/five/six-step flow first, in that fixed order (so the page-view
+   counts still read like a funnel -- drop-off step to step -- without a
+   separate funnel computation), then whatever other pages got views,
+   sorted by count. */
+function orderedPageViews(pageViews, limit) {
+  const stepRows = FUNNEL_PAGES.filter((p) => pageViews.has(p)).map((page) => ({ key: page, n: pageViews.get(page) }));
+  const rest = new Map([...pageViews].filter(([p]) => !FUNNEL_PAGES.includes(p)));
+  return [...stepRows, ...topEntries(rest, Math.max(0, limit - stepRows.length))];
 }
 
 export function analyticsSummary(sinceDays = 30) {
@@ -52,7 +63,6 @@ export function analyticsSummary(sinceDays = 30) {
 
   const sessions = new Set();
   const pageViews = new Map(); // page -> count
-  const pageSessions = new Map(); // page -> Set(session_id)
   const pageDurations = new Map(); // page -> {sum, n}
   const outboundLinks = new Map(); // href -> count
   let copyCrnCount = 0;
@@ -71,8 +81,6 @@ export function analyticsSummary(sinceDays = 30) {
       case "page_view": {
         const page = data.page || "unknown";
         pageViews.set(page, (pageViews.get(page) || 0) + 1);
-        if (!pageSessions.has(page)) pageSessions.set(page, new Set());
-        pageSessions.get(page).add(r.session_id);
         break;
       }
       case "page_view_duration": {
@@ -104,8 +112,7 @@ export function analyticsSummary(sinceDays = 30) {
     sinceDays,
     totalEvents: rows.length,
     totalSessions: sessions.size,
-    funnel: FUNNEL_PAGES.map((page) => ({ page, sessions: pageSessions.get(page)?.size || 0 })),
-    pageViews: topEntries(pageViews, 20),
+    pageViews: orderedPageViews(pageViews, 20),
     avgDurationMsByPage: [...pageDurations.entries()]
       .map(([page, d]) => ({ page, avgMs: d.n ? Math.round(d.sum / d.n) : 0, n: d.n }))
       .sort((a, b) => b.avgMs - a.avgMs),

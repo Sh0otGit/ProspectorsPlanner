@@ -41,18 +41,27 @@ table.admin-table tr:last-child td{border-bottom:0}
 .review-card .text{font-size:13.5px;margin-top:8px;color:var(--ink-2);line-height:1.5}
 
 /* ---------- engagement (analytics.html) ---------- */
-.barlist{display:flex;flex-direction:column;gap:9px}
-.barlist .row{display:grid;grid-template-columns:150px 1fr 46px;align-items:center;gap:10px;font-size:13px}
-.barlist .lbl{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.barlist .track{background:var(--surface-2);height:14px;border:1px solid var(--rule)}
-.barlist .fill{background:var(--utep-blue);height:100%}
-.barlist .n{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);text-align:right}
 .rangepicker{display:flex;gap:6px;margin-bottom:16px}
 .rangepicker button{font-family:var(--font-display);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:7px 12px;border:1px solid var(--rule-strong);background:var(--surface);color:var(--ink-2);cursor:pointer;border-radius:2px}
 .rangepicker button:hover{background:var(--surface-2)}
 .rangepicker button.on{background:var(--utep-blue);color:#fff;border-color:var(--utep-blue)}
 .engagement-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.engagement-grid .full{grid-column:1/-1}
 @media (max-width:760px){.engagement-grid{grid-template-columns:1fr}}
+
+/* Three small inline-SVG chart types shared by analytics.html's panels --
+   see server/admin/js/analytics.js. No charting library (zero npm
+   dependencies project-wide, see CLAUDE.md); font-size is in SVG user
+   units, so it scales with the viewBox rather than the viewport, same as
+   everything else these charts draw in that coordinate space. */
+.chart{width:100%;height:auto;font-family:var(--font-ui)}
+.chart-axis{stroke:var(--rule-strong)}
+.chart-stem{stroke:var(--rule-strong);stroke-width:2}
+.chart-dot{fill:var(--utep-blue)}
+.chart-col{fill:var(--utep-blue)}
+.chart-bar{fill:var(--utep-blue)}
+.chart-lbl{fill:var(--ink-2);font-size:12px;dominant-baseline:middle}
+.chart-val{fill:var(--ink);font-weight:700;font-size:12px;dominant-baseline:middle}
 
 .idea-card{border:1px solid var(--rule);padding:16px;margin-bottom:14px;background:var(--surface)}
 .idea-card h3{font-family:var(--font-display);font-size:15px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}

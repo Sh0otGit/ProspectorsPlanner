@@ -339,11 +339,18 @@ clears-on-tab-close lifetime as the rest of this project's client state
 -- not a cookie, not tied to any account (there are none), never joined
 against anything identifying. `server/lib/analytics.js` aggregates in
 plain JS after one bounded SELECT (not SQLite's JSON1 functions -- this
-project's row counts don't need it) into the funnel/page-views/duration/
+project's row counts don't need it) into the page-views/duration/
 outbound-link panels the admin page now renders for real, behind a
-7/30/90/all-time range picker. The Privacy page was rewritten in the
-same change to disclose this honestly, not left saying "no analytics
-tracking your visit."
+7/30/90/all-time range picker. Page views doubles as the step funnel --
+the four/five/six-step flow's pages sort first, in their fixed order,
+rather than everything sorting by raw count -- instead of a separate
+funnel panel/computation, since ordered page views already show the
+same step-to-step drop-off. Each panel is a small inline-SVG chart (no
+charting library, see `server/admin/js/analytics.js`): page views is a
+dot plot, average time on page is a column chart, outbound links is a
+horizontal bar chart. The Privacy page was rewritten in the same change
+to disclose this honestly, not left saying "no analytics tracking your
+visit."
 
 ---
 
