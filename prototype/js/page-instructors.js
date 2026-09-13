@@ -202,6 +202,9 @@ function renderResults(){
   // 'unsafe-inline' for script-src (see server/index.js's buildCsp).
   $$("img.avatar.photo").forEach(img=>{
     img.onerror = () => { img.outerHTML = avatarEmptyHTML(); };
+    const open = () => showPhotoModal(img.src, img.alt);
+    img.onclick = open;
+    img.onkeydown = e => { if(e.key==="Enter" || e.key===" "){ e.preventDefault(); open(); } };
   });
 
   // Re-measure once "See full breakdown" changes .prof-main's height --
@@ -408,10 +411,38 @@ function avatarEmptyHTML(){
    real third-party image directly" pattern the Map page's OSM tiles
    already use. p.username is null for an instructor with no HB 2504
    match at all, which skips the image entirely rather than requesting a
-   URL that can't exist. */
+   URL that can't exist. tabindex/role match .bldgpin's own pattern in
+   page-map.js for a real clickable element (opens it larger, see
+   showPhotoModal) rather than a decorative image alt="" now that
+   clicking it does something. */
 function avatarHTML(p){
   if(!p.username) return avatarEmptyHTML();
-  return '<img class="avatar photo" src="https://hb2504.utep.edu/photos/'+esc(p.username)+'.jpg" alt="">';
+  return '<img class="avatar photo" tabindex="0" role="button" src="https://hb2504.utep.edu/photos/'+esc(p.username)+'.jpg" alt="View larger photo of '+esc(p.name)+'">';
+}
+
+/* One shared lightbox element, created on first use and reused -- same
+   "build once, toggle" pattern as calTipEl/mapTipEl elsewhere in this
+   project rather than a fresh element per photo. Closes on the X, a
+   click on the dimmed backdrop, or Escape; the close button is a real
+   <button> (not a bare "x") so it's reachable by keyboard and announced
+   properly. */
+let photoModalEl = null;
+function showPhotoModal(src, alt){
+  if(!photoModalEl){
+    photoModalEl = document.createElement("div");
+    photoModalEl.className = "photomodal";
+    photoModalEl.innerHTML = '<button type="button" class="photomodal-close" aria-label="Close">&times;</button><img class="photomodal-img" alt="">';
+    document.body.appendChild(photoModalEl);
+    photoModalEl.querySelector(".photomodal-close").onclick = hidePhotoModal;
+    photoModalEl.onclick = e => { if(e.target===photoModalEl) hidePhotoModal(); };
+    document.addEventListener("keydown", e => { if(e.key==="Escape") hidePhotoModal(); });
+  }
+  photoModalEl.querySelector(".photomodal-img").src = src;
+  photoModalEl.querySelector(".photomodal-img").alt = alt||"";
+  photoModalEl.classList.add("open");
+}
+function hidePhotoModal(){
+  if(photoModalEl) photoModalEl.classList.remove("open");
 }
 
 function profHTML(code,p){
