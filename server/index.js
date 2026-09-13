@@ -330,6 +330,7 @@ const server = createServer(async (req, res) => {
         professors: found?.professors ?? [],
         requiresLab: found?.requiresLab ?? null,
         components: found?.components ?? [],
+        prereq: found?.prereq ?? null,
       });
     }
     if (pathname === "/api/campus-locations" && req.method === "GET") {

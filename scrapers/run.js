@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { db } from "./lib/db.js";
 import { fetchDirectory } from "./faculty_directory.js";
 import { fetchInstructorProfile } from "./profiles.js";
+import { fetchSubjectCourses, fetchCoursePrereq, DEFAULT_SRCDB } from "./coursecatalog.js";
 import { fetchEvaluation } from "./evaluations.js";
 import { fetchSchedule, fetchSubjects } from "./schedule.js";
 import { fetchAllProfessors, fetchProfessorDetail } from "./rmp.js";
@@ -451,7 +452,80 @@ export async function scrapeBuildingFootprints(onProgress) {
 }
 
 /* =====================================================================
-   CLI: node scrapers/run.js [schedule|evaluations|rmp|campusmap|footprints] [--all]
+   COURSE CATALOG (prerequisites) -- catalog-year granularity, not tied to
+   a scrape cadence the way term-scoped sources are; runs against whatever
+   subjects are actually offered in `termCode` right now rather than the
+   full historical catalog. See scrapers/coursecatalog.js for the FOSE
+   API shape and CLAUDE.md's Data sources entry for how it was found.
+   ===================================================================== */
+const upsertCourseCatalog = db.prepare(`
+  INSERT INTO course_catalog (subject, course_number, prereq_text, srcdb, updated_at)
+  VALUES (@subject, @courseNumber, @prereqText, @srcdb, @updatedAt)
+  ON CONFLICT(subject, course_number) DO UPDATE SET
+    prereq_text=excluded.prereq_text, srcdb=excluded.srcdb, updated_at=excluded.updated_at
+`);
+
+/* One subject search plus one details fetch per course in it, same "fetch
+   everything first, then one transaction" split as scrapeInstructorList
+   above -- a transaction sitting open across a whole subject's worth of
+   awaited detail fetches would hold its write lock for that whole
+   duration instead of just the fast part. A course code with no space in
+   it (shouldn't happen against real data, but nothing here guarantees
+   FOSE's own formatting) is skipped rather than stored malformed. One
+   subject's search failing, or one course's detail fetch failing, isn't
+   fatal to the run -- same "stays stale, retried next run" tolerance as
+   building footprints' own per-location failures. */
+export async function scrapeCourseCatalog(termCode = DEFAULT_TERM, onProgress) {
+  const subjects = db
+    .prepare(`SELECT DISTINCT subject FROM sections WHERE term_code = ? AND subject IS NOT NULL`)
+    .all(termCode)
+    .map((r) => r.subject);
+
+  let coursesScanned = 0;
+  let withPrereq = 0;
+  for (let i = 0; i < subjects.length; i++) {
+    const subject = subjects[i];
+    let courses = [];
+    try {
+      courses = await fetchSubjectCourses(subject);
+    } catch (e) {
+      onProgress?.(i + 1, subjects.length, subject, withPrereq);
+      continue;
+    }
+
+    const fetched = [];
+    for (const c of courses) {
+      const spaceIdx = c.code.indexOf(" ");
+      if (spaceIdx === -1) continue;
+      let prereqText;
+      try {
+        prereqText = await fetchCoursePrereq(c.key);
+      } catch (e) {
+        continue;
+      }
+      fetched.push({ subject: c.code.slice(0, spaceIdx), courseNumber: c.code.slice(spaceIdx + 1), prereqText });
+    }
+
+    const now = new Date().toISOString();
+    db.exec("BEGIN");
+    try {
+      for (const f of fetched) {
+        upsertCourseCatalog.run({ ...f, srcdb: DEFAULT_SRCDB, updatedAt: now });
+        coursesScanned++;
+        if (f.prereqText) withPrereq++;
+      }
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+    onProgress?.(i + 1, subjects.length, subject, withPrereq);
+  }
+  return { subjectsScanned: subjects.length, coursesScanned, withPrereq };
+}
+
+/* =====================================================================
+   CLI: node scrapers/run.js [schedule|evaluations|rmp|campusmap|footprints|catalog] [--all]
 
    "Is this file the one Node was actually invoked on, or just imported
    by something else" (server/lib/scheduler.js imports this same file and
@@ -488,6 +562,12 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     )
       .then((r) => console.log(`\n${r.footprintsFound} of ${r.locationsScanned} buildings matched to a real OSM footprint`))
       .catch((e) => { console.error("\nBuilding footprints scrape failed:", e.message); process.exit(1); });
+  } else if (mode === "catalog") {
+    scrapeCourseCatalog(undefined, (done, total, label, count) =>
+      process.stdout.write(`\r${done}/${total} subjects (${label}), ${count} with a prerequisite   `)
+    )
+      .then((r) => console.log(`\n${r.subjectsScanned} subjects, ${r.coursesScanned} courses scanned, ${r.withPrereq} with a real prerequisite`))
+      .catch((e) => { console.error("\nCourse catalog scrape failed:", e.message); process.exit(1); });
   } else if (mode === "schedule" || mode === undefined) {
     scrapeAllSections(undefined, (done, total, label, count) =>
       process.stdout.write(`\r${done}/${total} subjects (${label}), ${count} sections   `)
@@ -495,7 +575,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       .then((r) => console.log(`\n${r.subjectsScanned} subjects scanned, ${r.sectionsCount} sections`))
       .catch((e) => { console.error("\nSchedule scrape failed:", e.message); process.exit(1); });
   } else {
-    console.error(`Unknown mode "${mode}". Use "schedule", "evaluations", "rmp", "campusmap", or "footprints".`);
+    console.error(`Unknown mode "${mode}". Use "schedule", "evaluations", "rmp", "campusmap", "footprints", or "catalog".`);
     process.exit(1);
   }
 }

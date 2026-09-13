@@ -93,7 +93,12 @@ function syncSectionListHeights(){
    CRN pairing Banner enforces at registration (that lives behind
    Banner 9 SSB's CAS login, confirmed not publicly accessible), so both
    say so plainly and point to an advisor/professor instead of pretending
-   to know. */
+   to know. The prerequisite line below them is a plain gray informational
+   notice, not a red warning like the two above -- there's nothing to fix
+   here, it's the same "here's a fact about this course" register as the
+   registration-window note on the Schedule page (see regWindowNoteHTML
+   in page-schedule.js), so it reuses the same neutral .notice class
+   rather than .companion-notice's red-flagged one. */
 function companionNoticesHTML(code){
   const meta = CATALOG_META[code];
   if(!meta) return "";
@@ -110,6 +115,9 @@ function companionNoticesHTML(code){
     html += '<div class="companion-notice">This class has more than one required part: <b>'+kinds.map(esc).join("</b> and <b>")+'</b>. '
       + "You can add one section of each below -- they'll show up as separate classes on your schedule. "
       + "If you're unsure which sections go together, ask your advisor or professor.</div>";
+  }
+  if(meta.prereq){
+    html += '<div class="notice" style="margin:0 0 14px">This class requires <b>'+esc(meta.prereq)+'</b> to be completed first.</div>';
   }
   return html;
 }

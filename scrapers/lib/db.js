@@ -83,6 +83,24 @@ CREATE TABLE IF NOT EXISTS sections (
   PRIMARY KEY (term_code, crn)
 );
 
+/* catalog.utep.edu/course-search's real prerequisite text, per course --
+   see scrapers/coursecatalog.js and CLAUDE.md's Data sources entry.
+   Keyed by (subject, course_number) alone, not term_code, since this
+   source is catalog-year granularity (its own srcdb value, recorded here
+   for transparency, not as part of the key) rather than per-term the way
+   sections is -- a course's prerequisite doesn't change mid-term the way
+   its room or CRN can. prereq_text is null when the course genuinely has
+   none on file, not when it hasn't been scraped yet (see
+   parsePrereqFromDetail's own header comment). */
+CREATE TABLE IF NOT EXISTS course_catalog (
+  subject       TEXT NOT NULL,
+  course_number TEXT NOT NULL,
+  prereq_text   TEXT,
+  srcdb         TEXT,
+  updated_at    TEXT NOT NULL,
+  PRIMARY KEY (subject, course_number)
+);
+
 /* Anonymous feedback from the "Rate this tool" card on the schedule page.
    Was a localStorage-only stub before the admin/server layer existed; now
    the server is the single copy so an admin can see it from anywhere. */

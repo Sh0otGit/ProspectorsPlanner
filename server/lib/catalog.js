@@ -197,6 +197,17 @@ export function getCourse(termCode, subject, courseNumber) {
   const requiresLab = labMatch
     ? { subject: labMatch.subject, courseNumber: labMatch.courseNumber, title: courseTitle(termCode, labMatch.subject, labMatch.courseNumber) }
     : null;
+  // catalog.utep.edu's own real prerequisite text for this course, catalog-
+  // year granularity (see scrapers/coursecatalog.js), not scoped to
+  // termCode the way sections is -- a course's prerequisite doesn't
+  // change mid-term. null both when the course genuinely has none on
+  // file and when this table hasn't been scraped yet at all -- there's
+  // no way to distinguish those two from this query alone, same as any
+  // other "no data" case elsewhere in this file.
+  const catalogRow = db
+    .prepare(`SELECT prereq_text FROM course_catalog WHERE subject = ? AND course_number = ?`)
+    .get(subject, courseNumber);
+  const prereq = catalogRow?.prereq_text ?? null;
   // Every distinct schedule_type under this one course number -- a plain
   // Lecture-only course has exactly one and needs no disclaimer. More
   // than one means a student can genuinely add more than one section at
@@ -331,5 +342,5 @@ export function getCourse(termCode, subject, courseNumber) {
     };
   });
 
-  return { title: sections[0].title, professors, requiresLab, components };
+  return { title: sections[0].title, professors, requiresLab, components, prereq };
 }

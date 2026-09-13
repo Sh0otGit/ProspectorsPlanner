@@ -123,10 +123,10 @@ const CATALOG_CACHE_KEY = "prospectors_planner_catalog_v1";
    missing) version wipes the cache instead of trying to partially
    reuse it, same "don't guess, just refetch" instinct as everywhere
    else in this file. */
-const CATALOG_CACHE_VERSION = 2;
+const CATALOG_CACHE_VERSION = 3;
 const CATALOG = {};
 const CATALOG_TITLE = {};
-// code -> {requiresLab: {subject,courseNumber,title}|null, components: string[]}
+// code -> {requiresLab: {subject,courseNumber,title}|null, components: string[], prereq: string|null}
 // See server/lib/catalog.js for how these are derived.
 const CATALOG_META = {};
 let TERM_LABEL = null;
@@ -164,7 +164,7 @@ async function ensureCatalog(codes){
   missing.forEach((c,i)=>{
     CATALOG[c] = results[i].professors;
     CATALOG_TITLE[c] = results[i].title;
-    CATALOG_META[c] = { requiresLab: results[i].requiresLab || null, components: results[i].components || [] };
+    CATALOG_META[c] = { requiresLab: results[i].requiresLab || null, components: results[i].components || [], prereq: results[i].prereq || null };
     if(results[i].term) TERM_LABEL = results[i].term;
   });
   saveCatalogCache();
