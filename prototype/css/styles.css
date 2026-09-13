@@ -217,6 +217,12 @@ a{color:var(--link)}
 .notice b{color:var(--ink)}
 .notice.danger{border-left-color:var(--critical)}
 
+/* The Schedule page's registration-window line -- plain bold text, no
+   box, since it's one blunt fact ("Registration closed Aug 28, 2026.")
+   the student needs to see immediately, not a detail to read inside a
+   bordered panel. */
+.regstatus{color:var(--critical);font-weight:700;font-size:14px;margin-bottom:14px}
+
 /* Required-lab / multiple-required-parts disclaimers on the instructors
    page -- its own separated red-flagged box rather than blending into
    the instructor card the way .notice's blue accent does, since this is

@@ -168,42 +168,29 @@ function renderSchedule(){
    access to), so a site-wide "registration opens soon" banner would be
    broadly true but not actionable. Here, next to the exact CRNs a student
    is about to copy into Goldmine, it's a direct answer to "when can I
-   actually use this." Grouped by distinct (regStart, regEnd) pair rather
-   than assumed to be one campus-wide window -- a short second-session
-   course can carry a different window than a standard full-term one, and
-   showing them as one merged date range would just be wrong for one of
-   the two. A pick with neither date on file (any non-standard Banner
-   section type -- see CLAUDE.md's own "no ' to ' separator" note)
-   contributes nothing rather than a guessed status. */
+   actually use this." One line, not one per distinct (regStart, regEnd)
+   pair -- registration closes campus-wide at the same time regardless of
+   school/section, so the first pick with real dates on file speaks for
+   the whole plan. A pick with neither date on file (any non-standard
+   Banner section type -- see CLAUDE.md's own "no ' to ' separator" note)
+   is skipped in favor of the next one that has them. */
 function parseRegDate(str){
   if(!str) return null;
   const d = new Date(str);
   return isNaN(d) ? null : d;
 }
 function regWindowNoteHTML(picks){
-  const groups = new Map(); // "start|end" -> {start, end, codes:Set}
-  picks.forEach(pk=>{
-    const s = pk.section.regStart, e = pk.section.regEnd;
-    if(!s && !e) return;
-    const key = s+"|"+e;
-    if(!groups.has(key)) groups.set(key, {start:s, end:e, codes:new Set()});
-    groups.get(key).codes.add(pk.code);
-  });
-  if(!groups.size) return "";
-
+  const pk = picks.find(pk => pk.section.regStart || pk.section.regEnd);
+  if(!pk) return "";
+  const s = pk.section.regStart, e = pk.section.regEnd;
+  const start = parseRegDate(s), end = parseRegDate(e);
   const now = new Date();
-  const lines = [...groups.values()].map(g=>{
-    const start = parseRegDate(g.start), end = parseRegDate(g.end);
-    let status;
-    if(start && now < start) status = "registration opens "+g.start+".";
-    else if(end && now > end) status = "registration closed "+g.end+".";
-    else if(start || end) status = "registration is open now"+(end?", through "+g.end:"")+".";
-    else return "";
-    const codes = [...g.codes].sort().join(", ");
-    return '<div>'+esc(codes)+": "+esc(status)+'</div>';
-  }).filter(Boolean);
-
-  return lines.length ? '<div class="notice" style="margin:0 0 14px">'+lines.join("")+'</div>' : "";
+  let status;
+  if(start && now < start) status = "Registration opens "+s+".";
+  else if(end && now > end) status = "Registration closed "+e+".";
+  else if(start || end) status = "Registration is open now"+(end?", through "+e:"")+".";
+  else return "";
+  return '<div class="regstatus">'+esc(status)+'</div>';
 }
 
 /* Hovering any slot of a class highlights every slot that class occupies
