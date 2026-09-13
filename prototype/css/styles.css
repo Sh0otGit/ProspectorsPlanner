@@ -511,12 +511,17 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .avatar.empty:hover,.avatar.empty:focus-visible{border-color:var(--rule-strong)}
 
 /* Lightbox for the instructor photo -- see showPhotoModal in
-   page-instructors.js. A dimmed backdrop over the whole viewport with
-   the image centered and scaled up, closed by the X, a click on the
-   backdrop itself, or Escape. z-index only needs to clear the cookie
-   banner (90); .pageloading's 9999 never overlaps this in practice, it's
-   gone long before a card (let alone its photo) can be clicked. */
-.photomodal{position:fixed;inset:0;z-index:1000;background:rgba(4,30,66,.85);display:none;align-items:center;justify-content:center;padding:24px;cursor:zoom-out}
+   page-instructors.js. A dimmed, blurred backdrop over the whole
+   viewport with the card centered, closed by the X, a click on the
+   backdrop itself, or Escape. Neutral dark gray (--ink at high opacity),
+   not the brand navy -- navy read as "the whole page turned blue"
+   against this site's own navy header/nav, rather than a plain dimmed
+   backdrop. backdrop-filter isn't in every browser (older Firefox), so
+   this degrades to a plain dim with no blur there rather than breaking.
+   z-index only needs to clear the cookie banner (90); .pageloading's
+   9999 never overlaps this in practice, it's gone long before a card
+   (let alone its photo) can be clicked. */
+.photomodal{position:fixed;inset:0;z-index:1000;background:rgba(22,24,28,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:24px;cursor:zoom-out}
 .photomodal.open{display:flex}
 .photomodal-card{position:relative;background:var(--surface);border-radius:2px;max-width:min(92vw,640px);max-height:86vh;overflow-y:auto;padding:22px;cursor:default;text-align:left}
 /* Small, on the card itself (top right corner), not a big circle
