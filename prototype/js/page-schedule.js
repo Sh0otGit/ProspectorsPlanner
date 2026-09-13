@@ -18,6 +18,9 @@ function renderSchedule(){
   const picks = allChosenSections().map(({code, entry, sec}) =>
     ({code, profName:entry.profName, scheduleType:entry.scheduleType, section:sec}));
 
+  $("#calWrap").classList.toggle("dimmed", picks.length===0);
+  $("#calEmpty").hidden = picks.length>0;
+
   /* slot key -> list of picks occupying it, identified by CRN */
   const map=new Map();
   picks.forEach((pk,i)=>sectionSlots(pk.section).forEach(k=>{

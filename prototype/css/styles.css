@@ -274,7 +274,24 @@ td.cr{width:70px;text-align:right;color:var(--ink-2);white-space:nowrap}
 .tagflag{display:inline-block;font-family:var(--font-display);font-size:12px;font-weight:700;padding:2px 8px;background:var(--utep-orange);color:#2b1500;margin-left:8px;text-transform:uppercase;letter-spacing:.05em}
 
 /* ============ CALENDAR ============ */
-.calwrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface)}
+.calwrap{position:relative;overflow-x:auto;border:1px solid var(--rule);background:var(--surface)}
+/* Schedule page only, when state.chosen is empty -- see renderSchedule()
+   in page-schedule.js. .dimmed fades and desaturates the (otherwise
+   perfectly normal, just-empty) grid so it reads as "nothing here yet"
+   rather than "broken." #calEmpty is the whole clickable surface, not
+   just its text -- there's nothing else to interact with in an empty
+   grid anyway, so the bigger target is a plain usability win, not a
+   trick. */
+.calwrap.dimmed .cal{opacity:.3;filter:grayscale(1)}
+/* :not([hidden]), not a plain .calempty{display:flex} -- a bare
+   display:flex here would win the cascade over the browser's own
+   [hidden]{display:none} default (same specificity, but an author
+   stylesheet rule always beats the UA one), showing the overlay
+   whether or not renderSchedule() actually un-hid it -- the exact same
+   bug page-instructors.js's .profinfo-readmore already hit once this
+   session. */
+.calempty:not([hidden]){position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:15px;font-weight:700;color:var(--ink-2);text-decoration:none;background:rgba(255,255,255,.55)}
+.calempty:hover,.calempty:focus-visible{color:var(--utep-blue)}
 table.cal{border-collapse:collapse;width:100%;min-width:640px;font-size:12.5px}
 table.cal th{padding:8px 4px;font-weight:700;color:var(--ink-2);font-family:var(--font-display);font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--rule-strong);background:var(--surface-2)}
 table.cal th.clickable-day{cursor:pointer}
