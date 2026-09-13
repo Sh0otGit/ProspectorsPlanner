@@ -106,15 +106,37 @@ async function scrapeInstructorList(targets, onProgress) {
   let newEvals = 0;
   for (let i = 0; i < targets.length; i++) {
     const instr = targets[i];
-    const { links, details } = await fetchInstructorProfile(instr.username);
+    // One instructor's own profile page failing (timeout, a transient
+    // 5xx -- confirmed a real cause, not hypothetical: a campus-wide run
+    // silently stopped processing everyone after whichever instructor
+    // it died on, since nothing here used to catch this) isn't fatal to
+    // the rest of a ~2,000-instructor run -- they just stay whatever
+    // they already were and get retried next run, same tolerance as
+    // building footprints' per-location failures.
+    let links, details;
+    try {
+      ({ links, details } = await fetchInstructorProfile(instr.username));
+    } catch (e) {
+      onProgress?.(i + 1, targets.length, instr.username, newEvals);
+      continue;
+    }
     const newLinks = links.filter((link) => !evalExists.get(link.username, link.courseId));
     // Fetch every new evaluation *before* opening a transaction -- each
     // fetch is a rate-limited network request (~700ms, see fetch.js), and
     // a transaction sitting open across awaits like that would hold its
     // write lock for the length of the slowest part of the whole loop
-    // instead of the length of the actual writes.
+    // instead of the length of the actual writes. One evaluation page
+    // failing skips just that one link (retried next run, same as
+    // above) rather than losing every other evaluation already fetched
+    // for this instructor.
     const fetched = [];
-    for (const link of newLinks) fetched.push({ link, ev: await fetchEvaluation(link.username, link.courseId) });
+    for (const link of newLinks) {
+      try {
+        fetched.push({ link, ev: await fetchEvaluation(link.username, link.courseId) });
+      } catch (e) {
+        continue;
+      }
+    }
 
     // Now the fast part: this instructor's upsert plus every evaluation
     // just fetched for them, committed together instead of as N+1
