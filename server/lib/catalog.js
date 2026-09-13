@@ -303,6 +303,13 @@ export function getCourse(termCode, subject, courseNumber) {
     return {
       name: g.name,
       dept: g.dept,
+      // HB 2504's own directory rank ("Senior Lecturer," "Associate
+      // Professor of Practice") -- already scraped by
+      // scrapers/faculty_directory.js's parseDirectory() but never
+      // stored until now (see run.js's rank_title column). Shown in the
+      // photo popup, not the compact course-card header, which already
+      // had no room for a third line.
+      title: g.matchedRow?.rank_title || null,
       // HB 2504 username, not a photo URL -- same "expose the raw id, let
       // the client build the link" pattern as rmp.legacyId below. HB 2504
       // hosts a real headshot per profile at a predictable

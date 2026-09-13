@@ -482,12 +482,22 @@ function showPhotoModal(p){
     document.addEventListener("keydown", e => { if(e.key==="Escape") hidePhotoModal(); });
   }
   const profile = p.profile;
+  // Bold "Label:" prefix per line, matching HB 2504's own profile page
+  // layout (a real reference screenshot of it is what this was built
+  // against) instead of the old comma-joined single lines -- easier to
+  // scan, and each field still only renders when that instructor
+  // actually has it on file.
   const contactLines = [];
-  if(profile && (profile.officeBuilding || profile.officeRoom)){
-    contactLines.push('<div class="profinfo-line">'+esc([profile.officeBuilding, profile.officeRoom].filter(Boolean).join(", "))+'</div>');
-  }
-  if(profile && profile.phone) contactLines.push('<div class="profinfo-line">'+esc(profile.phone)+'</div>');
-  if(profile && profile.email) contactLines.push('<div class="profinfo-line"><a href="mailto:'+esc(profile.email)+'">'+esc(profile.email)+'</a></div>');
+  if(profile && profile.officeBuilding) contactLines.push('<div class="profinfo-line"><b>Office Building:</b> '+esc(profile.officeBuilding)+'</div>');
+  if(profile && profile.officeRoom) contactLines.push('<div class="profinfo-line"><b>Office Room:</b> '+esc(profile.officeRoom)+'</div>');
+  if(profile && profile.phone) contactLines.push('<div class="profinfo-line"><b>Phone:</b> '+esc(profile.phone)+'</div>');
+  if(profile && profile.email) contactLines.push('<div class="profinfo-line"><b>Email:</b> <a href="mailto:'+esc(profile.email)+'">'+esc(profile.email)+'</a></div>');
+
+  // p.dept can be more than one department joined with " - " (a joint
+  // appointment, e.g. "Political Science and Public Administration -
+  // Economics and Finance" -- see faculty_directory.js's parseDirectory)
+  // -- each becomes its own line here, same as HB 2504's own page.
+  const deptLines = (p.dept ? p.dept.split(" - ") : []).map(d=>'<div class="profinfo-dept">'+esc(d)+'</div>').join("");
 
   const sections = profile
     ? profileSectionHTML("Bio", profile.bio)
@@ -497,14 +507,15 @@ function showPhotoModal(p){
     : "";
 
   photoModalEl.innerHTML =
-    '<button type="button" class="photomodal-close" aria-label="Close">&times;</button>'
-    + '<div class="photomodal-card">'
+    '<div class="photomodal-card">'
+      + '<button type="button" class="photomodal-close" aria-label="Close">&times;</button>'
       + '<div class="photomodal-head">'
         + (p.username ? '<img class="photomodal-img" alt="Photo of '+esc(p.name)+'">' : '<div class="photomodal-imgempty" aria-hidden="true">No image set</div>')
         + '<div class="photomodal-headtext">'
           + '<h2>'+esc(p.name)+'</h2>'
-          + (p.dept ? '<div class="profinfo-dept">'+esc(p.dept)+'</div>' : "")
-          + contactLines.join("")
+          + (p.title ? '<div class="profinfo-title">'+esc(p.title)+'</div>' : "")
+          + deptLines
+          + (contactLines.length ? '<div class="profinfo-contact">'+contactLines.join("")+'</div>' : "")
         + '</div>'
       + '</div>'
       + (sections || '<div class="profinfo-empty">No HB 2504 profile information on file for this instructor yet.</div>')

@@ -276,6 +276,7 @@ ensureColumn("scrape_runs", "progress_total", `progress_total INTEGER DEFAULT 0`
 ensureColumn("scrape_runs", "rmp_count", `rmp_count INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "campusmap_count", `campusmap_count INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "footprints_count", `footprints_count INTEGER DEFAULT 0`);
+ensureColumn("instructors", "rank_title", `rank_title TEXT`);
 ensureColumn("instructors", "office_building", `office_building TEXT`);
 ensureColumn("instructors", "office_room", `office_room TEXT`);
 ensureColumn("instructors", "phone", `phone TEXT`);

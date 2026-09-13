@@ -77,12 +77,12 @@ export async function scrapeAllSections(term = DEFAULT_TERM, onProgress) {
    EVALUATIONS -- once a semester
    ===================================================================== */
 const upsertInstructor = db.prepare(`
-  INSERT INTO instructors (username, name, college, department, office_building, office_room,
+  INSERT INTO instructors (username, name, college, department, rank_title, office_building, office_room,
     phone, email, bio, education, scholarly_activity, grants, updated_at)
-  VALUES (@username, @name, @college, @department, @officeBuilding, @officeRoom,
+  VALUES (@username, @name, @college, @department, @rankTitle, @officeBuilding, @officeRoom,
     @phone, @email, @bio, @education, @scholarlyActivity, @grants, @updatedAt)
   ON CONFLICT(username) DO UPDATE SET
-    name=excluded.name, college=excluded.college, department=excluded.department,
+    name=excluded.name, college=excluded.college, department=excluded.department, rank_title=excluded.rank_title,
     office_building=excluded.office_building, office_room=excluded.office_room,
     phone=excluded.phone, email=excluded.email, bio=excluded.bio, education=excluded.education,
     scholarly_activity=excluded.scholarly_activity, grants=excluded.grants, updated_at=excluded.updated_at
@@ -124,13 +124,14 @@ async function scrapeInstructorList(targets, onProgress) {
     db.exec("BEGIN");
     try {
       // node:sqlite rejects named params that don't appear in the query,
-      // so this can't be a plain spread -- `instr` also carries `rank`,
-      // which isn't stored (not used anywhere yet).
+      // so this can't be a plain spread -- `instr` also carries other
+      // directory fields the query doesn't ask for.
       upsertInstructor.run({
         username: instr.username,
         name: instr.name,
         college: instr.college,
         department: instr.department,
+        rankTitle: instr.rank || null,
         officeBuilding: details.officeBuilding,
         officeRoom: details.officeRoom,
         phone: details.phone,

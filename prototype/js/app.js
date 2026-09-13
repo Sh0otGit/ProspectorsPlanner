@@ -123,7 +123,7 @@ const CATALOG_CACHE_KEY = "prospectors_planner_catalog_v1";
    missing) version wipes the cache instead of trying to partially
    reuse it, same "don't guess, just refetch" instinct as everywhere
    else in this file. */
-const CATALOG_CACHE_VERSION = 3;
+const CATALOG_CACHE_VERSION = 4;
 const CATALOG = {};
 const CATALOG_TITLE = {};
 // code -> {requiresLab: {subject,courseNumber,title}|null, components: string[], prereq: string|null}
