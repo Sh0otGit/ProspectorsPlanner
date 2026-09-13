@@ -484,6 +484,7 @@ function wireReadMore(root){
     const btn = body.nextElementSibling;
     if(!btn || !btn.classList.contains("profinfo-readmore")) return;
     if(body.scrollHeight <= body.clientHeight + 2) return;
+    body.classList.add("overflowing");
     btn.hidden = false;
     btn.onclick = () => {
       const expanded = body.classList.toggle("expanded");

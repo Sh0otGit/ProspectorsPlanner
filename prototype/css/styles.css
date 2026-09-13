@@ -539,13 +539,20 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .profinfo-sec p{font-size:13px;margin:0 0 4px;line-height:1.45}
 .profinfo-empty{font-size:13px;color:var(--ink-muted);padding:6px 0}
 /* Read more/Read less -- see profileSectionHTML/wireReadMore in
-   page-instructors.js. .clamped clips to a fixed height with a fade at
-   the bottom hinting there's more; .expanded (added by the button click)
-   lifts the clip entirely. The fade is a plain white-to-transparent
-   gradient since .photomodal-card's own background is a fixed white,
-   not a token that changes. */
+   page-instructors.js. .clamped clips to a fixed height, needed
+   unconditionally so wireReadMore() has something to measure overflow
+   against -- but the fade only belongs on .overflowing, added by JS only
+   once that measurement confirms there's real hidden content. A section
+   short enough to fit the clamp with room to spare used to get the fade
+   anyway (fade is a static CSS rule keyed off .clamped alone), which
+   faded out its last real line as if more were hidden below it even
+   though there wasn't -- confirmed against Education, whose three real
+   lines fit under the clamp with no overflow at all. .expanded (added by
+   the button click) lifts the clip entirely. The fade is a plain
+   white-to-transparent gradient since .photomodal-card's own background
+   is a fixed white, not a token that changes. */
 .profinfo-secbody.clamped{max-height:105px;overflow:hidden;position:relative}
-.profinfo-secbody.clamped::after{content:"";position:absolute;left:0;right:0;bottom:0;height:26px;background:linear-gradient(rgba(255,255,255,0),#fff)}
+.profinfo-secbody.clamped.overflowing::after{content:"";position:absolute;left:0;right:0;bottom:0;height:26px;background:linear-gradient(rgba(255,255,255,0),#fff)}
 .profinfo-secbody.clamped.expanded{max-height:none}
 .profinfo-secbody.clamped.expanded::after{display:none}
 /* :not([hidden]), not a plain .profinfo-readmore{display:block} -- a
