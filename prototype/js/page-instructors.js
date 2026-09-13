@@ -456,12 +456,40 @@ function avatarHTML(p){
    which fields are lists. Returns "" (not rendered at all) for a field
    nobody has on file, same "no data, not a guess" rule as everywhere else
    -- there is no "Not listed" placeholder text, the whole section is
-   just absent. */
-function profileSectionHTML(label, text){
+   just absent.
+
+   collapsible sections (Bio, Education, Scholarly and Creative Activity --
+   Grants tends to run short in practice, so it stays as-is) get a
+   height-clamped body plus a hidden "Read more" button; wireReadMore()
+   below only un-hides it for a section whose real content actually
+   overflows that clamp, measured after insertion rather than guessed
+   from line count (a single long bio paragraph with zero line breaks
+   needs clamping just as much as a 15-line publication list does). */
+function profileSectionHTML(label, text, collapsible){
   if(!text) return "";
-  return '<section class="profinfo-sec"><h3>'+esc(label)+'</h3>'
-    + text.split("\n").map(line=>'<p>'+esc(line)+'</p>').join("")
+  const body = text.split("\n").map(line=>'<p>'+esc(line)+'</p>').join("");
+  return '<section class="profinfo-sec">'
+    + '<h3>'+esc(label)+'</h3>'
+    + '<div class="profinfo-secbody'+(collapsible?" clamped":"")+'">'+body+'</div>'
+    + (collapsible ? '<button type="button" class="profinfo-readmore" hidden>Read more</button>' : "")
     + '</section>';
+}
+
+/* Only shows the button for a section that actually needs it -- a short
+   bio's clamp never clips anything, so scrollHeight and clientHeight
+   come back equal and it stays hidden. Re-run on every showPhotoModal()
+   call since the DOM is rebuilt from scratch each time. */
+function wireReadMore(root){
+  root.querySelectorAll(".profinfo-secbody.clamped").forEach(body=>{
+    const btn = body.nextElementSibling;
+    if(!btn || !btn.classList.contains("profinfo-readmore")) return;
+    if(body.scrollHeight <= body.clientHeight + 2) return;
+    btn.hidden = false;
+    btn.onclick = () => {
+      const expanded = body.classList.toggle("expanded");
+      btn.textContent = expanded ? "Read less" : "Read more";
+    };
+  });
 }
 
 /* One shared popup element, created on first use and reused -- same
@@ -500,9 +528,9 @@ function showPhotoModal(p){
   const deptLines = (p.dept ? p.dept.split(" - ") : []).map(d=>'<div class="profinfo-dept">'+esc(d)+'</div>').join("");
 
   const sections = profile
-    ? profileSectionHTML("Bio", profile.bio)
-      + profileSectionHTML("Education", profile.education)
-      + profileSectionHTML("Scholarly and Creative Activity", profile.scholarlyActivity)
+    ? profileSectionHTML("Bio", profile.bio, true)
+      + profileSectionHTML("Education", profile.education, true)
+      + profileSectionHTML("Scholarly and Creative Activity", profile.scholarlyActivity, true)
       + profileSectionHTML("Grants", profile.grants)
     : "";
 
@@ -530,6 +558,10 @@ function showPhotoModal(p){
     img.src = "https://hb2504.utep.edu/photos/"+encodeURIComponent(p.username)+".jpg";
   }
   photoModalEl.classList.add("open");
+  // Only after .open (display:flex) -- everything inside still measures
+  // as zero-height while the modal itself is display:none, which would
+  // make every clamped section look like it overflows.
+  wireReadMore(photoModalEl);
 }
 function hidePhotoModal(){
   if(photoModalEl) photoModalEl.classList.remove("open");

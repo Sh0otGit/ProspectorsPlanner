@@ -538,6 +538,23 @@ td.overlap.contTop.contBottom .ovblock.hoverblk{
 .profinfo-sec h3{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-muted);border-bottom:1px solid var(--rule);padding-bottom:4px;margin:0 0 8px}
 .profinfo-sec p{font-size:13px;margin:0 0 4px;line-height:1.45}
 .profinfo-empty{font-size:13px;color:var(--ink-muted);padding:6px 0}
+/* Read more/Read less -- see profileSectionHTML/wireReadMore in
+   page-instructors.js. .clamped clips to a fixed height with a fade at
+   the bottom hinting there's more; .expanded (added by the button click)
+   lifts the clip entirely. The fade is a plain white-to-transparent
+   gradient since .photomodal-card's own background is a fixed white,
+   not a token that changes. */
+.profinfo-secbody.clamped{max-height:105px;overflow:hidden;position:relative}
+.profinfo-secbody.clamped::after{content:"";position:absolute;left:0;right:0;bottom:0;height:26px;background:linear-gradient(rgba(255,255,255,0),#fff)}
+.profinfo-secbody.clamped.expanded{max-height:none}
+.profinfo-secbody.clamped.expanded::after{display:none}
+/* :not([hidden]), not a plain .profinfo-readmore{display:block} -- a
+   bare display:block rule here would win the cascade over the browser's
+   own [hidden]{display:none} default (same specificity, but an author
+   stylesheet rule always beats the UA one), showing every button
+   whether wireReadMore() actually un-hid it or not. */
+.profinfo-readmore:not([hidden]){display:block;margin:2px 0 0;background:none;border:none;color:var(--utep-blue);font-size:12.5px;font-weight:700;cursor:pointer;padding:0}
+.profinfo-readmore:hover,.profinfo-readmore:focus-visible{text-decoration:underline}
 .scoreline{display:flex;align-items:center;gap:11px;margin:9px 0 12px;flex-wrap:wrap}
 .starwrap{position:relative;display:inline-block;font-size:22px;line-height:1;letter-spacing:2px;white-space:nowrap}
 .starbase{color:var(--rule-strong)}
