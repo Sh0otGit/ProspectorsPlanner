@@ -6,7 +6,7 @@
 import { pathToFileURL } from "node:url";
 import { db } from "./lib/db.js";
 import { fetchDirectory } from "./faculty_directory.js";
-import { fetchProfileEvaluationLinks } from "./profiles.js";
+import { fetchInstructorProfile } from "./profiles.js";
 import { fetchEvaluation } from "./evaluations.js";
 import { fetchSchedule, fetchSubjects } from "./schedule.js";
 import { fetchAllProfessors, fetchProfessorDetail } from "./rmp.js";
@@ -76,10 +76,15 @@ export async function scrapeAllSections(term = DEFAULT_TERM, onProgress) {
    EVALUATIONS -- once a semester
    ===================================================================== */
 const upsertInstructor = db.prepare(`
-  INSERT INTO instructors (username, name, college, department, updated_at)
-  VALUES (@username, @name, @college, @department, @updatedAt)
+  INSERT INTO instructors (username, name, college, department, office_building, office_room,
+    phone, email, bio, education, scholarly_activity, grants, updated_at)
+  VALUES (@username, @name, @college, @department, @officeBuilding, @officeRoom,
+    @phone, @email, @bio, @education, @scholarlyActivity, @grants, @updatedAt)
   ON CONFLICT(username) DO UPDATE SET
-    name=excluded.name, college=excluded.college, department=excluded.department, updated_at=excluded.updated_at
+    name=excluded.name, college=excluded.college, department=excluded.department,
+    office_building=excluded.office_building, office_room=excluded.office_room,
+    phone=excluded.phone, email=excluded.email, bio=excluded.bio, education=excluded.education,
+    scholarly_activity=excluded.scholarly_activity, grants=excluded.grants, updated_at=excluded.updated_at
 `);
 const insertEval = db.prepare(`
   INSERT INTO evaluations (username, course_id, term_label, course_code, course_title, crn,
@@ -100,7 +105,7 @@ async function scrapeInstructorList(targets, onProgress) {
   let newEvals = 0;
   for (let i = 0; i < targets.length; i++) {
     const instr = targets[i];
-    const links = await fetchProfileEvaluationLinks(instr.username);
+    const { links, details } = await fetchInstructorProfile(instr.username);
     const newLinks = links.filter((link) => !evalExists.get(link.username, link.courseId));
     // Fetch every new evaluation *before* opening a transaction -- each
     // fetch is a rate-limited network request (~700ms, see fetch.js), and
@@ -125,6 +130,14 @@ async function scrapeInstructorList(targets, onProgress) {
         name: instr.name,
         college: instr.college,
         department: instr.department,
+        officeBuilding: details.officeBuilding,
+        officeRoom: details.officeRoom,
+        phone: details.phone,
+        email: details.email,
+        bio: details.bio,
+        education: details.education,
+        scholarlyActivity: details.scholarlyActivity,
+        grants: details.grants,
         updatedAt: now,
       });
       for (const { link, ev } of fetched) {

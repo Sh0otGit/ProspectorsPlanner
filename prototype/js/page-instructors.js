@@ -201,11 +201,27 @@ function renderResults(){
   // an inline onerror="" attribute, since this project's CSP has no
   // 'unsafe-inline' for script-src (see server/index.js's buildCsp).
   $$("img.avatar.photo").forEach(img=>{
-    img.onerror = () => { img.outerHTML = avatarEmptyHTML(); };
-    const open = () => showPhotoModal(img.src, img.alt);
-    img.onclick = open;
-    img.onkeydown = e => { if(e.key==="Enter" || e.key===" "){ e.preventDefault(); open(); } };
+    img.onerror = () => { img.outerHTML = avatarEmptyHTML(img.dataset.prof); };
   });
+  // Delegated on the container rather than wired per-avatar: an img that
+  // 404s gets swapped out for the "No image set" placeholder above, after
+  // this pass already ran, and a per-element listener wouldn't follow it
+  // to the replacement element. data-prof (set on both the photo and the
+  // empty placeholder) is the key back to this course's own profs array.
+  $("#resultsList").onclick = e => {
+    const el = e.target.closest(".avatar");
+    if(!el) return;
+    const p = profs.find(x=>x.name===el.dataset.prof);
+    if(p) showPhotoModal(p);
+  };
+  $("#resultsList").onkeydown = e => {
+    if(e.key!=="Enter" && e.key!==" ") return;
+    const el = e.target.closest(".avatar");
+    if(!el) return;
+    e.preventDefault();
+    const p = profs.find(x=>x.name===el.dataset.prof);
+    if(p) showPhotoModal(p);
+  };
 
   // Re-measure once "See full breakdown" changes .prof-main's height --
   // see syncSectionListHeights's own header comment for why .prof-side
@@ -402,8 +418,13 @@ function sentimentRowHTML(label, dist, n, unit){
    has uploaded one) -- plain text saying so, not a guessed placeholder
    image, same "no data, not a guess" rule as everywhere else this
    project handles a missing value. */
-function avatarEmptyHTML(){
-  return '<div class="avatar empty" aria-hidden="true">No image set</div>';
+/* data-prof carries the instructor's name so the click delegation in
+   renderResults() can look the full professor object back up -- same key
+   already used for data-rev/data-add elsewhere in this file, and the
+   reason instructor names are treated as a unique key within one course's
+   results throughout this page, not just here. */
+function avatarEmptyHTML(name){
+  return '<div class="avatar empty" tabindex="0" role="button" data-prof="'+esc(name||"")+'" aria-label="No image set. View instructor information.">No image set</div>';
 }
 /* HB 2504 hosts a real headshot per profile at /photos/{username}.jpg
    (confirmed 2026-09-13 live against a real profile) -- hotlinked
@@ -412,33 +433,83 @@ function avatarEmptyHTML(){
    already use. p.username is null for an instructor with no HB 2504
    match at all, which skips the image entirely rather than requesting a
    URL that can't exist. tabindex/role match .bldgpin's own pattern in
-   page-map.js for a real clickable element (opens it larger, see
+   page-map.js for a real clickable element (opens the info popup, see
    showPhotoModal) rather than a decorative image alt="" now that
    clicking it does something. */
 function avatarHTML(p){
-  if(!p.username) return avatarEmptyHTML();
-  return '<img class="avatar photo" tabindex="0" role="button" src="https://hb2504.utep.edu/photos/'+esc(p.username)+'.jpg" alt="View larger photo of '+esc(p.name)+'">';
+  if(!p.username) return avatarEmptyHTML(p.name);
+  return '<img class="avatar photo" tabindex="0" role="button" data-prof="'+esc(p.name)+'" src="https://hb2504.utep.edu/photos/'+esc(p.username)+'.jpg" alt="View '+esc(p.name)+'’s photo and instructor information">';
 }
 
-/* One shared lightbox element, created on first use and reused -- same
+/* One line per profile.js's decode-entities-flattened field -- each line
+   already reads fine on its own (a bio sentence, a "- Degree, School
+   (year)" bullet from the scraper's own "- " list marker), so this just
+   turns line breaks into paragraph breaks rather than trying to re-detect
+   which fields are lists. Returns "" (not rendered at all) for a field
+   nobody has on file, same "no data, not a guess" rule as everywhere else
+   -- there is no "Not listed" placeholder text, the whole section is
+   just absent. */
+function profileSectionHTML(label, text){
+  if(!text) return "";
+  return '<section class="profinfo-sec"><h3>'+esc(label)+'</h3>'
+    + text.split("\n").map(line=>'<p>'+esc(line)+'</p>').join("")
+    + '</section>';
+}
+
+/* One shared popup element, created on first use and reused -- same
    "build once, toggle" pattern as calTipEl/mapTipEl elsewhere in this
-   project rather than a fresh element per photo. Closes on the X, a
-   click on the dimmed backdrop, or Escape; the close button is a real
-   <button> (not a bare "x") so it's reachable by keyboard and announced
-   properly. */
+   project rather than a fresh element per professor. Its whole content
+   (photo, office/phone/email, bio/education/scholarly activity/grants)
+   is rebuilt per open rather than templated once, since which fields
+   exist varies per instructor. Closes on the X, a click on the dimmed
+   backdrop, or Escape; the close button is a real <button> (not a bare
+   "x") so it's reachable by keyboard and announced properly. */
 let photoModalEl = null;
-function showPhotoModal(src, alt){
+function showPhotoModal(p){
   if(!photoModalEl){
     photoModalEl = document.createElement("div");
     photoModalEl.className = "photomodal";
-    photoModalEl.innerHTML = '<button type="button" class="photomodal-close" aria-label="Close">&times;</button><img class="photomodal-img" alt="">';
     document.body.appendChild(photoModalEl);
-    photoModalEl.querySelector(".photomodal-close").onclick = hidePhotoModal;
     photoModalEl.onclick = e => { if(e.target===photoModalEl) hidePhotoModal(); };
     document.addEventListener("keydown", e => { if(e.key==="Escape") hidePhotoModal(); });
   }
-  photoModalEl.querySelector(".photomodal-img").src = src;
-  photoModalEl.querySelector(".photomodal-img").alt = alt||"";
+  const profile = p.profile;
+  const contactLines = [];
+  if(profile && (profile.officeBuilding || profile.officeRoom)){
+    contactLines.push('<div class="profinfo-line">'+esc([profile.officeBuilding, profile.officeRoom].filter(Boolean).join(", "))+'</div>');
+  }
+  if(profile && profile.phone) contactLines.push('<div class="profinfo-line">'+esc(profile.phone)+'</div>');
+  if(profile && profile.email) contactLines.push('<div class="profinfo-line"><a href="mailto:'+esc(profile.email)+'">'+esc(profile.email)+'</a></div>');
+
+  const sections = profile
+    ? profileSectionHTML("Bio", profile.bio)
+      + profileSectionHTML("Education", profile.education)
+      + profileSectionHTML("Scholarly and Creative Activity", profile.scholarlyActivity)
+      + profileSectionHTML("Grants", profile.grants)
+    : "";
+
+  photoModalEl.innerHTML =
+    '<button type="button" class="photomodal-close" aria-label="Close">&times;</button>'
+    + '<div class="photomodal-card">'
+      + '<div class="photomodal-head">'
+        + (p.username ? '<img class="photomodal-img" alt="Photo of '+esc(p.name)+'">' : '<div class="photomodal-imgempty" aria-hidden="true">No image set</div>')
+        + '<div class="photomodal-headtext">'
+          + '<h2>'+esc(p.name)+'</h2>'
+          + (p.dept ? '<div class="profinfo-dept">'+esc(p.dept)+'</div>' : "")
+          + contactLines.join("")
+        + '</div>'
+      + '</div>'
+      + (sections || '<div class="profinfo-empty">No HB 2504 profile information on file for this instructor yet.</div>')
+    + '</div>';
+
+  photoModalEl.querySelector(".photomodal-close").onclick = hidePhotoModal;
+  const img = photoModalEl.querySelector(".photomodal-img");
+  if(img){
+    // Wired before src is set, same reasoning as renderResults()'s own
+    // onerror wiring -- a cached 404 can fail synchronously.
+    img.onerror = () => { img.outerHTML = '<div class="photomodal-imgempty" aria-hidden="true">No image set</div>'; };
+    img.src = "https://hb2504.utep.edu/photos/"+encodeURIComponent(p.username)+".jpg";
+  }
   photoModalEl.classList.add("open");
 }
 function hidePhotoModal(){

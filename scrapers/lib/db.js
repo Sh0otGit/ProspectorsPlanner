@@ -258,6 +258,14 @@ ensureColumn("scrape_runs", "progress_total", `progress_total INTEGER DEFAULT 0`
 ensureColumn("scrape_runs", "rmp_count", `rmp_count INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "campusmap_count", `campusmap_count INTEGER DEFAULT 0`);
 ensureColumn("scrape_runs", "footprints_count", `footprints_count INTEGER DEFAULT 0`);
+ensureColumn("instructors", "office_building", `office_building TEXT`);
+ensureColumn("instructors", "office_room", `office_room TEXT`);
+ensureColumn("instructors", "phone", `phone TEXT`);
+ensureColumn("instructors", "email", `email TEXT`);
+ensureColumn("instructors", "bio", `bio TEXT`);
+ensureColumn("instructors", "education", `education TEXT`);
+ensureColumn("instructors", "scholarly_activity", `scholarly_activity TEXT`);
+ensureColumn("instructors", "grants", `grants TEXT`);
 ensureColumn("rmp_professors", "dist_r1", `dist_r1 INTEGER`);
 ensureColumn("rmp_professors", "dist_r2", `dist_r2 INTEGER`);
 ensureColumn("rmp_professors", "dist_r3", `dist_r3 INTEGER`);

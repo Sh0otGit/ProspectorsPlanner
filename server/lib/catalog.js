@@ -221,6 +221,7 @@ export function getCourse(termCode, subject, courseNumber) {
         name: cleaned || "Staff",
         dept: matched ? matched.department : null,
         username: matched ? matched.username : null,
+        matchedRow: matched,
         rmpRow: rmpMatched,
         sections: [],
       });
@@ -301,6 +302,25 @@ export function getCourse(termCode, subject, courseNumber) {
       // everywhere else, rather than assuming every matched instructor
       // has a real photo on file.
       username: g.username,
+      // The rest of a matched instructor's real HB 2504 profile -- office,
+      // contact, bio, education, scholarly/creative activity, grants --
+      // for the professor photo's info popup (page-instructors.js). Each
+      // field is independently null when that instructor's own profile
+      // doesn't have it on file, same "no data, not a guess" rule as the
+      // photo itself; null outright (not an object) when there's no
+      // matched instructor at all.
+      profile: g.matchedRow
+        ? {
+            officeBuilding: g.matchedRow.office_building,
+            officeRoom: g.matchedRow.office_room,
+            phone: g.matchedRow.phone,
+            email: g.matchedRow.email,
+            bio: g.matchedRow.bio,
+            education: g.matchedRow.education,
+            scholarlyActivity: g.matchedRow.scholarly_activity,
+            grants: g.matchedRow.grants,
+          }
+        : null,
       evalRaw: agg?.raw ?? null,
       evalN: agg?.n ?? 0,
       evalAdj: agg?.adj ?? null,
