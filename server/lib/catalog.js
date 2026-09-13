@@ -103,6 +103,22 @@ export function latestTerm() {
   return db.prepare(`SELECT term_code, term_label FROM sections ORDER BY term_code DESC LIMIT 1`).get() || null;
 }
 
+/* Every distinct term actually scraped, newest first -- for the Courses
+   page's term picker. Only ever one row today (Fall 2026, the only term
+   scraped so far), but sections' own (term_code, crn) primary key already
+   lets more than one term's rows coexist without collision, so this just
+   works the moment a second term gets scraped -- no schema change needed. */
+export function listTerms() {
+  return db.prepare(`SELECT DISTINCT term_code, term_label FROM sections ORDER BY term_code DESC`).all();
+}
+
+/* A specific term by code, for the Courses page's picker -- null if that
+   code was never scraped (a stale/tampered ?term= query param), which
+   callers fall back to latestTerm() for rather than erroring. */
+export function termByCode(termCode) {
+  return db.prepare(`SELECT term_code, term_label FROM sections WHERE term_code = ? LIMIT 1`).get(termCode) || null;
+}
+
 export function listCourses(termCode) {
   return db
     .prepare(

@@ -64,6 +64,10 @@ function loadState(){
     blocked: new Set(d.blocked || []),
     chosen,
     activeCourse: d.activeCourse || null,
+    // null = "whatever the server considers the latest term" -- only set
+    // once the student actually picks one from the Courses page's term
+    // dropdown (see setTerm() below).
+    termCode: d.termCode || null,
     visited: new Set(d.visited && d.visited.length ? d.visited : [0]),
     revOpen: new Set(d.revOpen || []),
     revPage: d.revPage || {}
@@ -77,6 +81,7 @@ function saveState(){
     blocked: [...state.blocked],
     chosen,
     activeCourse: state.activeCourse,
+    termCode: state.termCode,
     visited: [...state.visited],
     revOpen: [...state.revOpen],
     revPage: state.revPage
@@ -140,11 +145,21 @@ function saveCatalogCache(){
     version: CATALOG_CACHE_VERSION, courses: CATALOG, titles: CATALOG_TITLE, meta: CATALOG_META, term: TERM_LABEL
   }));
 }
+// Appends ?term=/&term= to a URL so /api/term, /api/courses and
+// /api/course all stay in agreement about which term they're answering
+// for -- a no-op once state.termCode is null, which the server already
+// reads as "give me the latest term" (see resolveTerm() in
+// server/index.js).
+function withTerm(url){
+  if(!state.termCode) return url;
+  return url + (url.includes("?") ? "&" : "?") + "term=" + encodeURIComponent(state.termCode);
+}
+
 async function ensureCatalog(codes){
   const missing = [...new Set(codes)].filter(c=>!CATALOG[c]);
   if(!missing.length) return;
   const results = await Promise.all(missing.map(c =>
-    fetch("/api/course?code="+encodeURIComponent(c)).then(r=>r.json())
+    fetch(withTerm("/api/course?code="+encodeURIComponent(c))).then(r=>r.json())
   ));
   missing.forEach((c,i)=>{
     CATALOG[c] = results[i].professors;
@@ -157,10 +172,44 @@ async function ensureCatalog(codes){
 
 async function ensureTerm(){
   if(TERM_LABEL) return TERM_LABEL;
-  const r = await fetch("/api/term").then(r=>r.json());
+  const r = await fetch(withTerm("/api/term")).then(r=>r.json());
   TERM_LABEL = r.termLabel || "the current term";
   saveCatalogCache();
   return TERM_LABEL;
+}
+
+// Every term actually scraped, oldest work skipped -- for the Courses
+// page's term picker. Fetched once per tab and cached in memory only (not
+// sessionStorage): the list itself is cheap to re-fetch and doesn't need
+// to survive a reload the way picked courses do.
+let TERMS = null;
+async function ensureTerms(){
+  if(TERMS) return TERMS;
+  const r = await fetch("/api/terms").then(r=>r.json());
+  TERMS = r.terms || [];
+  return TERMS;
+}
+
+/* Switching terms means every picked course, chosen section and cached
+   catalog entry from the old term stops meaning anything -- a CRN from
+   Fall 2026 isn't just "less relevant" to Spring 2027, it's not a valid
+   registration target at all. So this clears course-specific state
+   rather than trying to carry any of it forward. state.blocked (the
+   student's own weekly availability) is deliberately left alone -- "I
+   have work Tuesdays 2 to 4" isn't tied to which term it is. */
+function setTerm(termCode){
+  state.termCode = termCode;
+  state.picked.clear();
+  state.chosen.clear();
+  state.activeCourse = null;
+  state.revOpen.clear();
+  state.revPage = {};
+  saveState();
+  for(const k of Object.keys(CATALOG)) delete CATALOG[k];
+  for(const k of Object.keys(CATALOG_TITLE)) delete CATALOG_TITLE[k];
+  for(const k of Object.keys(CATALOG_META)) delete CATALOG_META[k];
+  TERM_LABEL = null;
+  saveCatalogCache();
 }
 
 /* Every {scheduleType, profName, crn} currently chosen for one course --

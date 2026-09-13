@@ -14,7 +14,7 @@ import { randomBytes } from "node:crypto";
 import { db } from "../scrapers/lib/db.js";
 import { checkPassword, createSession, verifySession, destroySession, parseCookies } from "./lib/auth.js";
 import { isRateLimited, clientIp } from "./lib/rate-limit.js";
-import { latestTerm, listCourses, getCourse } from "./lib/catalog.js";
+import { latestTerm, listTerms, termByCode, listCourses, getCourse } from "./lib/catalog.js";
 import { listParkingLocations } from "./lib/campusmap.js";
 import { insertEvents, analyticsSummary } from "./lib/analytics.js";
 import {
@@ -251,6 +251,15 @@ function getSessionToken(req) {
   return parseCookies(req.headers.cookie).admin_session;
 }
 
+// A requested ?term=<code> that was actually scraped wins; anything else
+// (missing, or a stale/tampered code) falls back to the newest term on
+// file -- the same "don't guess, just use the real default" instinct as
+// everywhere else in this project, not a 400 for an optional param.
+function resolveTerm(url) {
+  const requested = url.searchParams.get("term");
+  return (requested && termByCode(requested)) || latestTerm();
+}
+
 function requireAuth(req, res) {
   const token = getSessionToken(req);
   if (!verifySession(token)) {
@@ -290,19 +299,26 @@ const server = createServer(async (req, res) => {
     // ---- public API: real course/instructor data, replacing prototype/js/data.js's
     // fabricated CATALOG (see server/lib/catalog.js for the matching/aggregation) ----
     if (pathname === "/api/term" && req.method === "GET") {
-      const term = latestTerm();
+      const term = resolveTerm(url);
       return sendJson(res, 200, { termCode: term?.term_code ?? null, termLabel: term?.term_label ?? null });
     }
+    if (pathname === "/api/terms" && req.method === "GET") {
+      // Every term actually scraped, for the Courses page's term picker --
+      // just the one (Fall 2026) until a second term gets scraped, but the
+      // client renders whatever comes back rather than assuming there's
+      // only one.
+      return sendJson(res, 200, { terms: listTerms().map((t) => ({ termCode: t.term_code, termLabel: t.term_label })) });
+    }
     if (pathname === "/api/courses" && req.method === "GET") {
-      const term = latestTerm();
-      if (!term) return sendJson(res, 200, { term: null, courses: [] });
-      return sendJson(res, 200, { term: term.term_label, courses: listCourses(term.term_code) });
+      const term = resolveTerm(url);
+      if (!term) return sendJson(res, 200, { term: null, termCode: null, courses: [] });
+      return sendJson(res, 200, { term: term.term_label, termCode: term.term_code, courses: listCourses(term.term_code) });
     }
     if (pathname === "/api/course" && req.method === "GET") {
       const code = (url.searchParams.get("code") || "").trim();
       const sp = code.indexOf(" ");
       if (sp === -1) return sendJson(res, 400, { error: "code must look like 'CS 3350'" });
-      const term = latestTerm();
+      const term = resolveTerm(url);
       if (!term) return sendJson(res, 200, { code, title: null, term: null, professors: [] });
       const subject = code.slice(0, sp).toUpperCase();
       const courseNumber = code.slice(sp + 1).toUpperCase();

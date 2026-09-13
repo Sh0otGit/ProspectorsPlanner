@@ -7,6 +7,12 @@
    this term, from /api/courses.
    ===================================================================== */
 let ALL_COURSES = [];
+// Every term actually scraped (see ensureTerms() in app.js), populated
+// once at init -- for the Term stat tile's dropdown. Just the one term
+// today, but the dropdown always renders as a real <select>, not a
+// plain label, so it's already the control it needs to be once a
+// second term shows up here.
+let TERM_OPTIONS = [];
 
 function courseRow(code, title, selected){
   return '<div class="crnrow"><div class="crntop"><span><b>'+esc(code)+'</b><br>'
@@ -16,10 +22,17 @@ function courseRow(code, title, selected){
 
 function renderStats(){
   $("#statbar").style.gridTemplateColumns = "repeat(3,1fr)"; // this page has 3 stats, not the usual 4
+  const termHTML = TERM_OPTIONS.length
+    ? '<select class="termselect" id="termSelect" aria-label="Term">'
+      + TERM_OPTIONS.map(t=>'<option value="'+esc(t.termCode)+'"'+(t.termCode===state.termCode?" selected":"")+'>'+esc(t.termLabel)+'</option>').join("")
+      + '</select>'
+    : esc(TERM_LABEL||"N/A");
   $("#statbar").innerHTML =
-    '<div><div class="lab">Term</div><div class="val" style="font-size:18px">'+esc(TERM_LABEL||"N/A")+'</div></div>'
+    '<div><div class="lab">Term</div><div class="val" style="font-size:18px">'+termHTML+'</div></div>'
   + '<div><div class="lab">Courses offered</div><div class="val">'+ALL_COURSES.length+'</div><div class="sub">this term</div></div>'
   + '<div><div class="lab">Selected</div><div class="val">'+state.picked.size+'</div><div class="sub">course'+(state.picked.size===1?"":"s")+'</div></div>';
+  const sel = $("#termSelect");
+  if(sel) sel.onchange = () => loadForTerm(sel.value);
 }
 
 function renderSelected(){
@@ -103,18 +116,45 @@ $("#courseSearchClear").onclick = () => {
   renderResults("");
 };
 
-(async ()=>{
+/* Loads the course list for one term and re-renders everything that
+   depends on it. newTermCode is only passed from the dropdown's onchange
+   (see renderStats()) -- the initial page load calls this with no
+   argument and just goes with whatever state.termCode already is (null
+   the first time a student ever opens this page, meaning "give me the
+   latest term"). setTerm() (see app.js) is what actually clears picks/
+   cache on a real switch, so this function itself doesn't need to know
+   whether the term changed, only what to do once loading finishes. */
+async function loadForTerm(newTermCode){
+  if(newTermCode !== undefined && newTermCode !== state.termCode) setTerm(newTermCode);
   const hint = $("#courseHint");
+  hint.textContent = "Loading real course and instructor data…";
   try{
-    const [term, data] = await Promise.all([ensureTerm(), fetch("/api/courses").then(r=>r.json())]);
+    const data = await fetch(withTerm("/api/courses")).then(r=>r.json());
+    // Syncs state.termCode to the term the server actually resolved --
+    // matters on first load, when state.termCode was still null and the
+    // server picked "latest" on its own; the dropdown needs the real
+    // code to mark the right <option selected>.
+    state.termCode = data.termCode || null;
+    saveState();
+    TERM_LABEL = data.term || TERM_LABEL;
+    saveCatalogCache();
     ALL_COURSES = data.courses;
     hint.textContent = ALL_COURSES.length
-      ? ALL_COURSES.length.toLocaleString()+" courses offered "+term+". Type to search."
+      ? ALL_COURSES.length.toLocaleString()+" courses offered "+(data.term||"this term")+". Type to search."
       : "No course data yet -- the schedule hasn't been scraped.";
+    $("#courseSearch").value = "";
+    $("#courseSearchClear").hidden = true;
     renderStats();
     renderSelected();
+    renderResults("");
+    renderChrome();
   } catch(e){
     hint.textContent = "Couldn't load course data.";
   }
+}
+
+(async ()=>{
+  await ensureTerms().then(t => TERM_OPTIONS = t);
+  await loadForTerm();
   hidePageLoading();
 })();
