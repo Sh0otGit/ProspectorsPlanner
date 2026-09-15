@@ -516,8 +516,8 @@ const SITE_HEADER_HTML = `
     <a class="lockup" href="/">
       <span class="mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="#ff8200" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 5.5c2.8-1 6-1 9 .5v13c-3-1.5-6.2-1.5-9-.5z"/>
-          <path d="M21 5.5c-2.8-1-6-1-9 .5v13c3-1.5 6.2-1.5 9-.5z"/>
+          <path d="M2 4c3-1.3 7-1.3 10 .6v14.8c-3-1.9-7-1.9-10-.6z"/>
+          <path d="M22 4c-3-1.3-7-1.3-10 .6v14.8c3-1.9 7-1.9 10-.6z"/>
         </svg>
       </span>
       <span class="words">

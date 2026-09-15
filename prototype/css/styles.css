@@ -136,7 +136,7 @@ a{color:var(--link)}
    lockup rule, applied to this project's own mark. */
 .lockup{display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;padding:13px 0}
 .lockup .mark{width:40px;height:40px;background:var(--utep-blue);flex:none;display:grid;place-items:center}
-.lockup .mark svg{width:22px;height:22px;display:block}
+.lockup .mark svg{width:27px;height:27px;display:block}
 .lockup .words{display:block}
 .lockup .words .n{
   display:block;font-family:var(--font-display);font-size:27px;font-weight:700;
